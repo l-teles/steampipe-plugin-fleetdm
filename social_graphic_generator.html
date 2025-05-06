@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steampipe + FleetDM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem; 
+        }
+        .gradient-background {
+            background: linear-gradient(135deg, #FF9A8B 0%, #FF6A88 50%, #FF99AC 100%);
+        }
+        .card-container {
+            background-color: rgba(255, 255, 255, 0.1); 
+            backdrop-filter: blur(10px); 
+            padding: 1.5rem; 
+            border-radius: 0.75rem; 
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); 
+            width: 100%;
+            max-width: 64rem; 
+        }
+        @media (min-width: 768px) { /* md breakpoint */
+            .card-container {
+                padding: 2.5rem; 
+            }
+        }
+
+        /* macOS window style */
+        .mac-window {
+            background-color: #2D3748; 
+            border-radius: 0.75rem; 
+            box-shadow: 0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.1);
+            overflow: hidden; 
+            width: 100%; 
+        }
+        .mac-window-titlebar {
+            background-color: #4A5568; 
+            padding: 0.5rem 0.75rem;
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #2D3748; 
+            height: 36px; 
+        }
+        .mac-window-buttons {
+            display: flex;
+            align-items: center;
+        }
+        .mac-window-buttons svg {
+            width: 12px;
+            height: 12px;
+            margin-right: 6px; 
+            border-radius: 50%; 
+        }
+        .mac-button-red { fill: #FF5F57; }
+        .mac-button-yellow { fill: #FEBC2E; }
+        .mac-button-green { fill: #28C840; }
+
+
+        .code-block {
+            font-family: 'Fira Code', monospace;
+            background-color: #1A202C; 
+            color: #E2E8F0; 
+            padding: 1.5rem;
+            font-size: 0.875rem; 
+            line-height: 1.6;
+            overflow-x: auto; 
+            white-space: pre; 
+            border-top-left-radius: 0;
+            border-top-right-radius: 0;
+            border-bottom-left-radius: 0.5rem; 
+            border-bottom-right-radius: 0.5rem;
+            max-height: 350px; 
+        }
+        /* Syntax highlighting classes */
+        .code-block .token-keyword { color: #C792EA; } 
+        .code-block .token-field { color: #A6ACCD; }   
+        .code-block .token-table { color: #FFCB6B; }   
+        .code-block .token-operator { color: #89DDFF; } 
+        .code-block .token-string { color: #C3E88D; }  
+        .code-block .token-function { color: #82AAFF; } 
+        .code-block .token-punctuation { color: #E2E8F0; } 
+        .code-block .token-alias { color: #FF5572; } 
+
+        .logo-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .logo-stack img {
+            max-height: 50px; 
+            width: auto;
+            object-fit: contain; 
+            margin-bottom: 0.75rem; 
+        }
+         @media (min-width: 640px) { /* sm breakpoint */
+            .logo-stack img {
+                max-height: 60px;
+                margin-bottom: 1rem;
+            }
+        }
+        /* Ensure Steampipe logo (SVG) scales well */
+        .steampipe-logo {
+             max-width: 200px; /* Adjust as needed */
+        }
+        .fleetdm-logo {
+            max-width: 150px; 
+        }
+
+        .plus-sign-stacked {
+            font-size: 2rem; 
+            color: white;
+            font-weight: 300; 
+            margin-bottom: 0.75rem; 
+        }
+         @media (min-width: 640px) { /* sm breakpoint */
+            .plus-sign-stacked {
+                font-size: 2.5rem;
+                margin-bottom: 1rem;
+            }
+        }
+    </style>
+</head>
+<body class="gradient-background">
+
+    <div class="card-container">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-10 items-center">
+            
+            <div class="md:col-span-1 logo-stack space-y-3 md:space-y-4">
+                <img src="https://hub.steampipe.io/_next/image?url=%2Fimages%2Fsteampipe_logo_wordmark_darkmode.svg&w=384&q=75" alt="Steampipe Logo" class="steampipe-logo"
+                     onerror="this.onerror=null; this.src='https://placehold.co/200x60/FFFFFF/000000?text=Steampipe&font=Inter';">
+                <span class="plus-sign-stacked">+</span>
+                <img src="https://fleetdm.com/images/logo-blue-118x41@2x.png" alt="FleetDM Logo" class="fleetdm-logo"
+                     onerror="this.onerror=null; this.src='https://placehold.co/180x60/1D2B4F/FFFFFF?text=FleetDM%20Logo&font=Inter';">
+            </div>
+
+            <div class="md:col-span-2 w-full">
+                <div class="mac-window">
+                    <div class="mac-window-titlebar">
+                        <div class="mac-window-buttons">
+                            <svg class="mac-button-red" viewBox="0 0 12 12"><circle cx="6" cy="6" r="6"/></svg>
+                            <svg class="mac-button-yellow" viewBox="0 0 12 12"><circle cx="6" cy="6" r="6"/></svg>
+                            <svg class="mac-button-green" viewBox="0 0 12 12"><circle cx="6" cy="6" r="6"/></svg>
+                        </div>
+                    </div>
+                    <div class="code-block"><span class="token-keyword">SELECT</span>
+  h<span class="token-punctuation">.</span><span class="token-field">hostname</span><span class="token-punctuation">,</span>
+  h<span class="token-punctuation">.</span><span class="token-field">platform</span><span class="token-punctuation">,</span>
+  h<span class="token-punctuation">.</span><span class="token-field">os_version</span><span class="token-punctuation">,</span>
+  h<span class="token-punctuation">.</span><span class="token-field">status</span><span class="token-punctuation">,</span>
+  h<span class="token-punctuation">.</span><span class="token-field">team_name</span><span class="token-punctuation">,</span>
+  h<span class="token-punctuation">.</span><span class="token-field">public_ip</span><span class="token-punctuation">,</span>
+  <span class="token-punctuation">(</span>h<span class="token-punctuation">.</span><span class="token-field">mdm</span> <span class="token-operator">->></span> <span class="token-string">'enrollment_status'</span><span class="token-punctuation">)</span> <span class="token-keyword">AS</span> <span class="token-alias">mdm_status</span><span class="token-punctuation">,</span>
+  <span class="token-punctuation">(</span>h<span class="token-punctuation">.</span><span class="token-field">issues</span> <span class="token-operator">->></span> <span class="token-string">'failing_policies_count'</span><span class="token-punctuation">)</span><span class="token-operator">::</span><span class="token-function">int</span> <span class="token-keyword">AS</span> <span class="token-alias">failing_policies</span>
+<span class="token-keyword">FROM</span>
+  <span class="token-table">fleetdm_host</span> <span class="token-keyword">AS</span> h
+<span class="token-keyword">WHERE</span>
+  h<span class="token-punctuation">.</span><span class="token-field">status</span> <span class="token-operator">=</span> <span class="token-string">'online'</span>
+<span class="token-keyword">ORDER</span> <span class="token-keyword">BY</span>
+  h<span class="token-punctuation">.</span><span class="token-field">hostname</span><span class="token-punctuation">;</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
