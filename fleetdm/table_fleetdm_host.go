@@ -80,7 +80,7 @@ type Host struct {
 	LoggerTLSPeriod               *int             `json:"logger_tls_period"`
 	PackStats                     *json.RawMessage `json:"pack_stats"`
 	GigsDiskSpaceAvailable        float64          `json:"gigs_disk_space_available"`
-	PercentDiskSpaceAvailable     float64          `json:"percent_disk_space_available"` // JSON sample shows int, using float64 for flexibility.
+	PercentDiskSpaceAvailable     float64          `json:"percent_disk_space_available"`
 	GigsTotalDiskSpace            float64          `json:"gigs_total_disk_space"`
 	Status                        string           `json:"status"` // online, offline, mia
 	Issues                        *HostIssues      `json:"issues"`
@@ -94,18 +94,41 @@ type ListHostsResponse struct {
 	Hosts []Host `json:"hosts"`
 }
 
+// Custom transform to ensure MDM struct is marshalled to JSON string
+func mdmToJSONString(ctx context.Context, d *transform.TransformData) (interface{}, error) {
+	if d.Value == nil { // This checks if the MDM field itself is nil in the Host struct
+		plugin.Logger(ctx).Debug("mdmToJSONString", "input_value_is_nil", true)
+		return nil, nil
+	}
+
+	mdmData, ok := d.Value.(*HostMDM) // Get the pointer to HostMDM
+	if !ok {
+		plugin.Logger(ctx).Error("mdmToJSONString", "type_assertion_error", fmt.Sprintf("expected *HostMDM, got %T", d.Value))
+		return nil, fmt.Errorf("mdmToJSONString: type assertion to *HostMDM failed for type %T", d.Value)
+	}
+
+	if mdmData == nil { // This checks if the pointer *HostMDM is nil (e.g. API returned mdm: null)
+		plugin.Logger(ctx).Debug("mdmToJSONString", "mdm_pointer_is_nil", true)
+		return nil, nil
+	}
+
+	// Marshal the HostMDM struct
+	jsonBytes, err := json.Marshal(mdmData)
+	if err != nil {
+		plugin.Logger(ctx).Error("mdmToJSONString", "json_marshal_error", err)
+		return nil, err
+	}
+	jsonString := string(jsonBytes)
+	plugin.Logger(ctx).Debug("mdmToJSONString", "marshalled_json_string", jsonString)
+	return jsonString, nil
+}
+
 func tableFleetdmHost(ctx context.Context) *plugin.Table {
 	return &plugin.Table{
 		Name:        "fleetdm_host",
 		Description: "Information about hosts managed by FleetDM.",
 		List: &plugin.ListConfig{
 			Hydrate: listHosts,
-			// TODO: Add KeyColumns for filtering if the API supports it directly for list calls.
-			// Example:
-			// KeyColumns: []*plugin.KeyColumn{
-			//  {Name: "platform", Require: plugin.Optional},
-			//  {Name: "team_id", Require: plugin.Optional},
-			// },
 		},
 		Get: &plugin.GetConfig{
 			KeyColumns: plugin.SingleColumn("id"),
@@ -180,7 +203,7 @@ func tableFleetdmHost(ctx context.Context) *plugin.Table {
 
 			// Issues and MDM (as JSON columns for now, could be expanded)
 			{Name: "issues", Type: proto.ColumnType_JSON, Description: "Host issues summary (failing policies, vulnerabilities)."},
-			{Name: "mdm", Type: proto.ColumnType_JSON, Description: "Mobile Device Management (MDM) information for the host."},
+			{Name: "mdm", Type: proto.ColumnType_JSON, Transform: transform.FromField("MDM").Transform(mdmToJSONString), Description: "Mobile Device Management (MDM) information for the host."},
 
 			// Connection config
 			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
@@ -208,17 +231,7 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
-		// TODO: Add any query qualifiers if API supports them (e.g., platform, team_id)
-		// Example:
-		// if d.EqualsQuals["platform"] != nil {
-		// 	params.Add("platform", d.EqualsQuals["platform"].GetStringValue())
-		// }
-		// if d.EqualsQuals["team_id"] != nil {
-		// 	params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
-		// }
-
-
-		// The /api/v1/fleet/hosts endpoint returns { "hosts": [...] }
+		
 		var response ListHostsResponse
 		_, err := client.Get(ctx, "hosts", params, &response)
 		if err != nil {
@@ -227,6 +240,14 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		}
 
 		for _, host := range response.Hosts {
+			if plugin.Logger(ctx).IsDebug() { 
+				if host.MDM != nil {
+					mdmBytes, _ := json.Marshal(host.MDM)
+					plugin.Logger(ctx).Debug("fleetdm_host.listHosts", "host_id", host.ID, "mdm_data_from_list", string(mdmBytes))
+				} else {
+					plugin.Logger(ctx).Debug("fleetdm_host.listHosts", "host_id", host.ID, "mdm_data_from_list", "nil")
+				}
+			}
 			d.StreamListItem(ctx, host)
 			if d.RowsRemaining(ctx) == 0 {
 				plugin.Logger(ctx).Debug("fleetdm_host.listHosts", "limit_reached", true)
@@ -248,34 +269,35 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 
 // getHost fetches a single host by ID.
 func getHost(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	plugin.Logger(ctx).Info("fleetdm_host.getHost", "status", "ENTERING getHost FUNCTION", "host_id_qual", d.EqualsQuals["id"])
+
 	id := d.EqualsQuals["id"].GetInt64Value()
 	if id == 0 {
-		return nil, nil // Invalid ID
+		plugin.Logger(ctx).Info("fleetdm_host.getHost", "status", "INVALID ID (0), returning nil", "host_id", id)
+		return nil, nil 
 	}
+	plugin.Logger(ctx).Info("fleetdm_host.getHost", "status", "VALID ID, proceeding", "host_id", id)
+
 
 	client, err := NewFleetDMClient(ctx, d.Connection)
 	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_host.getHost", "connection_error", err)
+		plugin.Logger(ctx).Error("fleetdm_host.getHost", "connection_error", err, "host_id", id)
 		return nil, err
 	}
+	plugin.Logger(ctx).Info("fleetdm_host.getHost", "status", "CLIENT CREATED", "host_id", id)
 
-	// The API endpoint GET /api/v1/fleet/hosts/{id} returns { "host": { ...host_object... } }
 	var response struct {
 		Host Host `json:"host"`
 	}
-
+	
 	endpointPath := fmt.Sprintf("hosts/%d", id)
-	_, err = client.Get(ctx, endpointPath, nil, &response)
+	plugin.Logger(ctx).Info("fleetdm_host.getHost", "status", "CALLING CLIENT.GET", "endpoint", endpointPath, "host_id", id)
+	
+	_, err = client.Get(ctx, endpointPath, nil, &response) 
 
 	if err != nil {
-		// TODO: Handle 404 Not Found specifically (return nil, nil for Steampipe)
-		// Example:
-		// if httpResp, ok := err.(interface{ StatusCode() int }); ok && httpResp.StatusCode() == http.StatusNotFound {
-		// 	plugin.Logger(ctx).Info("fleetdm_host.getHost", "host_not_found", id)
-		// 	return nil, nil
-		// }
-		plugin.Logger(ctx).Error("fleetdm_host.getHost", "api_error", err, "host_id", id, "endpoint", endpointPath)
-		return nil, err
+		plugin.Logger(ctx).Error("fleetdm_host.getHost", "client_get_error", err, "host_id", id, "endpoint", endpointPath)
+		return nil, err 
 	}
 
 	return response.Host, nil
