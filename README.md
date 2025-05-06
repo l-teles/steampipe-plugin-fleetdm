@@ -197,15 +197,15 @@ Create a file named `fleetdm.spc` (e.g., `~/.steampipe/config/fleetdm.spc`) with
 
 ```hcl
 connection "fleetdm" {
-  plugin = "fleetdm" // This must match the directory and plugin binary name
+  plugin = "l-teles/fleetdm" 
 
-  # FleetDM server URL (e.g., "[https://fleet.example.com](https://fleet.example.com)")
-  # The plugin will attempt to correctly append /api/v1/fleet/ if not present.
-  server_url = "YOUR_FLEETDM_SERVER_URL"
+  # FleetDM server URL (e.g., "https://fleet.example.com")
+  # The plugin will attempt to append /api/v1/ if it's not present.
+  server_url = "https://aiworld.cloud.fleetdm.com/"
 
   # FleetDM API Token
   # Generate this from your FleetDM instance (User Menu -> Settings -> API Tokens)
-  api_token = "YOUR_FLEETDM_API_TOKEN"
+  api_token = "ZZFN9BBL+OldDYVf+qfu7+XUPTghBzs61V1fRHg/2RkuYYq6qlLiDaRgcsZVW1WtqAawHj0qMmDCCPL1vlFdHw=="
 }
 ```
 
