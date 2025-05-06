@@ -7,5 +7,5 @@ connection "fleetdm" {
 
   # FleetDM API Token
   # Generate this from your FleetDM instance (User Menu -> Settings -> API Tokens)
-  api_token = "ZZFN9BBL+OldDYVf+qfu7+XUPTghBzs61V1fRHg/2RkuYYq6qlLiDaRgcsZVW1WtqAawHj0qMmDCCPL1vlFdHw=="
+  api_token = "ZZFN9BBL+OldDhBzs61V1fRHg/2RkuYYq6qlLiDamDCCPL1vlFdHw=="
 }

@@ -1,6 +1,5 @@
 ![image](./temp-fleetdm-social-graphic.png)
 
-
 # Steampipe Plugin for FleetDM
 
 Use SQL to access FleetDM and analyze your device data, including hosts, software, users, teams, policies, queries, packs, labels, and activities.
@@ -22,7 +21,7 @@ Configure the API token in `~/.steampipe/config/fleetdm.spc`:
 
 ```hcl
 connection "fleetdm" {
-  plugin = "l-teles/fleetdm" 
+  plugin = "l-teles/fleetdm"
 
   # FleetDM server URL (e.g., "https://fleet.example.com")
   # The plugin will attempt to append /api/v1/ if it's not present.
@@ -30,7 +29,7 @@ connection "fleetdm" {
 
   # FleetDM API Token
   # Generate this from your FleetDM instance (User Menu -> Settings -> API Tokens)
-  api_token = "ZZFN9BBL+OldDYVf+qfu7+XUPTghBzs61V1fRHg/2RkuYYq6qlLiDaRgcsZVW1WtqAawHj0qMmDCCPL1vlFdHw=="
+  api_token = "ZZFN9BBL+OldDhBzs61V1fRHg/2RkuYYq6qlLiDamDCCPL1vlFdHw=="
 }
 ```
 
@@ -142,7 +141,6 @@ Please see the [contribution guidelines](https://github.com/turbot/steampipe/blo
 - [Steampipe](https://github.com/turbot/steampipe/labels/help%20wanted)
 - [FleetDM Plugin](https://github.com/l-teles/steampipe-plugin-fleetdm/labels/help%20wanted)
 
-
 <!-- ## Prerequisites
 
 * [Steampipe](https://steampipe.io/downloads) installed.
@@ -197,7 +195,7 @@ Create a file named `fleetdm.spc` (e.g., `~/.steampipe/config/fleetdm.spc`) with
 
 ```hcl
 connection "fleetdm" {
-  plugin = "l-teles/fleetdm" 
+  plugin = "l-teles/fleetdm"
 
   # FleetDM server URL (e.g., "https://fleet.example.com")
   # The plugin will attempt to append /api/v1/ if it's not present.
@@ -205,7 +203,7 @@ connection "fleetdm" {
 
   # FleetDM API Token
   # Generate this from your FleetDM instance (User Menu -> Settings -> API Tokens)
-  api_token = "ZZFN9BBL+OldDYVf+qfu7+XUPTghBzs61V1fRHg/2RkuYYq6qlLiDaRgcsZVW1WtqAawHj0qMmDCCPL1vlFdHw=="
+  api_token = "ZZFN9BBL+OldDhBzs61V1fRHg/2RkuYYq6qlLiDamDCCPL1vlFdHw=="
 }
 ```
 
