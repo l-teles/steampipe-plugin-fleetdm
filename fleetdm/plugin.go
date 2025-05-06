@@ -20,13 +20,12 @@ func Plugin(ctx context.Context) *plugin.Plugin {
 			"fleetdm_host":     tableFleetdmHost(ctx),
 			"fleetdm_software": tableFleetdmSoftware(ctx),
 			"fleetdm_user":     tableFleetdmUser(ctx),
-			// TODO: Add other tables here
 			"fleetdm_policy":   tableFleetdmPolicy(ctx),
 			"fleetdm_query":    tableFleetdmQuery(ctx),
 			"fleetdm_team":     tableFleetdmTeam(ctx),
-			// "fleetdm_pack":     tableFleetdmPack(ctx),
-			// "fleetdm_label":    tableFleetdmLabel(ctx),
-			// "fleetdm_activity": tableFleetdmActivity(ctx),
+			"fleetdm_pack":     tableFleetdmPack(ctx),
+			"fleetdm_label":    tableFleetdmLabel(ctx),
+			"fleetdm_activity": tableFleetdmActivity(ctx),
 		},
 	}
 	return p
