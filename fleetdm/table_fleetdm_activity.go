@@ -95,8 +95,8 @@ func listActivities(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
-		params.Add("order_key", "created_at") // Default sort by creation time
-		params.Add("order_direction", "desc") // Most recent first
+		params.Add("order_key", "id")
+		params.Add("order_direction", "asc") // Most recent (highest ID) last
 
 		if d.EqualsQuals["type"] != nil {
 			params.Add("type", d.EqualsQuals["type"].GetStringValue())
@@ -117,22 +117,15 @@ func listActivities(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 			}
 		}
 
-		// The activities endpoint response includes a 'meta' object with 'has_next_results'.
-		// However, the primary example in docs uses page/per_page.
-		// If 'meta' is reliably present and indicates no more pages, we can use it.
-		// For now, we'll rely on the standard check: if fewer items than perPage are returned.
-		// If response.Meta.HasNextResults is consistently available and false, that's a better check.
-		// Based on the ListActivitiesResponse struct, we should check response.Meta.HasNextResults
-		if !response.Meta.HasNextResults && response.Meta.NextCursor == "" { // Check both, as HasNextResults might not always be present if using page/per_page only
-			plugin.Logger(ctx).Debug("fleetdm_activity.listActivities", "end_of_results_by_meta_or_count", true, "activities_on_page", len(response.Activities), "has_next_meta", response.Meta.HasNextResults)
+		// Pagination check
+		if !response.Meta.HasNextResults && response.Meta.NextCursor == "" {
+			plugin.Logger(ctx).Debug("fleetdm_activity.listActivities", "end_of_results_by_meta", true, "activities_on_page", len(response.Activities), "has_next_meta", response.Meta.HasNextResults)
 			break
 		}
-		// Fallback if meta isn't conclusive with page/per_page
-		if len(response.Activities) < perPage {
+		if len(response.Activities) < perPage { // Fallback if meta isn't conclusive with page/per_page
 			plugin.Logger(ctx).Debug("fleetdm_activity.listActivities", "end_of_results_by_count", true, "activities_on_page", len(response.Activities))
 			break
 		}
-
 
 		page++
 		plugin.Logger(ctx).Debug("fleetdm_activity.listActivities", "next_page", page)
