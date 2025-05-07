@@ -224,7 +224,7 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 
 	limit := d.QueryContext.Limit
 	if limit != nil && *limit > 0 && *limit < int64(perPage) {
-		// perPage = int(*limit) // Consider API minimums if any.
+		// perPage = int(*limit) // TODO: Consider API minimums if any.
 	}
 
 	for {

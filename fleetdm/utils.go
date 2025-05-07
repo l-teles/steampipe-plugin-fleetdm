@@ -26,10 +26,10 @@ func NewFleetDMClient(ctx context.Context, connection *plugin.Connection) (*Flee
 	config := GetConfig(connection)
 
 	if config.ServerURL == nil || *config.ServerURL == "" {
-		return nil, errors.New("server_url must be configured")
+		return nil, errors.New("'server_url' must be set in the connection configuration. Edit your connection configuration file and then restart Steampipe")
 	}
 	if config.APIToken == nil || *config.APIToken == "" {
-		return nil, errors.New("api_token must be configured")
+		return nil, errors.New("'api_token' must be set in the connection configuration. Edit your connection configuration file and then restart Steampipe")
 	}
 
 	// Normalize the baseURL provided by the user
@@ -114,7 +114,7 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 	// Decode the JSON response
 	if target != nil {
 		defer resp.Body.Close() // Ensure body is closed after decoding or if decoding fails
-		// TeeReader allows us to read the body for decoding and then potentially re-read it for logging if decoding fails.
+		// TeeReader would allow us to read the body for decoding and then potentially re-read it for logging if decoding fails.
 		// However, for simplicity and common practice, we'll read it once.
 		// If decoding fails, the original error from json.NewDecoder is usually sufficient.
 		// For more detailed debugging, one might capture the body before attempting to decode.

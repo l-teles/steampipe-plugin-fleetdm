@@ -48,7 +48,7 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 		Description: "Information about users in FleetDM.",
 		List: &plugin.ListConfig{
 			Hydrate: listUsers,
-			// KeyColumns: plugin.KeyColumnEquals("team_id"), // If API supports filtering users by team_id directly
+			// KeyColumns: plugin.KeyColumnEquals("team_id"), // TODO: Check if API supports filtering users by team_id directly
 		},
 		Get: &plugin.GetConfig{
 			KeyColumns: plugin.SingleColumn("id"),

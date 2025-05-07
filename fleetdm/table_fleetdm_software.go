@@ -210,7 +210,7 @@ func listSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 	return nil, nil
 }
 
-// TODO: Implement getSoftware if you add a GetConfig to the table
+// TODO: Implement getSoftware if you a GetConfig is added to the table
 // func getSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 // 	id := d.EqualsQuals["id"].GetInt64Value()
 // 	if id == 0 {

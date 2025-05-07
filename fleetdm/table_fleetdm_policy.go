@@ -57,7 +57,7 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 			// The 'team_id' KeyColumn is for filtering by team.
 			// Note: If /global/policies endpoint does not support team_id filtering,
 			// this KeyColumn might not work as expected for that specific endpoint.
-			// You might need a separate table or logic for team-specific policies if their endpoint is different.
+			// A separate table or logic for team-specific policies might be needed if their endpoint is different, to be checked later.
 			KeyColumns: []*plugin.KeyColumn{
 				{Name: "filter_search_query", Require: plugin.Optional}, // Maps to API 'query' param for text search
 				{Name: "team_id", Require: plugin.Optional},             // For filtering by team_id if supported by endpoint
@@ -165,7 +165,6 @@ func getPolicy(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 	}
 
 	var response GetPolicyResponse
-	// Using "global/policies/{id}" as requested
 	endpointPath := fmt.Sprintf("global/policies/%d", id)
 	_, err = client.Get(ctx, endpointPath, nil, &response)
 
