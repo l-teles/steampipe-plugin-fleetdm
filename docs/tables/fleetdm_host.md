@@ -119,3 +119,4 @@ GROUP BY
   platform
 ORDER BY
   host_count DESC;
+  ```

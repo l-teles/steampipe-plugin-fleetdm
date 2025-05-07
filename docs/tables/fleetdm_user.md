@@ -74,3 +74,4 @@ GROUP BY
   global_role
 ORDER BY
   user_count DESC;
+```

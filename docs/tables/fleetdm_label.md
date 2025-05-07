@@ -37,7 +37,7 @@ ORDER BY
   name;
 ```
 
-**Find all built-in labels:**
+**Find all system labels:**
 ```sql
 SELECT
   id,
@@ -47,7 +47,7 @@ SELECT
 FROM
   fleetdm_label
 WHERE
-  built_in = TRUE;
+  label_type = 'builtin';
 ```
 
 **List dynamic labels and their queries:**
@@ -74,3 +74,4 @@ FROM
   fleetdm_label
 WHERE
   platform = 'darwin';
+```

@@ -65,7 +65,7 @@ SELECT
 FROM
   fleetdm_policy
 WHERE
-  filter_search_query = 'firewall';
+  description LIKE '%firewall%' OR name LIKE '%Firewall%';
 ```
 
 **Count policies by platform:**
@@ -79,3 +79,4 @@ GROUP BY
   platform
 ORDER BY
   policy_count DESC;
+```

@@ -70,7 +70,7 @@ SELECT
 FROM
   fleetdm_software
 WHERE
-  vulnerable_only = TRUE
+  vulnerabilities IS NOT NULL
 ORDER BY
   vulnerability_count DESC,
   host_count DESC;
@@ -88,3 +88,4 @@ FROM
   jsonb_array_elements(s.vulnerabilities) AS v
 WHERE
   s.name = 'Firefox.app' AND s.version = '100.0.1'; -- Adjust to a software item in your inventory
+```

@@ -58,17 +58,3 @@ FROM
 WHERE
   name = 'Engineering'; -- Replace with an actual team name
 ```
-
-**List users associated with a specific team (if `users` field is populated by GET):**
-```sql
-SELECT
-  t.name AS team_name,
-  u ->> 'name' AS user_name,
-  u ->> 'email' AS user_email,
-  u ->> 'role' AS role_in_team
-FROM
-  fleetdm_team AS t,
-  jsonb_array_elements(t.users) AS u
-WHERE
-  t.id = 1; -- Replace with an actual team ID
-```

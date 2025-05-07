@@ -79,4 +79,5 @@ SELECT
 FROM
   fleetdm_query
 WHERE
-  team_id = 1; -- Replace with an actual team ID
+  team_id = 1; -- Replace with an existing team ID
+```

@@ -27,7 +27,7 @@ SELECT
   created_at,
   actor_full_name,
   type,
-  details ->> 'query_name' AS query_name_detail -- Example: Extract query name if present in details
+  details ->> 'public_ip' AS public_ip -- Example: Extract public IP if present in details
 FROM
   fleetdm_activity
 ORDER BY
@@ -45,7 +45,7 @@ SELECT
 FROM
   fleetdm_activity
 WHERE
-  actor_email = 'user@example.com' -- Replace with an actual user email
+  actor_email = 'admin@fleetdm.com' -- Replace with an actual user email
 ORDER BY
   created_at DESC;
 ```
@@ -60,7 +60,7 @@ SELECT
 FROM
   fleetdm_activity
 WHERE
-  type = 'ran_live_query' -- Or 'live_query' depending on exact type string from API
+  type = 'live_query'
 ORDER BY
   created_at DESC;
 ```
@@ -76,3 +76,4 @@ GROUP BY
   type
 ORDER BY
   activity_count DESC;
+```
