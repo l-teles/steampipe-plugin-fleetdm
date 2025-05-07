@@ -2,7 +2,6 @@ package fleetdm
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strconv"
 	"time"
@@ -49,10 +48,6 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listUsers,
 			// KeyColumns: plugin.KeyColumnEquals("team_id"), // TODO: Check if API supports filtering users by team_id directly
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getUser,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the user."},
@@ -137,34 +132,4 @@ func listUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 	}
 
 	return nil, nil
-}
-
-func getUser(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	id := d.EqualsQuals["id"].GetInt64Value()
-	if id == 0 { // Invalid ID
-		return nil, nil
-	}
-
-	client, err := NewFleetDMClient(ctx, d.Connection)
-	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_user.getUser", "connection_error", err)
-		return nil, err
-	}
-
-	// The API endpoint GET /api/v1/fleet/users/{id} returns { "user": { ...user_object... } }
-	var response struct {
-		User User `json:"user"`
-	}
-
-	_, err = client.Get(ctx, fmt.Sprintf("users/%d", id), nil, &response)
-	if err != nil {
-		// TODO: Handle 404 Not Found specifically (return nil, nil for Steampipe)
-		// if strings.Contains(err.Error(), "404") { // Basic check
-		// 	return nil, nil
-		// }
-		plugin.Logger(ctx).Error("fleetdm_user.getUser", "api_error", err, "user_id", id)
-		return nil, err
-	}
-
-	return response.User, nil
 }

@@ -3,7 +3,6 @@ package fleetdm
 import (
 	"context"
 	"encoding/json" // Added import for json.RawMessage
-	"fmt"
 	"net/url"
 	"strconv"
 	"time"
@@ -67,10 +66,6 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listTeams,
 			// KeyColumns: plugin.KeyColumnEquals("name"), // If API supports direct filtering by name
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getTeam,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the team."},
@@ -153,31 +148,4 @@ func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 	}
 
 	return nil, nil
-}
-
-func getTeam(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	id := d.EqualsQuals["id"].GetInt64Value()
-	if id == 0 {
-		return nil, nil
-	}
-
-	client, err := NewFleetDMClient(ctx, d.Connection)
-	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_team.getTeam", "connection_error", err)
-		return nil, err
-	}
-
-	// The API endpoint GET /api/v1/fleet/teams/{id} returns { "team": { ...team_object... } }
-	var response struct {
-		Team Team `json:"team"`
-	}
-	_, err = client.Get(ctx, fmt.Sprintf("teams/%d", id), nil, &response)
-
-	if err != nil {
-		// TODO: Handle 404 Not Found specifically
-		plugin.Logger(ctx).Error("fleetdm_team.getTeam", "api_error", err, "team_id", id)
-		return nil, err
-	}
-	// The response.Team object from GET /teams/{id} should include details like `users` and `secrets`.
-	return response.Team, nil
 }

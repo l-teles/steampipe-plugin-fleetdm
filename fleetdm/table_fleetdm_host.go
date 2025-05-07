@@ -130,10 +130,6 @@ func tableFleetdmHost(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listHosts,
 		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getHost,
-		},
 		Columns: []*plugin.Column{
 			// Core Identification
 			{Name: "id", Type: proto.ColumnType_INT, Description: "The unique ID of the host."},
@@ -265,40 +261,4 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 	}
 
 	return nil, nil
-}
-
-// getHost fetches a single host by ID.
-func getHost(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	plugin.Logger(ctx).Info("fleetdm_host.getHost", "status", "ENTERING getHost FUNCTION", "host_id_qual", d.EqualsQuals["id"])
-
-	id := d.EqualsQuals["id"].GetInt64Value()
-	if id == 0 {
-		plugin.Logger(ctx).Info("fleetdm_host.getHost", "status", "INVALID ID (0), returning nil", "host_id", id)
-		return nil, nil 
-	}
-	plugin.Logger(ctx).Info("fleetdm_host.getHost", "status", "VALID ID, proceeding", "host_id", id)
-
-
-	client, err := NewFleetDMClient(ctx, d.Connection)
-	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_host.getHost", "connection_error", err, "host_id", id)
-		return nil, err
-	}
-	plugin.Logger(ctx).Info("fleetdm_host.getHost", "status", "CLIENT CREATED", "host_id", id)
-
-	var response struct {
-		Host Host `json:"host"`
-	}
-	
-	endpointPath := fmt.Sprintf("hosts/%d", id)
-	plugin.Logger(ctx).Info("fleetdm_host.getHost", "status", "CALLING CLIENT.GET", "endpoint", endpointPath, "host_id", id)
-	
-	_, err = client.Get(ctx, endpointPath, nil, &response) 
-
-	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_host.getHost", "client_get_error", err, "host_id", id, "endpoint", endpointPath)
-		return nil, err 
-	}
-
-	return response.Host, nil
 }

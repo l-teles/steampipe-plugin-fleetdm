@@ -3,7 +3,6 @@ package fleetdm
 import (
 	"context"
 	"encoding/json" // For json.RawMessage
-	"fmt"
 	"net/url"
 	"strconv"
 	"time"
@@ -69,10 +68,6 @@ func tableFleetdmPack(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listPacks,
 			// KeyColumns: plugin.KeyColumnEquals("team_id"), // If API supports filtering by team_id
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getPack,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the pack."},
@@ -157,28 +152,4 @@ func listPacks(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 	}
 
 	return nil, nil
-}
-
-func getPack(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	id := d.EqualsQuals["id"].GetInt64Value()
-	if id == 0 {
-		return nil, nil
-	}
-
-	client, err := NewFleetDMClient(ctx, d.Connection)
-	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_pack.getPack", "connection_error", err)
-		return nil, err
-	}
-
-	var response GetPackResponse
-	_, err = client.Get(ctx, fmt.Sprintf("packs/%d", id), nil, &response)
-
-	if err != nil {
-		// TODO: Handle 404 Not Found specifically
-		plugin.Logger(ctx).Error("fleetdm_pack.getPack", "api_error", err, "pack_id", id)
-		return nil, err
-	}
-	// The response.Pack from GET /packs/{id} includes details for targets, scheduled_queries, etc.
-	return response.Pack, nil
 }

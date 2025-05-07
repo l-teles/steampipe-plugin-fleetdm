@@ -3,7 +3,6 @@ package fleetdm
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/url"
 	"strconv"
 	"time"
@@ -71,10 +70,6 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 				// {Name: "order_key", Require: plugin.Optional},
 				// {Name: "order_direction", Require: plugin.Optional},
 			},
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getQuery,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the saved query."},
@@ -161,28 +156,4 @@ func listQueries(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 	}
 
 	return nil, nil
-}
-
-func getQuery(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	id := d.EqualsQuals["id"].GetInt64Value()
-	if id == 0 {
-		return nil, nil
-	}
-
-	client, err := NewFleetDMClient(ctx, d.Connection)
-	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_query.getQuery", "connection_error", err)
-		return nil, err
-	}
-
-	var response GetQueryResponse
-	_, err = client.Get(ctx, fmt.Sprintf("queries/%d", id), nil, &response)
-
-	if err != nil {
-		// TODO: Handle 404 Not Found specifically
-		plugin.Logger(ctx).Error("fleetdm_query.getQuery", "api_error", err, "query_id", id)
-		return nil, err
-	}
-	// The response.Query from GET /queries/{id} includes the 'packs' details.
-	return response.Query, nil
 }

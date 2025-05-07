@@ -81,8 +81,9 @@ type Software struct {
 type ListSoftwareResponse struct {
 	Software []Software `json:"software"`
 	Meta     struct {
-		HasNextResults     bool `json:"has_next_results"`
-		HasPreviousResults bool `json:"has_previous_results"`
+		HasNextResults     bool   `json:"has_next_results"`
+		HasPreviousResults bool   `json:"has_previous_results"`
+		NextCursor         string `json:"next_cursor"` 
 	} `json:"meta"`
 	Count            int       `json:"count"` // Total count of all software items matching the query
 	CountsUpdatedAt  time.Time `json:"counts_updated_at"`
@@ -102,10 +103,6 @@ func tableFleetdmSoftware(ctx context.Context) *plugin.Table {
 				{Name: "team_id", Require: plugin.Optional},         // Filter by team ID
 			},
 		},
-		// Get: &plugin.GetConfig{ // Individual software GET endpoint is /api/v1/fleet/software/{id}
-		// 	KeyColumns: plugin.SingleColumn("id"),
-		// 	Hydrate:    getSoftware,
-		// },
 		Columns: []*plugin.Column{
 			// Core software information
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the software item."},
@@ -149,24 +146,17 @@ func listSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		return nil, err
 	}
 
-	// Pagination parameters for software endpoint
 	page := 0
-	perPage := 100 // Default and often max for FleetDM software listing
-
-	// Limiting the results
-	limit := d.QueryContext.Limit
-	if limit != nil && *limit < int64(perPage) {
-		// perPage = int(*limit) // Be cautious if API has minimum per_page
-	}
+	// perPage is the number of items to request per API call.
+	perPage := 10000 // This seems to have no limit and 100 was making it super slow, 1000 slow so let's go with 10000 🤠.
 
 	for {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
-		// params.Add("order_key", "name") // Example: default sort, API might have its own default
-		// params.Add("order_direction", "asc")
+		params.Add("order_key", "id") 
+		params.Add("order_direction", "asc") 
 
-		// Add query qualifiers if provided
 		if d.EqualsQuals["vulnerable_only"] != nil {
 			params.Add("vulnerable", strconv.FormatBool(d.EqualsQuals["vulnerable_only"].GetBoolValue()))
 		}
@@ -193,43 +183,47 @@ func listSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		for _, swItem := range response.Software {
 			d.StreamListItem(ctx, swItem)
 			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_software.listSoftware", "limit_reached", true)
+				plugin.Logger(ctx).Debug("fleetdm_software.listSoftware", "limit_reached_sdk", "true")
 				return nil, nil
 			}
 		}
+		
+		// Log pagination details from the API response
+		plugin.Logger(ctx).Info("fleetdm_software.listSoftware", 
+			"page_processed", page, 
+			"items_on_page", len(response.Software),
+			"api_total_count", response.Count, // Total items matching filter, not just on this page
+			"api_has_next_results", response.Meta.HasNextResults,
+			"api_next_cursor", response.Meta.NextCursor,
+		)
 
-		if !response.Meta.HasNextResults {
-			plugin.Logger(ctx).Debug("fleetdm_software.listSoftware", "end_of_results", true, "total_software_count_from_api", response.Count)
+		// Determine if there are more pages to fetch.
+		// Primary condition: Continue if the API returned a full page of items.
+		if len(response.Software) < perPage {
+			plugin.Logger(ctx).Info("fleetdm_software.listSoftware", "pagination_ended_item_count_less_than_per_page", true, "current_page", page, "items_on_page", len(response.Software), "per_page", perPage)
 			break
 		}
 
+		// Secondary check (optional, but good for observation): Log if HasNextResults is false but we got a full page.
+		// This might indicate an inconsistency in the API's meta field.
+		if !response.Meta.HasNextResults && len(response.Software) == perPage {
+			plugin.Logger(ctx).Warn("fleetdm_software.listSoftware", "api_has_next_results_is_false_but_full_page_received", true, "current_page", page)
+			// Depending on API behavior, you might still want to try fetching the next page,
+			// or trust len(response.Software) < perPage as the more reliable indicator.
+			// For now, we will break if len(response.Software) < perPage, making HasNextResults secondary.
+		}
+		
+		// If HasNextResults is explicitly false, and we trust it, we can break early.
+		// However, considering a previous issue existed, let's prioritize the item count.
+		// if !response.Meta.HasNextResults {
+		// 	plugin.Logger(ctx).Info("fleetdm_software.listSoftware", "pagination_ended_by_api_has_next_results_false", true, "current_page", page)
+		// 	break
+		// }
+
 		page++
-		plugin.Logger(ctx).Debug("fleetdm_software.listSoftware", "next_page", page)
+		plugin.Logger(ctx).Debug("fleetdm_software.listSoftware", "incrementing_to_next_page", page)
 	}
 
+	plugin.Logger(ctx).Info("fleetdm_software.listSoftware", "list_software_completed", true)
 	return nil, nil
 }
-
-// TODO: Implement getSoftware if you a GetConfig is added to the table
-// func getSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-// 	id := d.EqualsQuals["id"].GetInt64Value()
-// 	if id == 0 {
-// 		return nil, nil
-// 	}
-
-// 	client, err := NewFleetDMClient(ctx, d.Connection)
-// 	if err != nil {
-// 		plugin.Logger(ctx).Error("fleetdm_software.getSoftware", "connection_error", err)
-// 		return nil, err
-// 	}
-
-// 	var softwareItem Software // Assuming the Get endpoint returns a single Software item directly, not nested
-// 	_, err = client.Get(ctx, fmt.Sprintf("software/%d", id), nil, &softwareItem)
-
-// 	if err != nil {
-// 		// Handle 404 Not Found if necessary
-// 		plugin.Logger(ctx).Error("fleetdm_software.getSoftware", "api_error", err, "software_id", id)
-// 		return nil, err
-// 	}
-// 	return softwareItem, nil
-// }

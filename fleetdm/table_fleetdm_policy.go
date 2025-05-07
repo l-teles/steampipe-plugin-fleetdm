@@ -2,7 +2,6 @@ package fleetdm
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strconv"
 	"time"
@@ -62,10 +61,6 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 				{Name: "filter_search_query", Require: plugin.Optional}, // Maps to API 'query' param for text search
 				{Name: "team_id", Require: plugin.Optional},             // For filtering by team_id if supported by endpoint
 			},
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getPolicy,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the policy."},
@@ -150,27 +145,4 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 	}
 
 	return nil, nil
-}
-
-func getPolicy(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	id := d.EqualsQuals["id"].GetInt64Value()
-	if id == 0 {
-		return nil, nil
-	}
-
-	client, err := NewFleetDMClient(ctx, d.Connection)
-	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_policy.getPolicy", "connection_error", err)
-		return nil, err
-	}
-
-	var response GetPolicyResponse
-	endpointPath := fmt.Sprintf("global/policies/%d", id)
-	_, err = client.Get(ctx, endpointPath, nil, &response)
-
-	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_policy.getPolicy", "api_error", err, "policy_id", id, "endpoint", endpointPath)
-		return nil, err
-	}
-	return response.Policy, nil
 }

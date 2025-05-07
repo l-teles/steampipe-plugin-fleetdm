@@ -2,7 +2,6 @@ package fleetdm
 
 import (
 	"context"
-	"fmt"
 	"net/url"
 	"strconv"
 	"time"
@@ -50,10 +49,6 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listLabels,
 			// KeyColumns: plugin.KeyColumnEquals("query"), // For text search if API supports it
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"), // Or plugin.SingleColumn("name") if API supports GET by name
-			Hydrate:    getLabel,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the label."},
@@ -128,47 +123,4 @@ func listLabels(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData)
 	}
 
 	return nil, nil
-}
-
-func getLabel(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	var id int64 // Use int64 for ID from quals
-	// The API GET /api/v1/fleet/labels/{id_or_name} can take ID or special label name (like 'All Hosts')
-	// For simplicity, we'll primarily support ID here. If name is used as key, it needs careful handling.
-	// Steampipe GetConfig usually expects a unique ID.
-	
-	if d.EqualsQuals["id"] != nil {
-		id = d.EqualsQuals["id"].GetInt64Value()
-	} else {
-		// If we were to support GET by name:
-		// name := d.EqualsQuals["name"].GetStringValue()
-		// endpointPath = fmt.Sprintf("labels/%s", url.PathEscape(name))
-		plugin.Logger(ctx).Warn("fleetdm_label.getLabel", "id_qual_missing", "Fetching label by ID is preferred.")
-		return nil, nil // Or handle error if ID is mandatory for Get
-	}
-	
-	if id == 0 && d.EqualsQuals["id"] != nil { // Check if ID was provided but is zero (invalid for typical IDs)
-		// However, some special labels like "All Hosts" might have ID 0 or be identified by name.
-		// The API doc for GET /labels/{id} implies numeric ID. Special labels are usually listed.
-		// Let's assume non-zero ID for specific GETs.
-		plugin.Logger(ctx).Debug("fleetdm_label.getLabel", "invalid_label_id_0", id)
-		// return nil, nil // Commenting out to allow fetching label with ID 0 if it exists.
-	}
-
-
-	client, err := NewFleetDMClient(ctx, d.Connection)
-	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_label.getLabel", "connection_error", err)
-		return nil, err
-	}
-
-	var response GetLabelResponse
-	endpointPath := fmt.Sprintf("labels/%d", id)
-	_, err = client.Get(ctx, endpointPath, nil, &response)
-
-	if err != nil {
-		// TODO: Handle 404 Not Found specifically
-		plugin.Logger(ctx).Error("fleetdm_label.getLabel", "api_error", err, "label_id_or_name", id, "endpoint", endpointPath)
-		return nil, err
-	}
-	return response.Label, nil
 }
