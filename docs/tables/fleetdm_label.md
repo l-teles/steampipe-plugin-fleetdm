@@ -1,77 +1,126 @@
-# Table: fleetdm_label
+---
+title: "Steampipe Table: fleetdm_label - Query FleetDM Labels using SQL"
+description: "Allows users to query FleetDM labels, providing insights into host groupings, dynamic labeling rules, and label distributions within your FleetDM instance."
+---
 
-This table lists the labels defined in your FleetDM instance. Labels are used for grouping hosts, either manually or dynamically based on a SQL query.
+# Table: fleetdm_label - Query FleetDM Labels using SQL
 
-## Columns
+FleetDM is an open-source device management platform that helps you manage and secure your devices. Labels in FleetDM are used to group hosts either manually or dynamically based on SQL queries, enabling flexible host categorization and management.
 
-| Name                    | Type        | Description                                                                                         |
-| ----------------------- | ----------- | --------------------------------------------------------------------------------------------------- |
-| id                      | `INT`       | Unique ID of the label.                                                                             |
-| name                    | `TEXT`      | Name of the label.                                                                                  |
-| display_text            | `TEXT`      | Display text for the label, usually the same as the name.                                           |
-| description             | `TEXT`      | Description of the label.                                                                           |
-| query_sql               | `TEXT`      | The SQL query used for dynamic labeling. (Mapped from API field `query`)                            |
-| platform                | `TEXT`      | Target platform(s) for the label (e.g., 'darwin', 'windows', 'linux', or empty for all).            |
-| label_type              | `TEXT`      | Type of the label, e.g., 'regular' or 'builtin'.                                                    |
-| label_membership_type   | `TEXT`      | Membership type, e.g., 'dynamic' or 'manual'.                                                       |
-| host_count              | `INT`       | Number of hosts associated with this label.                                                         |
-| built_in                | `BOOLEAN`   | Indicates if the label is a built-in label (derived from `label_type`).                             |
-| created_at              | `TIMESTAMP` | Timestamp when the label was created.                                                               |
-| updated_at              | `TIMESTAMP` | Timestamp when the label was last updated.                                                          |
-| server_url              | `TEXT`      | FleetDM server URL from connection config.                                                          |
+## Table Usage Guide
 
-## Example Queries
+The `fleetdm_label` table provides comprehensive insights into label configurations within your FleetDM instance. As a system administrator, you can use this table to manage host groupings, monitor label distributions, and maintain dynamic labeling rules. The table helps you understand how hosts are categorized and how labels are being used across your fleet.
 
-**List all labels and their host counts:**
-```sql
-SELECT
+## Examples
+
+### List all labels and their host counts
+Get an overview of all labels in your FleetDM instance, including their type and associated host counts.
+
+```sql+postgres
+select
   id,
   name,
   label_type,
   label_membership_type,
   host_count,
   platform
-FROM
+from
   fleetdm_label
-ORDER BY
+order by
   name;
 ```
 
-**Find all system labels:**
-```sql
-SELECT
+```sql+sqlite
+select
+  id,
+  name,
+  label_type,
+  label_membership_type,
+  host_count,
+  platform
+from
+  fleetdm_label
+order by
+  name;
+```
+
+### Find all system labels
+Identify built-in system labels that are automatically managed by FleetDM.
+
+```sql+postgres
+select
   id,
   name,
   display_text,
   host_count
-FROM
+from
   fleetdm_label
-WHERE
+where
   label_type = 'builtin';
 ```
 
-**List dynamic labels and their queries:**
-```sql
-SELECT
+```sql+sqlite
+select
+  id,
+  name,
+  display_text,
+  host_count
+from
+  fleetdm_label
+where
+  label_type = 'builtin';
+```
+
+### List dynamic labels and their queries
+Examine dynamic labels and their associated SQL queries to understand automated host categorization rules.
+
+```sql+postgres
+select
   name,
   query_sql,
   host_count
-FROM
+from
   fleetdm_label
-WHERE
+where
   label_membership_type = 'dynamic'
-ORDER BY
+order by
   name;
 ```
 
-**Find labels specifically for macOS hosts:**
-```sql
-SELECT
+```sql+sqlite
+select
+  name,
+  query_sql,
+  host_count
+from
+  fleetdm_label
+where
+  label_membership_type = 'dynamic'
+order by
+  name;
+```
+
+### Find labels specifically for macOS hosts
+Identify labels that are specifically configured for macOS devices.
+
+```sql+postgres
+select
   id,
   name,
   description
-FROM
+from
   fleetdm_label
-WHERE
+where
+  platform = 'darwin';
+```
+
+```sql+sqlite
+select
+  id,
+  name,
+  description
+from
+  fleetdm_label
+where
   platform = 'darwin';
 ```

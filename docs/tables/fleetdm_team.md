@@ -1,60 +1,97 @@
-# Table: fleetdm_team
+---
+title: "Steampipe Table: fleetdm_team - Query FleetDM Teams using SQL"
+description: "Allows users to query FleetDM teams, providing insights into team configurations, user assignments, and host distributions within your FleetDM instance."
+---
 
-This table lists the teams configured in your FleetDM instance. Teams are used to group users and can have their own set of hosts, policies, and configurations.
+# Table: fleetdm_team - Query FleetDM Teams using SQL
 
-## Columns
+FleetDM is an open-source device management platform that helps you manage and secure your devices. Teams in FleetDM are used to group users and can have their own set of hosts, policies, and configurations, enabling granular access control and management.
 
-| Name                | Type        | Description                                                                                         |
-| ------------------- | ----------- | --------------------------------------------------------------------------------------------------- |
-| id                  | `INT`       | Unique ID of the team.                                                                              |
-| name                | `TEXT`      | Name of the team.                                                                                   |
-| description         | `TEXT`      | Description of the team.                                                                            |
-| user_count          | `INT`       | Number of users in the team.                                                                        |
-| host_count          | `INT`       | Number of hosts assigned to the team.                                                               |
-| created_at          | `TIMESTAMP` | Timestamp when the team was created.                                                                |
-| agent_options       | `JSONB`     | Agent options configured for this team (e.g., osquery configurations).                              |
-| secrets             | `JSONB`     | Enrollment secrets associated with the team. Array of objects. (Details available on GET /teams/{id}) |
-| users               | `JSONB`     | Users belonging to this team and their roles. (Details available on GET /teams/{id})                |
-| server_url          | `TEXT`      | FleetDM server URL from connection config.                                                          |
+## Table Usage Guide
 
-## Example Queries
+The `fleetdm_team` table provides comprehensive insights into team configurations within your FleetDM instance. As a system administrator, you can use this table to manage team structures, monitor team sizes, and track host distributions across different teams. The table helps you understand team organization, resource allocation, and access control patterns.
 
-**List all teams and their user/host counts:**
-```sql
-SELECT
+## Examples
+
+### List all teams and their user/host counts
+Get an overview of all teams in your FleetDM instance, including their size and resource distribution.
+
+```sql+postgres
+select
   id,
   name,
   description,
   user_count,
   host_count,
   created_at
-FROM
+from
   fleetdm_team
-ORDER BY
+order by
   name;
 ```
 
-**Find teams with more than 100 hosts:**
-```sql
-SELECT
+```sql+sqlite
+select
+  id,
+  name,
+  description,
+  user_count,
+  host_count,
+  created_at
+from
+  fleetdm_team
+order by
+  name;
+```
+
+### Find teams with more than 100 hosts
+Identify large teams that may need additional management attention or resource allocation.
+
+```sql+postgres
+select
   id,
   name,
   host_count
-FROM
+from
   fleetdm_team
-WHERE
+where
   host_count > 100
-ORDER BY
-  host_count DESC;
+order by
+  host_count desc;
 ```
 
-**Get agent options for a specific team:**
-```sql
-SELECT
+```sql+sqlite
+select
+  id,
   name,
-  agent_options -> 'config' -> 'decorators' ->> 'load' AS agent_config_decorators_load
-FROM
+  host_count
+from
   fleetdm_team
-WHERE
-  name = 'Engineering'; -- Replace with an actual team name
+where
+  host_count > 100
+order by
+  host_count desc;
+```
+
+### Get agent options for a specific team
+Examine the configuration settings for a particular team to ensure proper agent behavior.
+
+```sql+postgres
+select
+  name,
+  agent_options -> 'config' -> 'decorators' ->> 'load' as agent_config_decorators_load
+from
+  fleetdm_team
+where
+  name = 'Engineering';
+```
+
+```sql+sqlite
+select
+  name,
+  json_extract(json_extract(agent_options, '$.config'), '$.decorators.load') as agent_config_decorators_load
+from
+  fleetdm_team
+where
+  name = 'Engineering';
 ```

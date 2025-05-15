@@ -1,77 +1,128 @@
-# Table: fleetdm_user
+---
+title: "Steampipe Table: fleetdm_user - Query FleetDM Users using SQL"
+description: "Allows users to query FleetDM user accounts, providing insights into user roles, team memberships, and access patterns within your FleetDM instance."
+---
 
-This table provides information about users registered in your FleetDM instance, including their roles and team associations.
+# Table: fleetdm_user - Query FleetDM Users using SQL
 
-## Columns
+FleetDM is an open-source device management platform that helps you manage and secure your devices. The users table provides comprehensive information about user accounts, including their roles, team associations, and authentication settings.
 
-| Name                          | Type        | Description                                                                                         |
-| ----------------------------- | ----------- | --------------------------------------------------------------------------------------------------- |
-| id                            | `INT`       | Unique ID of the user.                                                                              |
-| name                          | `TEXT`      | Full name of the user.                                                                              |
-| email                         | `TEXT`      | Email address of the user.                                                                          |
-| global_role                   | `TEXT`      | Global role of the user (e.g., 'admin', 'maintainer', 'observer'). Null if not a global role.       |
-| api_only                      | `BOOLEAN`   | Indicates if the user is an API-only user.                                                          |
-| sso_enabled                   | `BOOLEAN`   | Indicates if Single Sign-On is enabled for the user.                                                |
-| admin_forced_password_reset   | `BOOLEAN`   | Indicates if an admin has forced a password reset for the user.                                     |
-| gravatar_url                  | `TEXT`      | URL for the user's Gravatar image.                                                                  |
-| created_at                    | `TIMESTAMP` | Timestamp when the user was created.                                                                |
-| updated_at                    | `TIMESTAMP` | Timestamp when the user was last updated.                                                           |
-| teams                         | `JSONB`     | Teams the user belongs to, including their role in each team. Array of objects: `{"id", "name", "role"}`. |
-| server_url                    | `TEXT`      | FleetDM server URL from connection config.                                                          |
+## Table Usage Guide
 
-## Example Queries
+The `fleetdm_user` table provides detailed insights into user management within your FleetDM instance. As a system administrator, you can use this table to monitor user roles, track team memberships, and manage access control. The table helps you understand user distribution, role assignments, and authentication configurations.
 
-**List all administrators:**
-```sql
-SELECT
+## Examples
+
+### List all administrators
+Identify all users with administrative privileges to ensure proper access control and security oversight.
+
+```sql+postgres
+select
   id,
   name,
   email,
   created_at
-FROM
+from
   fleetdm_user
-WHERE
+where
   global_role = 'admin'
-ORDER BY
+order by
   name;
 ```
 
-**Find users who are API-only:**
-```sql
-SELECT
+```sql+sqlite
+select
+  id,
+  name,
+  email,
+  created_at
+from
+  fleetdm_user
+where
+  global_role = 'admin'
+order by
+  name;
+```
+
+### Find users who are API-only
+Identify users that are configured for API access only, useful for service account management.
+
+```sql+postgres
+select
   id,
   name,
   email
-FROM
+from
   fleetdm_user
-WHERE
-  api_only = TRUE;
+where
+  api_only = true;
 ```
 
-**List users and the teams they belong to (unpacking the JSON):**
-```sql
-SELECT
-  u.name AS user_name,
-  u.email AS user_email,
-  t ->> 'name' AS team_name,
-  t ->> 'role' AS role_in_team
-FROM
-  fleetdm_user AS u,
-  jsonb_array_elements(u.teams) AS t
-ORDER BY
+```sql+sqlite
+select
+  id,
+  name,
+  email
+from
+  fleetdm_user
+where
+  api_only = true;
+```
+
+### List users and the teams they belong to
+Get a comprehensive view of user team memberships and their roles within each team.
+
+```sql+postgres
+select
+  u.name as user_name,
+  u.email as user_email,
+  t ->> 'name' as team_name,
+  t ->> 'role' as role_in_team
+from
+  fleetdm_user as u,
+  jsonb_array_elements(u.teams) as t
+order by
   u.name,
   team_name;
 ```
 
-**Count users by global role:**
-```sql
-SELECT
+```sql+sqlite
+select
+  u.name as user_name,
+  u.email as user_email,
+  json_extract(t.value, '$.name') as team_name,
+  json_extract(t.value, '$.role') as role_in_team
+from
+  fleetdm_user as u,
+  json_each(u.teams) as t
+order by
+  u.name,
+  team_name;
+```
+
+### Count users by global role
+Analyze the distribution of user roles across your FleetDM instance to ensure proper role allocation.
+
+```sql+postgres
+select
   global_role,
-  COUNT(*) AS user_count
-FROM
+  count(*) as user_count
+from
   fleetdm_user
-GROUP BY
+group by
   global_role
-ORDER BY
-  user_count DESC;
+order by
+  user_count desc;
+```
+
+```sql+sqlite
+select
+  global_role,
+  count(*) as user_count
+from
+  fleetdm_user
+group by
+  global_role
+order by
+  user_count desc;
 ```

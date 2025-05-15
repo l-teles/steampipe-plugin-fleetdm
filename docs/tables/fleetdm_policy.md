@@ -1,82 +1,126 @@
-# Table: fleetdm_policy
+---
+title: "Steampipe Table: fleetdm_policy - Query FleetDM Policies using SQL"
+description: "Allows users to query FleetDM policies, providing insights into security configurations, compliance status, and policy distributions within your FleetDM instance."
+---
 
-This table lists the policies defined in FleetDM. Policies are osquery queries that determine if a host is passing or failing a specific security or configuration guideline. This table specifically queries global policies (from `/api/v1/fleet/global/policies`).
+# Table: fleetdm_policy - Query FleetDM Policies using SQL
 
-## Columns
+FleetDM is an open-source device management platform that helps you manage and secure your devices. Policies in FleetDM are osquery queries that determine if a host is passing or failing specific security or configuration guidelines, enabling automated compliance monitoring and enforcement.
 
-| Name                          | Type        | Description                                                                                         |
-| ----------------------------- | ----------- | --------------------------------------------------------------------------------------------------- |
-| id                            | `INT`       | Unique ID of the policy.                                                                            |
-| name                          | `TEXT`      | Name of the policy.                                                                                 |
-| query_text                    | `TEXT`      | The osquery query that defines the policy. (Mapped from API field `query`)                          |
-| description                   | `TEXT`      | Description of the policy.                                                                          |
-| platform                      | `TEXT`      | Target platform for the policy (e.g., 'darwin', 'windows', 'linux', or empty for all).              |
-| team_id                       | `INT`       | ID of the team the policy belongs to. Null if it's a global policy (which this table primarily lists). |
-| passing_host_count            | `INT`       | Number of hosts currently passing this policy.                                                      |
-| failing_host_count            | `INT`       | Number of hosts currently failing this policy.                                                      |
-| resolution                    | `TEXT`      | Resolution steps or instructions for hosts failing this policy.                                     |
-| author_id                     | `INT`       | ID of the user who created the policy.                                                              |
-| author_name                   | `TEXT`      | Name of the user who created the policy.                                                            |
-| author_email                  | `TEXT`      | Email of the user who created the policy.                                                           |
-| critical                      | `BOOLEAN`   | Whether the policy is marked as critical.                                                           |
-| calendar_events_enabled       | `BOOLEAN`   | Whether calendar events are enabled for this policy.                                                |
-| created_at                    | `TIMESTAMP` | Timestamp when the policy was created.                                                              |
-| updated_at                    | `TIMESTAMP` | Timestamp when the policy was last updated.                                                         |
-| filter_search_query           | `TEXT`      | (Key Column) Search query string to filter policies by name or query text. Use in `WHERE` clause.   |
-| server_url                    | `TEXT`      | FleetDM server URL from connection config.                                                          |
+## Table Usage Guide
 
-## Example Queries
+The `fleetdm_policy` table provides comprehensive insights into policy configurations within your FleetDM instance. As a security administrator or compliance officer, you can use this table to monitor policy compliance, track failing hosts, and maintain security standards. The table helps you understand policy effectiveness and compliance status across your fleet.
 
-**List all global policies and their pass/fail counts:**
-```sql
-SELECT
+## Examples
+
+### List all global policies and their pass/fail counts
+Get an overview of all global policies and their current compliance status across your fleet.
+
+```sql+postgres
+select
   id,
   name,
   platform,
   passing_host_count,
   failing_host_count
-FROM
+from
   fleetdm_policy
-ORDER BY
+order by
   name;
 ```
 
-**Find critical policies:**
-```sql
-SELECT
+```sql+sqlite
+select
+  id,
+  name,
+  platform,
+  passing_host_count,
+  failing_host_count
+from
+  fleetdm_policy
+order by
+  name;
+```
+
+### Find critical policies
+Identify critical policies and their current failure rates to prioritize remediation efforts.
+
+```sql+postgres
+select
   id,
   name,
   query_text,
   failing_host_count
-FROM
+from
   fleetdm_policy
-WHERE
-  critical = TRUE
-ORDER BY
-  failing_host_count DESC;
+where
+  critical = true
+order by
+  failing_host_count desc;
 ```
 
-**Search for policies related to "firewall":**
-```sql
-SELECT
+```sql+sqlite
+select
+  id,
+  name,
+  query_text,
+  failing_host_count
+from
+  fleetdm_policy
+where
+  critical = true
+order by
+  failing_host_count desc;
+```
+
+### Search for policies related to "firewall"
+Find policies that are specifically related to firewall configurations or monitoring.
+
+```sql+postgres
+select
   id,
   name,
   query_text
-FROM
+from
   fleetdm_policy
-WHERE
-  description LIKE '%firewall%' OR name LIKE '%Firewall%';
+where
+  description like '%firewall%' or name like '%Firewall%';
 ```
 
-**Count policies by platform:**
-```sql
-SELECT
-  platform,
-  COUNT(*) AS policy_count
-FROM
+```sql+sqlite
+select
+  id,
+  name,
+  query_text
+from
   fleetdm_policy
-GROUP BY
+where
+  description like '%firewall%' or name like '%Firewall%';
+```
+
+### Count policies by platform
+Analyze the distribution of policies across different operating system platforms.
+
+```sql+postgres
+select
+  platform,
+  count(*) as policy_count
+from
+  fleetdm_policy
+group by
   platform
-ORDER BY
-  policy_count DESC;
+order by
+  policy_count desc;
+```
+
+```sql+sqlite
+select
+  platform,
+  count(*) as policy_count
+from
+  fleetdm_policy
+group by
+  platform
+order by
+  policy_count desc;
 ```

@@ -1,6 +1,15 @@
-# Table: fleetdm_query
+---
+title: "Steampipe Table: fleetdm_query - Query FleetDM Saved Queries using SQL"
+description: "Allows users to query FleetDM saved queries, providing insights into query configurations, scheduling, and usage patterns within your FleetDM instance."
+---
 
-This table lists the saved queries in your FleetDM instance. Saved queries can be run manually or scheduled to collect information from hosts.
+# Table: fleetdm_query - Query FleetDM Saved Queries using SQL
+
+FleetDM is an open-source device management platform that helps you manage and secure your devices. The saved queries table contains information about queries that can be run manually or scheduled to collect information from hosts in your FleetDM instance.
+
+## Table Usage Guide
+
+The `fleetdm_query` table provides comprehensive insights into all saved queries within your FleetDM instance. As a system administrator or security analyst, you can use this table to manage and monitor query configurations, track query usage, and ensure proper scheduling of automated queries. The table helps you understand query ownership, scheduling patterns, and performance metrics.
 
 ## Columns
 
@@ -27,57 +36,114 @@ This table lists the saved queries in your FleetDM instance. Saved queries can b
 | query_text_filter             | `TEXT`      | (Key Column) Search query string to filter saved queries by name or SQL. Use in `WHERE` clause.     |
 | server_url                    | `TEXT`      | FleetDM server URL from connection config.                                                          |
 
-## Example Queries
+## Examples
 
-**List all saved queries and their authors:**
-```sql
-SELECT
+### List all saved queries and their authors
+Get an overview of all saved queries in your FleetDM instance, including who created them and when.
+
+```sql+postgres
+select
   id,
   name,
   query_sql,
   author_name,
   created_at
-FROM
+from
   fleetdm_query
-ORDER BY
+order by
   name;
 ```
 
-**Find queries scheduled to run (automations enabled):**
-```sql
-SELECT
+```sql+sqlite
+select
   id,
   name,
   query_sql,
-  "interval" AS schedule_interval_seconds
-FROM
+  author_name,
+  created_at
+from
   fleetdm_query
-WHERE
-  automations_enabled = TRUE
-ORDER BY
+order by
+  name;
+```
+
+### Find queries scheduled to run
+Identify all queries that have automations enabled and their scheduled intervals.
+
+```sql+postgres
+select
+  id,
+  name,
+  query_sql,
+  "interval" as schedule_interval_seconds
+from
+  fleetdm_query
+where
+  automations_enabled = true
+order by
   schedule_interval_seconds;
 ```
 
-**Search for queries containing "ssh" as part of the search:**
-```sql
-SELECT
+```sql+sqlite
+select
   id,
   name,
-  query_sql
-FROM
+  query_sql,
+  "interval" as schedule_interval_seconds
+from
   fleetdm_query
-WHERE
-  query_sql LIKE '%ssh%';
+where
+  automations_enabled = true
+order by
+  schedule_interval_seconds;
 ```
 
-**List queries associated with a specific team:**
-```sql
-SELECT
+### Search for queries containing "ssh"
+Find all queries that contain "ssh" in their SQL content, useful for security auditing and query management.
+
+```sql+postgres
+select
   id,
   name,
   query_sql
-FROM
+from
   fleetdm_query
-WHERE
-  team_id = 1; -- Replace with an existing team ID
+where
+  query_sql like '%ssh%';
+```
+
+```sql+sqlite
+select
+  id,
+  name,
+  query_sql
+from
+  fleetdm_query
+where
+  query_sql like '%ssh%';
+```
+
+### List queries associated with a specific team
+View all queries that belong to a particular team, helping with team-based query management.
+
+```sql+postgres
+select
+  id,
+  name,
+  query_sql
+from
+  fleetdm_query
+where
+  team_id = 1;
+```
+
+```sql+sqlite
+select
+  id,
+  name,
+  query_sql
+from
+  fleetdm_query
+where
+  team_id = 1;
 ```
