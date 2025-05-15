@@ -1,6 +1,15 @@
-# Table: fleetdm_software
+---
+title: "Steampipe Table: fleetdm_software - Query FleetDM Software Inventory using SQL"
+description: "Allows users to query FleetDM software inventory, providing insights into installed software, versions, and vulnerability information across managed hosts."
+---
 
-This table lists all software items inventoried by FleetDM across all managed hosts, including version, source, and vulnerability information.
+# Table: fleetdm_software - Query FleetDM Software Inventory using SQL
+
+FleetDM is an open-source device management platform that helps you manage and secure your devices. The software inventory table provides comprehensive information about all software items installed across your managed hosts, including version details, installation sources, and associated vulnerabilities.
+
+## Table Usage Guide
+
+The `fleetdm_software` table provides detailed insights into your software inventory within FleetDM. As a system administrator or security analyst, you can use this table to track software versions, identify vulnerable software, and maintain an up-to-date inventory of installed applications across your fleet. The table helps you understand software distribution, version patterns, and security risks associated with installed software.
 
 ## Columns
 
@@ -30,62 +39,124 @@ This table lists all software items inventoried by FleetDM across all managed ho
 | team_id                          | `INT`       | (Key Column) Filter by team ID. Use in `WHERE` clause.                                                     |
 | server_url                       | `TEXT`      | FleetDM server URL from connection config.                                                                 |
 
-## Example Queries
+## Examples
 
-**List top 10 most common software versions:**
-```sql
-SELECT
+### List top 10 most common software versions
+Identify the most widely deployed software versions across your fleet to help with standardization and update planning.
+
+```sql+postgres
+select
   name,
   version,
   source,
   host_count
-FROM
+from
   fleetdm_software
-ORDER BY
-  host_count DESC
-LIMIT 10;
+order by
+  host_count desc
+limit 10;
 ```
 
-**Find all versions of Google Chrome installed:**
-```sql
-SELECT
+```sql+sqlite
+select
+  name,
+  version,
+  source,
+  host_count
+from
+  fleetdm_software
+order by
+  host_count desc
+limit 10;
+```
+
+### Find all versions of Google Chrome installed
+Track different versions of Google Chrome across your fleet to identify outdated installations.
+
+```sql+postgres
+select
   name,
   version,
   host_count
-FROM
+from
   fleetdm_software
-WHERE
-  name = 'Google Chrome.app' -- Or appropriate name based on your FleetDM data
-ORDER BY
+where
+  name = 'Google Chrome.app'
+order by
   version;
 ```
 
-**List software with known vulnerabilities:**
-```sql
-SELECT
+```sql+sqlite
+select
+  name,
+  version,
+  host_count
+from
+  fleetdm_software
+where
+  name = 'Google Chrome.app'
+order by
+  version;
+```
+
+### List software with known vulnerabilities
+Identify software items with known security vulnerabilities to prioritize updates and remediation efforts.
+
+```sql+postgres
+select
   name,
   version,
   host_count,
-  jsonb_array_length(vulnerabilities) AS vulnerability_count
-FROM
+  jsonb_array_length(vulnerabilities) as vulnerability_count
+from
   fleetdm_software
-WHERE
-  vulnerabilities IS NOT NULL
-ORDER BY
-  vulnerability_count DESC,
-  host_count DESC;
+where
+  vulnerabilities is not null
+order by
+  vulnerability_count desc,
+  host_count desc;
 ```
 
-**Extract CVEs for a specific software item:**
-```sql
-SELECT
+```sql+sqlite
+select
+  name,
+  version,
+  host_count,
+  json_array_length(vulnerabilities) as vulnerability_count
+from
+  fleetdm_software
+where
+  vulnerabilities is not null
+order by
+  vulnerability_count desc,
+  host_count desc;
+```
+
+### Extract CVEs for a specific software item
+Get detailed vulnerability information for a specific software version to assess security risks.
+
+```sql+postgres
+select
   s.name,
   s.version,
-  v ->> 'cve' AS cve,
-  v ->> 'details_link' AS details_link
-FROM
-  fleetdm_software AS s,
-  jsonb_array_elements(s.vulnerabilities) AS v
-WHERE
-  s.name = 'Firefox.app' AND s.version = '100.0.1'; -- Adjust to a software item in your inventory
+  v ->> 'cve' as cve,
+  v ->> 'details_link' as details_link
+from
+  fleetdm_software as s,
+  jsonb_array_elements(s.vulnerabilities) as v
+where
+  s.name = 'Firefox.app' and s.version = '100.0.1';
+```
+
+```sql+sqlite
+select
+  s.name,
+  s.version,
+  json_extract(v.value, '$.cve') as cve,
+  json_extract(v.value, '$.details_link') as details_link
+from
+  fleetdm_software as s,
+  json_each(s.vulnerabilities) as v
+where
+  s.name = 'Firefox.app' and s.version = '100.0.1';
 ```

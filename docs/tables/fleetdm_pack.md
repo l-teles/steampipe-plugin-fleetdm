@@ -1,35 +1,23 @@
-# Table: fleetdm_pack
+---
+title: "Steampipe Table: fleetdm_pack - Query FleetDM Query Packs using SQL"
+description: "Allows users to query FleetDM query packs, providing insights into scheduled queries, target configurations, and pack distributions within your FleetDM instance."
+---
 
-This table lists the query packs in your FleetDM instance. Packs are collections of queries that can be scheduled to run against targeted hosts or labels.
+# Table: fleetdm_pack - Query FleetDM Query Packs using SQL
 
-## Columns
+FleetDM is an open-source device management platform that helps you manage and secure your devices. Query packs in FleetDM are collections of queries that can be scheduled to run against targeted hosts or labels, enabling automated data collection and monitoring.
 
-| Name                            | Type        | Description                                                                                                |
-| ------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------- |
-| id                              | `INT`       | Unique ID of the pack.                                                                                     |
-| name                            | `TEXT`      | Name of the pack.                                                                                          |
-| description                     | `TEXT`      | Description of the pack.                                                                                   |
-| platform                        | `TEXT`      | Target platform(s) for the pack (comma-separated, or empty for all).                                       |
-| disabled                        | `BOOLEAN`   | Indicates if the pack is disabled.                                                                         |
-| type                            | `TEXT`      | Type of the pack (e.g., 'global', 'team').                                                                 |
-| team_id                         | `INT`       | ID of the team the pack belongs to. Null if it's a global pack.                                            |
-| target_count                    | `INT`       | Number of targets (hosts/labels/teams) for this pack.                                                      |
-| total_scheduled_queries_count   | `INT`       | Total number of scheduled queries in this pack.                                                            |
-| created_at                      | `TIMESTAMP` | Timestamp when the pack was created.                                                                       |
-| updated_at                      | `TIMESTAMP` | Timestamp when the pack was last updated.                                                                  |
-| targets                         | `JSONB`     | Target hosts, labels, and teams for this pack. (Details available on GET /api/v1/fleet/packs/{id})         |
-| scheduled_queries               | `JSONB`     | Scheduled queries within this pack. (Details available on GET /api/v1/fleet/packs/{id})                    |
-| agent_options                   | `JSONB`     | Agent options associated with the pack (if it's a team pack). (Details available on GET /api/v1/fleet/packs/{id}) |
-| host_ids                        | `JSONB`     | List of host IDs targeted by this pack. (Details available on GET /api/v1/fleet/packs/{id})                |
-| label_ids                       | `JSONB`     | List of label IDs targeted by this pack. (Details available on GET /api/v1/fleet/packs/{id})               |
-| team_ids_targeted               | `JSONB`     | List of team IDs targeted by this pack, typically for global packs. (Details available on GET /api/v1/fleet/packs/{id}) |
-| server_url                      | `TEXT`      | FleetDM server URL from connection config.                                                                 |
+## Table Usage Guide
 
-## Example Queries
+The `fleetdm_pack` table provides comprehensive insights into query pack configurations within your FleetDM instance. As a system administrator, you can use this table to manage scheduled queries, monitor pack distributions, and maintain target configurations. The table helps you understand how queries are organized and scheduled across your fleet.
 
-**List all query packs:**
-```sql
-SELECT
+## Examples
+
+### List all query packs
+Get an overview of all query packs in your FleetDM instance, including their type and target information.
+
+```sql+postgres
+select
   id,
   name,
   type,
@@ -37,45 +25,102 @@ SELECT
   disabled,
   target_count,
   total_scheduled_queries_count
-FROM
+from
   fleetdm_pack
-ORDER BY
+order by
   name;
 ```
 
-**Find disabled packs:**
-```sql
-SELECT
+```sql+sqlite
+select
+  id,
+  name,
+  type,
+  platform,
+  disabled,
+  target_count,
+  total_scheduled_queries_count
+from
+  fleetdm_pack
+order by
+  name;
+```
+
+### Find disabled packs
+Identify query packs that are currently disabled and may need review or reconfiguration.
+
+```sql+postgres
+select
   id,
   name,
   type,
   platform
-FROM
+from
   fleetdm_pack
-WHERE
-  disabled = TRUE;
+where
+  disabled = true;
 ```
 
-**List packs targeted at a specific platform, e.g., 'darwin':**
-```sql
-SELECT
+```sql+sqlite
+select
+  id,
+  name,
+  type,
+  platform
+from
+  fleetdm_pack
+where
+  disabled = true;
+```
+
+### List packs targeted at a specific platform
+Find query packs that are configured to run on a specific operating system platform.
+
+```sql+postgres
+select
   id,
   name,
   description
-FROM
+from
   fleetdm_pack
-WHERE
-  platform = 'darwin' OR platform = '' OR platform IS NULL -- '' or NULL often means all platforms
-ORDER BY
+where
+  platform = 'darwin' or platform = '' or platform is null
+order by
   name;
 ```
 
-**Get details for a specific pack, including its scheduled queries (requires `getPack` hydration):**
-```sql
-SELECT
+```sql+sqlite
+select
+  id,
+  name,
+  description
+from
+  fleetdm_pack
+where
+  platform = 'darwin' or platform = '' or platform is null
+order by
+  name;
+```
+
+### Get details for a specific pack
+Examine the scheduled queries and configuration details for a particular query pack.
+
+```sql+postgres
+select
   name,
   scheduled_queries
-FROM
+from
   fleetdm_pack
-WHERE
-  id = 1; -- Replace with an actual pack ID
+where
+  id = 1;
+```
+
+```sql+sqlite
+select
+  name,
+  scheduled_queries
+from
+  fleetdm_pack
+where
+  id = 1;
+```
