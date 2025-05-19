@@ -54,5 +54,6 @@ go.work
 
 ### Other files ###
 /extra/*
+.DS_Store
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,go
