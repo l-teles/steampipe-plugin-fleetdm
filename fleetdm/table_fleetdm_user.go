@@ -79,10 +79,10 @@ func listUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 	page := 0
 	perPage := 50 // A reasonable default, adjust as needed or if API has specific limits/max
 
-	limit := d.QueryContext.Limit
-	if limit != nil && *limit < int64(perPage) {
-		// perPage = int(*limit) // Be cautious if API has minimum per_page
-	}
+	// limit := d.QueryContext.Limit
+	// if limit != nil && *limit < int64(perPage) {
+	// 	// perPage = int(*limit) // Be cautious if API has minimum per_page
+	// }
 
 	for {
 		params := url.Values{}
