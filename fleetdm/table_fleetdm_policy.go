@@ -99,10 +99,10 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 	page := 0
 	perPage := 50
 
-	limit := d.QueryContext.Limit
-	if limit != nil && *limit < int64(perPage) {
-		// perPage = int(*limit)
-	}
+	// limit := d.QueryContext.Limit
+	// if limit != nil && *limit < int64(perPage) {
+	// 	// perPage = int(*limit)
+	// }
 
 	for {
 		params := url.Values{}

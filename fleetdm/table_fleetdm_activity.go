@@ -86,10 +86,10 @@ func listActivities(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 	page := 0
 	perPage := 50 // API default is 20, max 100
 
-	limit := d.QueryContext.Limit
-	if limit != nil && *limit < int64(perPage) {
-		// perPage = int(*limit)
-	}
+	// limit := d.QueryContext.Limit
+	// if limit != nil && *limit < int64(perPage) {
+	// 	// perPage = int(*limit)
+	// }
 
 	for {
 		params := url.Values{}
