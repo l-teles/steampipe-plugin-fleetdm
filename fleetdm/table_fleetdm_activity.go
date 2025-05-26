@@ -15,24 +15,24 @@ import (
 // Activity represents an audit log activity in FleetDM.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#activity-object
 type Activity struct {
-	ID             uint            `json:"id"`
-	CreatedAt      time.Time       `json:"created_at"`
-	ActorFullName  string          `json:"actor_full_name"`
-	ActorID        *uint           `json:"actor_id"` // Can be null for system activities
-	ActorGravatar  string          `json:"actor_gravatar"`
-	Type           string          `json:"type"`     // e.g., "created_user", "deleted_pack", "live_query"
-	Details        json.RawMessage `json:"details"`  // JSON object, structure varies by type
-	ActorEmail     *string         `json:"actor_email,omitempty"` // Not in main doc, but often present
-	ActorType      string          `json:"actor_type,omitempty"`  // e.g. "user", "system" - not in main doc but useful
-	HostID         *uint           `json:"host_id,omitempty"`     // If activity relates to a specific host
-	HostDisplayName *string        `json:"host_display_name,omitempty"` // If activity relates to a specific host
+	ID              uint            `json:"id"`
+	CreatedAt       time.Time       `json:"created_at"`
+	ActorFullName   string          `json:"actor_full_name"`
+	ActorID         *uint           `json:"actor_id"` // Can be null for system activities
+	ActorGravatar   string          `json:"actor_gravatar"`
+	Type            string          `json:"type"`                        // e.g., "created_user", "deleted_pack", "live_query"
+	Details         json.RawMessage `json:"details"`                     // JSON object, structure varies by type
+	ActorEmail      *string         `json:"actor_email,omitempty"`       // Not in main doc, but often present
+	ActorType       string          `json:"actor_type,omitempty"`        // e.g. "user", "system" - not in main doc but useful
+	HostID          *uint           `json:"host_id,omitempty"`           // If activity relates to a specific host
+	HostDisplayName *string         `json:"host_display_name,omitempty"` // If activity relates to a specific host
 }
 
 // ListActivitiesResponse for `GET /api/v1/fleet/activities`
 // The API returns {"activities": [...]}
 type ListActivitiesResponse struct {
 	Activities []Activity `json:"activities"`
-	Meta       struct { // FleetDM API for activities includes a meta object for pagination
+	Meta       struct {   // FleetDM API for activities includes a meta object for pagination
 		HasNextResults     bool   `json:"has_next_results"`
 		HasPreviousResults bool   `json:"has_previous_results"`
 		NextCursor         string `json:"next_cursor"` // The API docs mention 'after' parameter with a timestamp, but also page/per_page. Let's assume page/per_page for now as per examples.
@@ -65,7 +65,6 @@ func tableFleetdmActivity(ctx context.Context) *plugin.Table {
 			{Name: "details", Type: proto.ColumnType_JSON, Description: "JSON object containing details specific to the activity type."},
 			{Name: "host_id", Type: proto.ColumnType_INT, Description: "ID of the host related to this activity, if applicable."},
 			{Name: "host_display_name", Type: proto.ColumnType_STRING, Description: "Display name of the host related to this activity, if applicable."},
-
 
 			// Connection config (server_url)
 			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},

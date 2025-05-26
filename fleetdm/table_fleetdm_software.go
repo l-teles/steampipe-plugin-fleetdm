@@ -13,68 +13,68 @@ import (
 
 // SoftwareVulnerability represents a vulnerability associated with a software item.
 type SoftwareVulnerability struct {
-	CVE                       string     `json:"cve"`
-	DetailsLink               string     `json:"details_link"`
-	CVSSScore                 *float64   `json:"cvss_score,omitempty"`                  // Common Vulnerability Scoring System
-	EPSSProbability           *float64   `json:"epss_probability,omitempty"`            // Exploit Prediction Scoring System
-	CISAKnownExploit          *bool      `json:"cisa_known_exploit,omitempty"`          // CISA Known Exploited Vulnerabilities Catalog
-	CVEPublished              *time.Time `json:"cve_published,omitempty"`               // Date CVE was published
-	ResolvedInVersion         *string    `json:"resolved_in_version,omitempty"`         // Version the vulnerability is resolved in
-	CurrentlyExploited        *bool      `json:"currently_exploited,omitempty"`         // Premium feature: From Recorded Future
-	Exploitability7Day        *int       `json:"exploitability_7_day,omitempty"`        // Premium feature
-	Exploitability30Day       *int       `json:"exploitability_30_day,omitempty"`       // Premium feature
-	Exploitability60Day       *int       `json:"exploitability_60_day,omitempty"`       // Premium feature
-	Exploitability90Day       *int       `json:"exploitability_90_day,omitempty"`       // Premium feature
-	ExploitedActivity7Day     *int       `json:"exploited_activity_7_day,omitempty"`    // Premium feature
-	ExploitedActivity30Day    *int       `json:"exploited_activity_30_day,omitempty"`   // Premium feature
-	ExploitedActivity60Day    *int       `json:"exploited_activity_60_day,omitempty"`   // Premium feature
-	ExploitedActivity90Day    *int       `json:"exploited_activity_90_day,omitempty"`   // Premium feature
-	ExploitedMalware7Day      *int       `json:"exploited_malware_7_day,omitempty"`     // Premium feature
-	ExploitedMalware30Day     *int       `json:"exploited_malware_30_day,omitempty"`    // Premium feature
-	ExploitedMalware60Day     *int       `json:"exploited_malware_60_day,omitempty"`    // Premium feature
-	ExploitedMalware90Day     *int       `json:"exploited_malware_90_day,omitempty"`    // Premium feature
-	ExploitedNetwork7Day      *int       `json:"exploited_network_7_day,omitempty"`     // Premium feature
-	ExploitedNetwork30Day     *int       `json:"exploited_network_30_day,omitempty"`    // Premium feature
-	ExploitedNetwork60Day     *int       `json:"exploited_network_60_day,omitempty"`    // Premium feature
-	ExploitedNetwork90Day     *int       `json:"exploited_network_90_day,omitempty"`    // Premium feature
-	ExploitedPublic7Day       *int       `json:"exploited_public_7_day,omitempty"`      // Premium feature
-	ExploitedPublic30Day      *int       `json:"exploited_public_30_day,omitempty"`     // Premium feature
-	ExploitedPublic60Day      *int       `json:"exploited_public_60_day,omitempty"`     // Premium feature
-	ExploitedPublic90Day      *int       `json:"exploited_public_90_day,omitempty"`     // Premium feature
-	ExploitedRansomware7Day   *int       `json:"exploited_ransomware_7_day,omitempty"`  // Premium feature
-	ExploitedRansomware30Day  *int       `json:"exploited_ransomware_30_day,omitempty"` // Premium feature
-	ExploitedRansomware60Day  *int       `json:"exploited_ransomware_60_day,omitempty"` // Premium feature
-	ExploitedRansomware90Day  *int       `json:"exploited_ransomware_90_day,omitempty"` // Premium feature
-	ExploitedRemote7Day       *int       `json:"exploited_remote_7_day,omitempty"`      // Premium feature
-	ExploitedRemote30Day      *int       `json:"exploited_remote_30_day,omitempty"`     // Premium feature
-	ExploitedRemote60Day      *int       `json:"exploited_remote_60_day,omitempty"`     // Premium feature
-	ExploitedRemote90Day      *int       `json:"exploited_remote_90_day,omitempty"`     // Premium feature
-	ExploitedUnauthenticated7Day *int    `json:"exploited_unauthenticated_7_day,omitempty"` // Premium feature
-	ExploitedUnauthenticated30Day *int   `json:"exploited_unauthenticated_30_day,omitempty"`// Premium feature
-	ExploitedUnauthenticated60Day *int   `json:"exploited_unauthenticated_60_day,omitempty"`// Premium feature
-	ExploitedUnauthenticated90Day *int   `json:"exploited_unauthenticated_90_day,omitempty"`// Premium feature
+	CVE                           string     `json:"cve"`
+	DetailsLink                   string     `json:"details_link"`
+	CVSSScore                     *float64   `json:"cvss_score,omitempty"`                       // Common Vulnerability Scoring System
+	EPSSProbability               *float64   `json:"epss_probability,omitempty"`                 // Exploit Prediction Scoring System
+	CISAKnownExploit              *bool      `json:"cisa_known_exploit,omitempty"`               // CISA Known Exploited Vulnerabilities Catalog
+	CVEPublished                  *time.Time `json:"cve_published,omitempty"`                    // Date CVE was published
+	ResolvedInVersion             *string    `json:"resolved_in_version,omitempty"`              // Version the vulnerability is resolved in
+	CurrentlyExploited            *bool      `json:"currently_exploited,omitempty"`              // Premium feature: From Recorded Future
+	Exploitability7Day            *int       `json:"exploitability_7_day,omitempty"`             // Premium feature
+	Exploitability30Day           *int       `json:"exploitability_30_day,omitempty"`            // Premium feature
+	Exploitability60Day           *int       `json:"exploitability_60_day,omitempty"`            // Premium feature
+	Exploitability90Day           *int       `json:"exploitability_90_day,omitempty"`            // Premium feature
+	ExploitedActivity7Day         *int       `json:"exploited_activity_7_day,omitempty"`         // Premium feature
+	ExploitedActivity30Day        *int       `json:"exploited_activity_30_day,omitempty"`        // Premium feature
+	ExploitedActivity60Day        *int       `json:"exploited_activity_60_day,omitempty"`        // Premium feature
+	ExploitedActivity90Day        *int       `json:"exploited_activity_90_day,omitempty"`        // Premium feature
+	ExploitedMalware7Day          *int       `json:"exploited_malware_7_day,omitempty"`          // Premium feature
+	ExploitedMalware30Day         *int       `json:"exploited_malware_30_day,omitempty"`         // Premium feature
+	ExploitedMalware60Day         *int       `json:"exploited_malware_60_day,omitempty"`         // Premium feature
+	ExploitedMalware90Day         *int       `json:"exploited_malware_90_day,omitempty"`         // Premium feature
+	ExploitedNetwork7Day          *int       `json:"exploited_network_7_day,omitempty"`          // Premium feature
+	ExploitedNetwork30Day         *int       `json:"exploited_network_30_day,omitempty"`         // Premium feature
+	ExploitedNetwork60Day         *int       `json:"exploited_network_60_day,omitempty"`         // Premium feature
+	ExploitedNetwork90Day         *int       `json:"exploited_network_90_day,omitempty"`         // Premium feature
+	ExploitedPublic7Day           *int       `json:"exploited_public_7_day,omitempty"`           // Premium feature
+	ExploitedPublic30Day          *int       `json:"exploited_public_30_day,omitempty"`          // Premium feature
+	ExploitedPublic60Day          *int       `json:"exploited_public_60_day,omitempty"`          // Premium feature
+	ExploitedPublic90Day          *int       `json:"exploited_public_90_day,omitempty"`          // Premium feature
+	ExploitedRansomware7Day       *int       `json:"exploited_ransomware_7_day,omitempty"`       // Premium feature
+	ExploitedRansomware30Day      *int       `json:"exploited_ransomware_30_day,omitempty"`      // Premium feature
+	ExploitedRansomware60Day      *int       `json:"exploited_ransomware_60_day,omitempty"`      // Premium feature
+	ExploitedRansomware90Day      *int       `json:"exploited_ransomware_90_day,omitempty"`      // Premium feature
+	ExploitedRemote7Day           *int       `json:"exploited_remote_7_day,omitempty"`           // Premium feature
+	ExploitedRemote30Day          *int       `json:"exploited_remote_30_day,omitempty"`          // Premium feature
+	ExploitedRemote60Day          *int       `json:"exploited_remote_60_day,omitempty"`          // Premium feature
+	ExploitedRemote90Day          *int       `json:"exploited_remote_90_day,omitempty"`          // Premium feature
+	ExploitedUnauthenticated7Day  *int       `json:"exploited_unauthenticated_7_day,omitempty"`  // Premium feature
+	ExploitedUnauthenticated30Day *int       `json:"exploited_unauthenticated_30_day,omitempty"` // Premium feature
+	ExploitedUnauthenticated60Day *int       `json:"exploited_unauthenticated_60_day,omitempty"` // Premium feature
+	ExploitedUnauthenticated90Day *int       `json:"exploited_unauthenticated_90_day,omitempty"` // Premium feature
 }
 
 // Software represents a software item in FleetDM.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#software-item
 type Software struct {
-	ID                 uint                    `json:"id"`
-	Name               string                  `json:"name"`
-	Version            string                  `json:"version"`
-	Source             string                  `json:"source"`
-	BundleIdentifier   *string                 `json:"bundle_identifier"` // macOS, iOS
-	GeneratedCPE       string                  `json:"generated_cpe"`
-	HostCount          uint                    `json:"host_count"` // Number of hosts with this software
-	Vulnerabilities    []SoftwareVulnerability `json:"vulnerabilities"`
-	CountsUpdatedAt    time.Time               `json:"counts_updated_at"` // Timestamp for when host_count was last updated
-	LastOpenedAt       *time.Time              `json:"last_opened_at"`    // This is typically per-host, might be null or aggregated differently in the global software list
-	Release            *string                 `json:"release,omitempty"` // e.g., for RPMs
-	Vendor             *string                 `json:"vendor,omitempty"`  // e.g., for RPMs
-	Arch               *string                 `json:"arch,omitempty"`    // e.g., for RPMs
-	ExtensionID        *string                 `json:"extension_id,omitempty"` // For browser extensions
-	Browser            *string                 `json:"browser,omitempty"`      // For browser extensions
-	Path               *string                 `json:"path,omitempty"`         // e.g., for Programs
-	InstalledPath      *string                 `json:"installed_path,omitempty"` // e.g., for Homebrew packages
+	ID               uint                    `json:"id"`
+	Name             string                  `json:"name"`
+	Version          string                  `json:"version"`
+	Source           string                  `json:"source"`
+	BundleIdentifier *string                 `json:"bundle_identifier"` // macOS, iOS
+	GeneratedCPE     string                  `json:"generated_cpe"`
+	HostCount        uint                    `json:"host_count"` // Number of hosts with this software
+	Vulnerabilities  []SoftwareVulnerability `json:"vulnerabilities"`
+	CountsUpdatedAt  time.Time               `json:"counts_updated_at"`        // Timestamp for when host_count was last updated
+	LastOpenedAt     *time.Time              `json:"last_opened_at"`           // This is typically per-host, might be null or aggregated differently in the global software list
+	Release          *string                 `json:"release,omitempty"`        // e.g., for RPMs
+	Vendor           *string                 `json:"vendor,omitempty"`         // e.g., for RPMs
+	Arch             *string                 `json:"arch,omitempty"`           // e.g., for RPMs
+	ExtensionID      *string                 `json:"extension_id,omitempty"`   // For browser extensions
+	Browser          *string                 `json:"browser,omitempty"`        // For browser extensions
+	Path             *string                 `json:"path,omitempty"`           // e.g., for Programs
+	InstalledPath    *string                 `json:"installed_path,omitempty"` // e.g., for Homebrew packages
 }
 
 // ListSoftwareResponse is the expected structure for the list software API call.
@@ -83,10 +83,10 @@ type ListSoftwareResponse struct {
 	Meta     struct {
 		HasNextResults     bool   `json:"has_next_results"`
 		HasPreviousResults bool   `json:"has_previous_results"`
-		NextCursor         string `json:"next_cursor"` 
+		NextCursor         string `json:"next_cursor"`
 	} `json:"meta"`
-	Count            int       `json:"count"` // Total count of all software items matching the query
-	CountsUpdatedAt  time.Time `json:"counts_updated_at"`
+	Count           int       `json:"count"` // Total count of all software items matching the query
+	CountsUpdatedAt time.Time `json:"counts_updated_at"`
 }
 
 func tableFleetdmSoftware(ctx context.Context) *plugin.Table {
@@ -154,8 +154,8 @@ func listSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
-		params.Add("order_key", "id") 
-		params.Add("order_direction", "asc") 
+		params.Add("order_key", "id")
+		params.Add("order_direction", "asc")
 
 		if d.EqualsQuals["vulnerable_only"] != nil {
 			params.Add("vulnerable", strconv.FormatBool(d.EqualsQuals["vulnerable_only"].GetBoolValue()))
@@ -187,10 +187,10 @@ func listSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 				return nil, nil
 			}
 		}
-		
+
 		// Log pagination details from the API response
-		plugin.Logger(ctx).Info("fleetdm_software.listSoftware", 
-			"page_processed", page, 
+		plugin.Logger(ctx).Info("fleetdm_software.listSoftware",
+			"page_processed", page,
 			"items_on_page", len(response.Software),
 			"api_total_count", response.Count, // Total items matching filter, not just on this page
 			"api_has_next_results", response.Meta.HasNextResults,
@@ -212,7 +212,7 @@ func listSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 			// or trust len(response.Software) < perPage as the more reliable indicator.
 			// For now, we will break if len(response.Software) < perPage, making HasNextResults secondary.
 		}
-		
+
 		// If HasNextResults is explicitly false, and we trust it, we can break early.
 		// However, considering a previous issue existed, let's prioritize the item count.
 		// if !response.Meta.HasNextResults {

@@ -14,18 +14,18 @@ import (
 // Label represents a FleetDM label.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#label-object
 type Label struct {
-	ID                 uint       `json:"id"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
-	Name               string     `json:"name"`
-	Description        string     `json:"description"`
-	Query              string     `json:"query"` // The SQL query for dynamic labeling
-	Platform           string     `json:"platform"` // e.g., "darwin", "windows", "linux", "" for all
-	LabelType          string     `json:"label_type"` // "regular" or "builtin"
+	ID                  uint      `json:"id"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
+	Name                string    `json:"name"`
+	Description         string    `json:"description"`
+	Query               string    `json:"query"`                 // The SQL query for dynamic labeling
+	Platform            string    `json:"platform"`              // e.g., "darwin", "windows", "linux", "" for all
+	LabelType           string    `json:"label_type"`            // "regular" or "builtin"
 	LabelMembershipType string    `json:"label_membership_type"` // "dynamic" or "manual" (manual not via API yet for creation)
-	HostCount          int        `json:"host_count"`
-	DisplayText        string     `json:"display_text"` // Usually same as name
-	BuiltIn            bool       `json:"built_in"`     // Derived from label_type == "builtin"
+	HostCount           int       `json:"host_count"`
+	DisplayText         string    `json:"display_text"` // Usually same as name
+	BuiltIn             bool      `json:"built_in"`     // Derived from label_type == "builtin"
 	// Hosts field is not typically included in list/get label, but on a separate endpoint like /labels/{id}/hosts
 }
 

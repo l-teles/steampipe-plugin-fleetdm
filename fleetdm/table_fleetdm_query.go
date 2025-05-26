@@ -27,8 +27,8 @@ type QuerySaved struct {
 	ObserverCanRun     bool            `json:"observer_can_run"` // Whether observers can run this query
 	TeamID             *uint           `json:"team_id"`          // Null if global
 	AutomationsEnabled bool            `json:"automations_enabled"`
-	Interval           *uint           `json:"interval"`   // For scheduled queries, in seconds
-	Platform           *string         `json:"platform"`   // Comma-separated list or empty for all
+	Interval           *uint           `json:"interval"` // For scheduled queries, in seconds
+	Platform           *string         `json:"platform"` // Comma-separated list or empty for all
 	MinOsqueryVersion  *string         `json:"min_osquery_version"`
 	Logging            *string         `json:"logging"` // "snapshot", "differential", "differential_ignore_removals"
 	Stats              json.RawMessage `json:"stats"`   // Performance statistics, complex object

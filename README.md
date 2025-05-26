@@ -36,7 +36,7 @@ connection "fleetdm" {
 Run a query:
 
 ```sql
-SELECT
+select
   id,
   hostname,
   display_name,
@@ -46,11 +46,11 @@ SELECT
   seen_time,
   team_name,
   uptime -- Uptime in nanoseconds
-FROM
+from
   fleetdm_host
-WHERE
-  platform = 'darwin' AND status = 'online'
-ORDER BY
+where
+  platform = 'darwin' and status = 'online'
+order by
   id;
 ```
 

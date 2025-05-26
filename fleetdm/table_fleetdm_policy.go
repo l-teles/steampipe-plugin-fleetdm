@@ -24,12 +24,12 @@ type Policy struct {
 	AuthorID              *uint     `json:"author_id"` // Pointer as it can be null
 	AuthorName            string    `json:"author_name"`
 	AuthorEmail           string    `json:"author_email"`
-	TeamID                *uint     `json:"team_id"`            // Null if global policy
-	Resolution            string    `json:"resolution"`         // Instructions for failing hosts
-	Platform              string    `json:"platform"`           // e.g., "windows", "linux", "darwin", "" for all
-	PassingHostCount      int       `json:"passing_host_count"` // Number of hosts passing the policy
-	FailingHostCount      int       `json:"failing_host_count"` // Number of hosts failing the policy
-	Critical              bool      `json:"critical"`           // Whether the policy is critical (introduced in Fleet 4.41)
+	TeamID                *uint     `json:"team_id"`                 // Null if global policy
+	Resolution            string    `json:"resolution"`              // Instructions for failing hosts
+	Platform              string    `json:"platform"`                // e.g., "windows", "linux", "darwin", "" for all
+	PassingHostCount      int       `json:"passing_host_count"`      // Number of hosts passing the policy
+	FailingHostCount      int       `json:"failing_host_count"`      // Number of hosts failing the policy
+	Critical              bool      `json:"critical"`                // Whether the policy is critical (introduced in Fleet 4.41)
 	CalendarEventsEnabled bool      `json:"calendar_events_enabled"` // Whether calendar events are enabled for this policy (Fleet 4.44+)
 }
 
