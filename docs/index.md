@@ -1,13 +1,13 @@
 ---
 organization: FleetDM
 category: ["security", "device-management"]
-icon_url: "/images/plugins/fleetdm/fleetdm.svg"
+icon_url: "/images/plugins/l-teles/fleetdm.svg"
 brand_color: "#1A73E8"
 display_name: FleetDM
 name: fleetdm
 description: Steampipe plugin for querying FleetDM hosts, software inventory, users, teams, policies, queries, packs, labels, and audit activities.
 og_description: Query FleetDM with SQL! Open source CLI. No DB required.
-og_image: "/images/plugins/fleetdm/fleetdm-social-graphic.png"
+og_image: "/images/plugins/l-teles/fleetdm-social-graphic.png"
 engines: ["steampipe", "sqlite", "postgres", "export"]
 ---
 
