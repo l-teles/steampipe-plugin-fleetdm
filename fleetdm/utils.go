@@ -49,9 +49,8 @@ func NewFleetDMClient(ctx context.Context, connection *plugin.Connection) (*Flee
 		// Does not have /api part, append the full path
 		baseURL += "/api/v1/fleet/"
 	}
-	
-	plugin.Logger(ctx).Info("NewFleetDMClient", "configured_server_url", *config.ServerURL, "derived_base_url", baseURL)
 
+	plugin.Logger(ctx).Info("NewFleetDMClient", "configured_server_url", *config.ServerURL, "derived_base_url", baseURL)
 
 	return &FleetDMClient{
 		BaseURL:  baseURL,
@@ -69,7 +68,7 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 	// Ensure endpoint doesn't start with a slash if BaseURL already ends with one
 	trimmedEndpoint := strings.TrimPrefix(endpoint, "/")
 	fullURLString := c.BaseURL + trimmedEndpoint
-	
+
 	fullURL, err := url.Parse(fullURLString)
 	if err != nil {
 		plugin.Logger(ctx).Error("FleetDMClient.Get", "url_parse_error", err, "base_url", c.BaseURL, "endpoint", endpoint)
@@ -118,7 +117,7 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 		// However, for simplicity and common practice, we'll read it once.
 		// If decoding fails, the original error from json.NewDecoder is usually sufficient.
 		// For more detailed debugging, one might capture the body before attempting to decode.
-		
+
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			plugin.Logger(ctx).Error("FleetDMClient.Get", "read_body_for_decode_error", err, "url", fullURL.String())
@@ -135,7 +134,6 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 
 	return resp, nil
 }
-
 
 // Hydrate function to get server_url from connection config
 func getServerURL(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {

@@ -15,14 +15,14 @@ import (
 // Team represents a FleetDM team.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#team-object
 type Team struct {
-	ID           uint            `json:"id"`
-	CreatedAt    time.Time       `json:"created_at"`
-	Name         string          `json:"name"`
-	Description  string          `json:"description"`
-	UserCount    int             `json:"user_count"`  // Calculated field, number of users in the team
-	HostCount    int             `json:"host_count"`  // Calculated field, number of hosts in the team
-	Secrets      []TeamSecret    `json:"secrets"`     // Agent enrollment secrets
-	Users        []TeamUser      `json:"users"`       // Users in the team with their roles
+	ID           uint             `json:"id"`
+	CreatedAt    time.Time        `json:"created_at"`
+	Name         string           `json:"name"`
+	Description  string           `json:"description"`
+	UserCount    int              `json:"user_count"`    // Calculated field, number of users in the team
+	HostCount    int              `json:"host_count"`    // Calculated field, number of hosts in the team
+	Secrets      []TeamSecret     `json:"secrets"`       // Agent enrollment secrets
+	Users        []TeamUser       `json:"users"`         // Users in the team with their roles
 	AgentOptions *json.RawMessage `json:"agent_options"` // Agent options for this team (can be complex JSON)
 	// TODO: Add other fields like 'policies_count', 'mdm', etc. if they become available directly on the team object
 	// Or consider hydrating them if they require separate API calls.

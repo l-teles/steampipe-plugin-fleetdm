@@ -17,15 +17,15 @@ func Plugin(ctx context.Context) *plugin.Plugin {
 		},
 		DefaultTransform: transform.FromGo().NullIfZero(),
 		TableMap: map[string]*plugin.Table{
+			"fleetdm_activity": tableFleetdmActivity(ctx),
 			"fleetdm_host":     tableFleetdmHost(ctx),
-			"fleetdm_software": tableFleetdmSoftware(ctx),
-			"fleetdm_user":     tableFleetdmUser(ctx),
+			"fleetdm_label":    tableFleetdmLabel(ctx),
+			"fleetdm_pack":     tableFleetdmPack(ctx),
 			"fleetdm_policy":   tableFleetdmPolicy(ctx),
 			"fleetdm_query":    tableFleetdmQuery(ctx),
+			"fleetdm_software": tableFleetdmSoftware(ctx),
 			"fleetdm_team":     tableFleetdmTeam(ctx),
-			"fleetdm_pack":     tableFleetdmPack(ctx),
-			"fleetdm_label":    tableFleetdmLabel(ctx),
-			"fleetdm_activity": tableFleetdmActivity(ctx),
+			"fleetdm_user":     tableFleetdmUser(ctx),
 		},
 	}
 	return p

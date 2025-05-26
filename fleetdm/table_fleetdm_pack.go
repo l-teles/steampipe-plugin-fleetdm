@@ -15,23 +15,23 @@ import (
 // Pack represents a query pack in FleetDM.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#pack-object
 type Pack struct {
-	ID                 uint             `json:"id"`
-	CreatedAt          time.Time        `json:"created_at"`
-	UpdatedAt          time.Time        `json:"updated_at"`
-	Name               string           `json:"name"`
-	Description        string           `json:"description"`
-	Platform           string           `json:"platform"` // Comma-separated list or empty for all
-	Disabled           bool             `json:"disabled"`
-	Type               string           `json:"type"`                // e.g., "global", "team"
-	TeamID             *uint            `json:"team_id"`             // Null if global
-	TargetCount        int              `json:"target_count"`        // Number of targets (hosts/labels)
-	TotalScheduledQueriesCount int      `json:"total_scheduled_queries_count"` // Total scheduled queries in the pack
-	Targets            *json.RawMessage `json:"targets,omitempty"`     // Only on GET /packs/{id}, complex object { hosts: [], labels: [], teams: [] }
-	ScheduledQueries   []ScheduledQuery `json:"scheduled_queries,omitempty"` // Only on GET /packs/{id}
-	AgentOptions       *json.RawMessage `json:"agent_options,omitempty"` // Present if pack is for a team
-	HostIDs            []uint           `json:"host_ids,omitempty"`    // Host IDs this pack is targeted to (from GET /packs/{id})
-	LabelIDs           []uint           `json:"label_ids,omitempty"`   // Label IDs this pack is targeted to (from GET /packs/{id})
-	TeamIDs            []uint           `json:"team_ids,omitempty"`    // Team IDs this pack is targeted to (from GET /packs/{id}) - usually for global packs targeting teams
+	ID                         uint             `json:"id"`
+	CreatedAt                  time.Time        `json:"created_at"`
+	UpdatedAt                  time.Time        `json:"updated_at"`
+	Name                       string           `json:"name"`
+	Description                string           `json:"description"`
+	Platform                   string           `json:"platform"` // Comma-separated list or empty for all
+	Disabled                   bool             `json:"disabled"`
+	Type                       string           `json:"type"`                          // e.g., "global", "team"
+	TeamID                     *uint            `json:"team_id"`                       // Null if global
+	TargetCount                int              `json:"target_count"`                  // Number of targets (hosts/labels)
+	TotalScheduledQueriesCount int              `json:"total_scheduled_queries_count"` // Total scheduled queries in the pack
+	Targets                    *json.RawMessage `json:"targets,omitempty"`             // Only on GET /packs/{id}, complex object { hosts: [], labels: [], teams: [] }
+	ScheduledQueries           []ScheduledQuery `json:"scheduled_queries,omitempty"`   // Only on GET /packs/{id}
+	AgentOptions               *json.RawMessage `json:"agent_options,omitempty"`       // Present if pack is for a team
+	HostIDs                    []uint           `json:"host_ids,omitempty"`            // Host IDs this pack is targeted to (from GET /packs/{id})
+	LabelIDs                   []uint           `json:"label_ids,omitempty"`           // Label IDs this pack is targeted to (from GET /packs/{id})
+	TeamIDs                    []uint           `json:"team_ids,omitempty"`            // Team IDs this pack is targeted to (from GET /packs/{id}) - usually for global packs targeting teams
 }
 
 // ScheduledQuery represents a query within a pack.
@@ -41,13 +41,13 @@ type ScheduledQuery struct {
 	Name              string  `json:"name"`
 	Query             string  `json:"query"` // The actual SQL of the saved query
 	Description       string  `json:"description"`
-	Interval          uint    `json:"interval"`          // Interval for this query within the pack
-	Platform          *string `json:"platform"`          // Platform for this query within the pack
+	Interval          uint    `json:"interval"`            // Interval for this query within the pack
+	Platform          *string `json:"platform"`            // Platform for this query within the pack
 	MinOsqueryVersion *string `json:"min_osquery_version"` // Min osquery version for this query within the pack
-	Logging           string  `json:"logging"`           // snapshot, differential, differential_ignore_removals
-	Removed           bool    `json:"removed"`           // Whether the query is removed (e.g. results are logged as removed)
-	Snapshot          *bool   `json:"snapshot"`          // Whether to run as a snapshot query
-	Shard             *uint   `json:"shard"`             // Shard number for the query
+	Logging           string  `json:"logging"`             // snapshot, differential, differential_ignore_removals
+	Removed           bool    `json:"removed"`             // Whether the query is removed (e.g. results are logged as removed)
+	Snapshot          *bool   `json:"snapshot"`            // Whether to run as a snapshot query
+	Shard             *uint   `json:"shard"`               // Shard number for the query
 }
 
 // ListPacksResponse for `GET /api/v1/fleet/packs`
@@ -89,7 +89,6 @@ func tableFleetdmPack(ctx context.Context) *plugin.Table {
 			{Name: "host_ids", Type: proto.ColumnType_JSON, Transform: transform.FromField("HostIDs"), Description: "List of host IDs targeted by this pack (from GET)."},
 			{Name: "label_ids", Type: proto.ColumnType_JSON, Transform: transform.FromField("LabelIDs"), Description: "List of label IDs targeted by this pack (from GET)."},
 			{Name: "team_ids_targeted", Type: proto.ColumnType_JSON, Transform: transform.FromField("TeamIDs"), Description: "List of team IDs targeted by this pack, typically for global packs (from GET)."},
-
 
 			// Connection config (server_url)
 			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},

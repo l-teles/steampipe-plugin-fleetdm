@@ -111,7 +111,7 @@ func listUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 			plugin.Logger(ctx).Debug("fleetdm_user.listUsers", "no_users_found_at_all", true)
 			return nil, nil // Stop if no users on the very first call
 		}
-		
+
 		for _, user := range usersResponse.Users {
 			d.StreamListItem(ctx, user)
 			if d.RowsRemaining(ctx) == 0 {

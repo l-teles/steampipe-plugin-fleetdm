@@ -33,60 +33,60 @@ type HostMDM struct {
 // Host represents a FleetDM host.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#host-object-details
 type Host struct {
-	ID                            int              `json:"id"`
-	CreatedAt                     time.Time        `json:"created_at"`
-	UpdatedAt                     time.Time        `json:"updated_at"`
-	SoftwareUpdatedAt             *time.Time       `json:"software_updated_at"`
-	DetailUpdatedAt               time.Time        `json:"detail_updated_at"`
-	LabelUpdatedAt                time.Time        `json:"label_updated_at"`
-	PolicyUpdatedAt               time.Time        `json:"policy_updated_at"`
-	LastEnrolledAt                time.Time        `json:"last_enrolled_at"`
-	SeenTime                      time.Time        `json:"seen_time"`
-	RefetchRequested              bool             `json:"refetch_requested"`
-	OsqueryHostID                 *string          `json:"osquery_host_id"`
-	NodeKey                       *string          `json:"node_key"`
-	UUID                          string           `json:"uuid"`
-	Hostname                      string           `json:"hostname"`
-	DisplayName                   string           `json:"display_name"`
-	DisplayText                   string           `json:"display_text"`
-	ComputerName                  string           `json:"computer_name"`
-	Platform                      string           `json:"platform"`
-	PlatformLike                  string           `json:"platform_like"`
-	OsVersion                     string           `json:"os_version"`
-	Build                         string           `json:"build"`
-	CodeName                      string           `json:"code_name"`
-	Uptime                        int64            `json:"uptime"` // Nanoseconds
-	Memory                        int64            `json:"memory"` // bytes
-	CPUType                       string           `json:"cpu_type"`
-	CPUSubtype                    string           `json:"cpu_subtype"`
-	CPUBrand                      string           `json:"cpu_brand"`
-	CPUPhysicalCores              int              `json:"cpu_physical_cores"`
-	CPULogicalCores               int              `json:"cpu_logical_cores"`
-	HardwareVendor                string           `json:"hardware_vendor"`
-	HardwareModel                 string           `json:"hardware_model"`
-	HardwareVersion               string           `json:"hardware_version"`
-	HardwareSerial                string           `json:"hardware_serial"`
-	PrimaryIP                     string           `json:"primary_ip"`
-	PrimaryMac                    string           `json:"primary_mac"`
-	PublicIP                      string           `json:"public_ip"`
-	OrbitVersion                  *string          `json:"orbit_version"`
-	FleetDesktopVersion           *string          `json:"fleet_desktop_version"`
-	ScriptsEnabled                *bool            `json:"scripts_enabled"`
-	OsqueryVersion                *string          `json:"osquery_version"`
-	TeamID                        *int             `json:"team_id"`
-	TeamName                      *string          `json:"team_name"`
-	DistributedInterval           *int             `json:"distributed_interval"`
-	ConfigTLSRefresh              *int             `json:"config_tls_refresh"`
-	LoggerTLSPeriod               *int             `json:"logger_tls_period"`
-	PackStats                     *json.RawMessage `json:"pack_stats"`
-	GigsDiskSpaceAvailable        float64          `json:"gigs_disk_space_available"`
-	PercentDiskSpaceAvailable     float64          `json:"percent_disk_space_available"`
-	GigsTotalDiskSpace            float64          `json:"gigs_total_disk_space"`
-	Status                        string           `json:"status"` // online, offline, mia
-	Issues                        *HostIssues      `json:"issues"`
-	MDM                           *HostMDM         `json:"mdm"`
-	RefetchCriticalQueriesUntil   *time.Time       `json:"refetch_critical_queries_until"`
-	LastRestartedAt               *time.Time       `json:"last_restarted_at"`
+	ID                          int              `json:"id"`
+	CreatedAt                   time.Time        `json:"created_at"`
+	UpdatedAt                   time.Time        `json:"updated_at"`
+	SoftwareUpdatedAt           *time.Time       `json:"software_updated_at"`
+	DetailUpdatedAt             time.Time        `json:"detail_updated_at"`
+	LabelUpdatedAt              time.Time        `json:"label_updated_at"`
+	PolicyUpdatedAt             time.Time        `json:"policy_updated_at"`
+	LastEnrolledAt              time.Time        `json:"last_enrolled_at"`
+	SeenTime                    time.Time        `json:"seen_time"`
+	RefetchRequested            bool             `json:"refetch_requested"`
+	OsqueryHostID               *string          `json:"osquery_host_id"`
+	NodeKey                     *string          `json:"node_key"`
+	UUID                        string           `json:"uuid"`
+	Hostname                    string           `json:"hostname"`
+	DisplayName                 string           `json:"display_name"`
+	DisplayText                 string           `json:"display_text"`
+	ComputerName                string           `json:"computer_name"`
+	Platform                    string           `json:"platform"`
+	PlatformLike                string           `json:"platform_like"`
+	OsVersion                   string           `json:"os_version"`
+	Build                       string           `json:"build"`
+	CodeName                    string           `json:"code_name"`
+	Uptime                      int64            `json:"uptime"` // Nanoseconds
+	Memory                      int64            `json:"memory"` // bytes
+	CPUType                     string           `json:"cpu_type"`
+	CPUSubtype                  string           `json:"cpu_subtype"`
+	CPUBrand                    string           `json:"cpu_brand"`
+	CPUPhysicalCores            int              `json:"cpu_physical_cores"`
+	CPULogicalCores             int              `json:"cpu_logical_cores"`
+	HardwareVendor              string           `json:"hardware_vendor"`
+	HardwareModel               string           `json:"hardware_model"`
+	HardwareVersion             string           `json:"hardware_version"`
+	HardwareSerial              string           `json:"hardware_serial"`
+	PrimaryIP                   string           `json:"primary_ip"`
+	PrimaryMac                  string           `json:"primary_mac"`
+	PublicIP                    string           `json:"public_ip"`
+	OrbitVersion                *string          `json:"orbit_version"`
+	FleetDesktopVersion         *string          `json:"fleet_desktop_version"`
+	ScriptsEnabled              *bool            `json:"scripts_enabled"`
+	OsqueryVersion              *string          `json:"osquery_version"`
+	TeamID                      *int             `json:"team_id"`
+	TeamName                    *string          `json:"team_name"`
+	DistributedInterval         *int             `json:"distributed_interval"`
+	ConfigTLSRefresh            *int             `json:"config_tls_refresh"`
+	LoggerTLSPeriod             *int             `json:"logger_tls_period"`
+	PackStats                   *json.RawMessage `json:"pack_stats"`
+	GigsDiskSpaceAvailable      float64          `json:"gigs_disk_space_available"`
+	PercentDiskSpaceAvailable   float64          `json:"percent_disk_space_available"`
+	GigsTotalDiskSpace          float64          `json:"gigs_total_disk_space"`
+	Status                      string           `json:"status"` // online, offline, mia
+	Issues                      *HostIssues      `json:"issues"`
+	MDM                         *HostMDM         `json:"mdm"`
+	RefetchCriticalQueriesUntil *time.Time       `json:"refetch_critical_queries_until"`
+	LastRestartedAt             *time.Time       `json:"last_restarted_at"`
 }
 
 // ListHostsResponse is the expected structure for the list hosts API call.
@@ -227,7 +227,7 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
-		
+
 		var response ListHostsResponse
 		_, err := client.Get(ctx, "hosts", params, &response)
 		if err != nil {
@@ -236,7 +236,7 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		}
 
 		for _, host := range response.Hosts {
-			if plugin.Logger(ctx).IsDebug() { 
+			if plugin.Logger(ctx).IsDebug() {
 				if host.MDM != nil {
 					mdmBytes, _ := json.Marshal(host.MDM)
 					plugin.Logger(ctx).Debug("fleetdm_host.listHosts", "host_id", host.ID, "mdm_data_from_list", string(mdmBytes))
