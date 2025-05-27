@@ -1,6 +1,8 @@
 ## v1.0.1 [2025-05-26]
 
-Minor fixes
+_What's new?_
+
+Minor fixes by @misraved
 
 ## v1.0.0 [2025-05-26]
 
