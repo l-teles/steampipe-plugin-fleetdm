@@ -1,8 +1,13 @@
+## v1.0.2 [2025-05-30]
+
+_What's new?_
+- Added `device_mapping`, `labels`, `policies`, `users` columns to `fleetdm_host` table
+
 ## v1.0.1 [2025-05-26]
 
 _What's new?_
 
-Minor fixes by @misraved
+- Minor fixes by @misraved
 
 ## v1.0.0 [2025-05-26]
 
