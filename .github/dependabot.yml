@@ -13,6 +13,6 @@ updates:
       separator: "-"
     assignees:
       - "misraved"
-      - "madhushreeray30"
+      - "l-teles"
     labels:
       - "dependencies"
