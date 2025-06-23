@@ -2,7 +2,7 @@ module steampipe-plugin-fleetdm
 
 go 1.24.2
 
-require github.com/turbot/steampipe-plugin-sdk/v5 v5.11.7
+require github.com/turbot/steampipe-plugin-sdk/v5 v5.12.0
 
 require (
 	cloud.google.com/go v0.112.1 // indirect
