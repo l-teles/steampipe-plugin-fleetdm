@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os" // Added for os.Getenv
 	"strings"
 	"time"
 
@@ -23,40 +24,63 @@ type FleetDMClient struct {
 
 // NewFleetDMClient creates a new FleetDM API client.
 func NewFleetDMClient(ctx context.Context, connection *plugin.Connection) (*FleetDMClient, error) {
-	config := GetConfig(connection)
+	config := GetConfig(connection) // Gets config from .spc file
 
-	if config.ServerURL == nil || *config.ServerURL == "" {
-		return nil, errors.New("'server_url' must be set in the connection configuration. Edit your connection configuration file and then restart Steampipe")
+	serverURL := ""
+	apiToken := ""
+
+	// Get Server URL: .spc file takes precedence, then environment variable
+	if config.ServerURL != nil && *config.ServerURL != "" {
+		serverURL = *config.ServerURL
+		plugin.Logger(ctx).Info("NewFleetDMClient", "server_url_source", ".spc_file")
+	} else {
+		envURL := os.Getenv("FLEETDM_URL")
+		if envURL != "" {
+			serverURL = envURL
+			plugin.Logger(ctx).Info("NewFleetDMClient", "server_url_source", "env_FLEETDM_URL")
+		}
 	}
-	if config.APIToken == nil || *config.APIToken == "" {
-		return nil, errors.New("'api_token' must be set in the connection configuration. Edit your connection configuration file and then restart Steampipe")
+
+	// Get API Token: .spc file takes precedence, then environment variable
+	if config.APIToken != nil && *config.APIToken != "" {
+		apiToken = *config.APIToken
+		plugin.Logger(ctx).Info("NewFleetDMClient", "api_token_source", ".spc_file")
+	} else {
+		envToken := os.Getenv("FLEETDM_API_TOKEN")
+		if envToken != "" {
+			apiToken = envToken
+			plugin.Logger(ctx).Info("NewFleetDMClient", "api_token_source", "env_FLEETDM_API_TOKEN")
+		}
 	}
 
-	// Normalize the baseURL provided by the user
-	baseURL := strings.TrimSuffix(*config.ServerURL, "/")
+	// Validate that we have the necessary configuration
+	if serverURL == "" {
+		return nil, errors.New("server_url must be configured in fleetdm.spc or via FLEETDM_URL environment variable")
+	}
+	if apiToken == "" {
+		return nil, errors.New("api_token must be configured in fleetdm.spc or via FLEETDM_API_TOKEN environment variable")
+	}
 
-	// Ensure BaseURL has the correct /api/v1/fleet/ prefix
+	// Normalize the baseURL
+	baseURL := strings.TrimSuffix(serverURL, "/")
 	if strings.HasSuffix(baseURL, "/api/v1/fleet") {
-		// Already has the full prefix, just ensure trailing slash
 		baseURL += "/"
 	} else if strings.HasSuffix(baseURL, "/api/v1") {
-		// Has /api/v1, needs /fleet/
 		baseURL += "/fleet/"
 	} else if strings.HasSuffix(baseURL, "/api") {
-		// Has /api, needs /v1/fleet/
 		baseURL += "/v1/fleet/"
 	} else {
-		// Does not have /api part, append the full path
 		baseURL += "/api/v1/fleet/"
 	}
+	
+	plugin.Logger(ctx).Debug("NewFleetDMClient", "final_derived_base_url", baseURL)
 
-	plugin.Logger(ctx).Info("NewFleetDMClient", "configured_server_url", *config.ServerURL, "derived_base_url", baseURL)
 
 	return &FleetDMClient{
 		BaseURL:  baseURL,
-		APIToken: *config.APIToken,
+		APIToken: apiToken,
 		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second, // Sensible default timeout
+			Timeout: 30 * time.Second, 
 		},
 	}, nil
 }
@@ -68,7 +92,7 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 	// Ensure endpoint doesn't start with a slash if BaseURL already ends with one
 	trimmedEndpoint := strings.TrimPrefix(endpoint, "/")
 	fullURLString := c.BaseURL + trimmedEndpoint
-
+	
 	fullURL, err := url.Parse(fullURLString)
 	if err != nil {
 		plugin.Logger(ctx).Error("FleetDMClient.Get", "url_parse_error", err, "base_url", c.BaseURL, "endpoint", endpoint)
@@ -112,20 +136,13 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 
 	// Decode the JSON response
 	if target != nil {
-		defer resp.Body.Close() // Ensure body is closed after decoding or if decoding fails
-		// TeeReader would allow us to read the body for decoding and then potentially re-read it for logging if decoding fails.
-		// However, for simplicity and common practice, we'll read it once.
-		// If decoding fails, the original error from json.NewDecoder is usually sufficient.
-		// For more detailed debugging, one might capture the body before attempting to decode.
-
 		bodyBytes, err := io.ReadAll(resp.Body)
 		if err != nil {
 			plugin.Logger(ctx).Error("FleetDMClient.Get", "read_body_for_decode_error", err, "url", fullURL.String())
 			return resp, fmt.Errorf("error reading response body from %s: %w", fullURL.String(), err)
 		}
 
-		// Now that we have the body bytes, we can attempt to unmarshal.
-		// This also allows logging the raw body if unmarshalling fails.
+
 		if err := json.Unmarshal(bodyBytes, target); err != nil {
 			plugin.Logger(ctx).Error("FleetDMClient.Get", "json_decode_error", err, "url", fullURL.String(), "response_body_snippet", string(bodyBytes[:500])) // Log a snippet
 			return resp, fmt.Errorf("error decoding JSON response from %s: %w. Response body: %s", fullURL.String(), err, string(bodyBytes))
