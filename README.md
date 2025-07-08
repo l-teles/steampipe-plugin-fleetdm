@@ -207,7 +207,7 @@ connection "fleetdm" {
 }
 ```
 
-Replace `YOUR_FLEETDM_SERVER_URL` and `YOUR_FLEETDM_API_TOKEN` with your actual FleetDM server URL and API token.
+Replace `server_url` and `api_token` with your actual FleetDM server URL and API token, or use the FLEETDM_URL and FLEETDM_API_TOKEN environment variables.
 
 ## Usage
 
