@@ -19,6 +19,7 @@ func Plugin(ctx context.Context) *plugin.Plugin {
 		TableMap: map[string]*plugin.Table{
 			"fleetdm_activity": tableFleetdmActivity(ctx),
 			"fleetdm_host":     tableFleetdmHost(ctx),
+			"fleetdm_host_detail":     tableFleetdmHostDetail(ctx),
 			"fleetdm_label":    tableFleetdmLabel(ctx),
 			"fleetdm_pack":     tableFleetdmPack(ctx),
 			"fleetdm_policy":   tableFleetdmPolicy(ctx),
