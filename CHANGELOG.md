@@ -1,9 +1,7 @@
 ## v1.2.0 [2025-07-25]
 
 _What's new?_
-
 - New `fleetdm_carves` and `fleetdm_host_detail` tables by @l-teles in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/16
-
 
 ## v1.1.1 [2025-07-25]
 
