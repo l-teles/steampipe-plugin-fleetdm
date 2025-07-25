@@ -14,7 +14,7 @@ The `fleetdm_host_detail` table provides detailed insights into your managed dev
 ## Examples
 
 ### List failing policies for a specific host
-```sql
+```sql+postgres
 select
   h.hostname,
   p ->> 'name' as policy_name,
@@ -25,10 +25,21 @@ from
 where
   h.id = 1
   and p ->> 'response' = 'fail';
+```sql+sqlite
+select
+  h.hostname,
+  p ->> 'name' as policy_name,
+  p ->> 'resolution' as policy_resolution
+from
+  fleetdm_host_detail as h,
+  json_each(h.policies) as p
+where
+  h.id = 1
+  and json_extract(p.value, '$.response') = 'fail';
 ```
 
 ### Get a list of installed software for a specific host
-```sql
+```sql+postgres
 select
   h.hostname,
   s ->> 'name' as software_name,
@@ -39,10 +50,21 @@ from
   jsonb_array_elements(h.software) as s
 where
   h.id = 1;
+```sql+sqlite
+select
+  h.hostname,
+  s.value ->> 'name' as software_name,
+  s.value ->> 'version' as software_version,
+  s.value ->> 'source' as software_source
+from
+  fleetdm_host_detail as h,
+  json_each(h.software) as s
+where
+  h.id = 1;
 ```
 
 ### Find hosts with low battery cycle count
-```sql
+```sql+postgres
 select
   hostname,
   platform,
@@ -53,10 +75,21 @@ from
   jsonb_array_elements(batteries) as b
 where
   (b ->> 'cycle_count')::int < 50;
+```sql+sqlite
+select
+  hostname,
+  platform,
+  json_extract(b.value, '$.cycle_count') as battery_cycle_count,
+  json_extract(b.value, '$.health') as battery_health
+from
+  fleetdm_host_detail,
+  json_each(batteries) as b
+where
+  cast(json_extract(b.value, '$.cycle_count') as int) < 50;
 ```
 
 ### List local users on a specific host
-```sql
+```sql+postgres
 select
   h.hostname,
   u ->> 'username' as username,
@@ -67,4 +100,14 @@ from
   jsonb_array_elements(h.users) as u
 where
   h.id = 1;
-```
+```sql+sqlite
+select
+  h.hostname,
+  u.value ->> 'username' as username,
+  u.value ->> 'uid' as uid,
+  u.value ->> 'shell' as shell
+from
+  fleetdm_host_detail h,
+  json_each(h.users) as u
+where
+  h.id = 1;
