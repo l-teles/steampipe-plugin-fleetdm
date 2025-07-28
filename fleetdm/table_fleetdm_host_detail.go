@@ -253,9 +253,6 @@ func tableFleetdmHostDetail(ctx context.Context) *plugin.Table {
 			{Name: "maintenance_window", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("MaintenanceWindow").Transform(arrayOrObjectToJSONString), Description: "Configured maintenance window for the host."},
 			{Name: "additional", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("Additional").Transform(arrayOrObjectToJSONString), Description: "Additional custom details for the host."},
 			{Name: "packs", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("Packs").Transform(arrayOrObjectToJSONString), Description: "Query packs applied to the host."},
-
-			// Connection config
-			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
 		},
 	}
 }

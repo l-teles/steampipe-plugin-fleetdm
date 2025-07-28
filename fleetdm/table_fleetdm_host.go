@@ -258,7 +258,6 @@ func tableFleetdmHost(ctx context.Context) *plugin.Table {
 			{Name: "policies", Type: proto.ColumnType_JSON, Transform: transform.FromField("Policies").Transform(arrayOrObjectToJSONString), Description: "Policy compliance status for this host (requires populate_policies=true)."},
 			{Name: "labels", Type: proto.ColumnType_JSON, Transform: transform.FromField("Labels").Transform(arrayOrObjectToJSONString), Description: "Labels applied to this host (requires populate_labels=true)."},
 			{Name: "device_mapping", Type: proto.ColumnType_JSON, Transform: transform.FromField("DeviceMapping").Transform(arrayOrObjectToJSONString), Description: "Device mapping information (requires device_mapping=true)."},
-			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
 		},
 	}
 }

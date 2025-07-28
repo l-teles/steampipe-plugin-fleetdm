@@ -151,12 +151,3 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 
 	return resp, nil
 }
-
-// Hydrate function to get server_url from connection config
-func getServerURL(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	config := GetConfig(d.Connection)
-	if config.ServerURL == nil {
-		return nil, fmt.Errorf("server_url is not configured")
-	}
-	return *config.ServerURL, nil
-}

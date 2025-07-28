@@ -89,9 +89,6 @@ func tableFleetdmPack(ctx context.Context) *plugin.Table {
 			{Name: "host_ids", Type: proto.ColumnType_JSON, Transform: transform.FromField("HostIDs"), Description: "List of host IDs targeted by this pack (from GET)."},
 			{Name: "label_ids", Type: proto.ColumnType_JSON, Transform: transform.FromField("LabelIDs"), Description: "List of label IDs targeted by this pack (from GET)."},
 			{Name: "team_ids_targeted", Type: proto.ColumnType_JSON, Transform: transform.FromField("TeamIDs"), Description: "List of team IDs targeted by this pack, typically for global packs (from GET)."},
-
-			// Connection config (server_url)
-			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
 		},
 	}
 }

@@ -9,7 +9,6 @@ import (
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
 
 // Activity represents an audit log activity in FleetDM.
@@ -65,9 +64,6 @@ func tableFleetdmActivity(ctx context.Context) *plugin.Table {
 			{Name: "details", Type: proto.ColumnType_JSON, Description: "JSON object containing details specific to the activity type."},
 			{Name: "host_id", Type: proto.ColumnType_INT, Description: "ID of the host related to this activity, if applicable."},
 			{Name: "host_display_name", Type: proto.ColumnType_STRING, Description: "Display name of the host related to this activity, if applicable."},
-
-			// Connection config (server_url)
-			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
 		},
 	}
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
 
 // Carve represents a file carving session in FleetDM.
@@ -59,9 +58,6 @@ func tableFleetdmCarve(ctx context.Context) *plugin.Table {
 			{Name: "expired", Type: proto.ColumnType_BOOL, Description: "Indicates if the carve session has expired."},
 			{Name: "error", Type: proto.ColumnType_STRING, Description: "Any error message associated with the carve session."},
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the carve session was created."},
-
-			// Connection config (server_url)
-			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
 		},
 	}
 }

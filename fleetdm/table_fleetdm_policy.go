@@ -82,9 +82,6 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 
 			// Key column for filtering via API 'query' parameter
 			{Name: "filter_search_query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("filter_search_query"), Description: "Search query string to filter policies by name or query text. Use in WHERE clause."},
-
-			// Connection config (server_url)
-			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
 		},
 	}
 }

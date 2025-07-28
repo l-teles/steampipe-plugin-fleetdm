@@ -1,9 +1,13 @@
+## v1.2.1 [2025-07-28]
+
+_What's new?_
+- 🐛 Remove `server_url` column from tables by @l-teles in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/18
+
 ## v1.2.0 [2025-07-25]
 
 _What's new?_
 - New `fleetdm_carves` and `fleetdm_host_detail` tables by @l-teles in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/16
-- Bump github.com/turbot/steampipe-plugin-sdk/v5 from 5.12.0 to 5.13.0 by @dependabot in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/17
-
+- Bump github.com/turbot/steampipe-plugin-sdk/v5 from 5.12.0 to 5.13.0 by @dependabot[bot] in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/17
 ## v1.1.1 [2025-07-25]
 
 _What's new?_
