@@ -9,7 +9,6 @@ import (
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
 
 // Team represents a FleetDM team.
@@ -80,9 +79,6 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 			// Could be expanded into separate tables or hydrated further.
 			{Name: "secrets", Type: proto.ColumnType_JSON, Description: "Enrollment secrets associated with the team."},
 			{Name: "users", Type: proto.ColumnType_JSON, Description: "Users belonging to this team and their roles. Fetched via GetTeam hydrate function."},
-
-			// Connection config (server_url)
-			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
 		},
 	}
 }

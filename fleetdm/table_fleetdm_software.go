@@ -132,9 +132,6 @@ func tableFleetdmSoftware(ctx context.Context) *plugin.Table {
 			{Name: "os_name", Type: proto.ColumnType_STRING, Transform: transform.FromQual("os_name"), Description: "Filter by OS name. Set in WHERE clause."},
 			{Name: "os_version", Type: proto.ColumnType_STRING, Transform: transform.FromQual("os_version"), Description: "Filter by OS version. Set in WHERE clause."},
 			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("team_id"), Description: "Filter by team ID. Set in WHERE clause."},
-
-			// Connection config (server_url)
-			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
 		},
 	}
 }

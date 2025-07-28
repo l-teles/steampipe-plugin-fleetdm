@@ -61,9 +61,6 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the user was created."},
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the user was last updated."},
 			{Name: "teams", Type: proto.ColumnType_JSON, Description: "Teams the user belongs to, including their role in each team.", Transform: transform.FromField("Teams")},
-
-			// Connection config (server_url)
-			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
 		},
 	}
 }

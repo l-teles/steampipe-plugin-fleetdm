@@ -63,9 +63,6 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 			{Name: "built_in", Type: proto.ColumnType_BOOL, Description: "Indicates if the label is a built-in label."},
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the label was created."},
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the label was last updated."},
-
-			// Connection config (server_url)
-			{Name: "server_url", Type: proto.ColumnType_STRING, Hydrate: getServerURL, Transform: transform.FromValue(), Description: "FleetDM server URL from connection config."},
 		},
 	}
 }
