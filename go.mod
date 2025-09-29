@@ -2,7 +2,7 @@ module steampipe-plugin-fleetdm
 
 go 1.24.2
 
-require github.com/turbot/steampipe-plugin-sdk/v5 v5.13.0
+require github.com/turbot/steampipe-plugin-sdk/v5 v5.13.1
 
 require (
 	cloud.google.com/go v0.112.1 // indirect
@@ -72,7 +72,7 @@ require (
 	github.com/stevenle/topsort v0.2.0 // indirect
 	github.com/tkrajina/go-reflector v0.5.6 // indirect
 	github.com/turbot/go-kit v1.1.0 // indirect
-	github.com/ulikunitz/xz v0.5.14 // indirect
+	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/zclconf/go-cty v1.14.4 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
