@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
@@ -36,16 +35,16 @@ type HostPolicy struct {
 	Resolution            string    `json:"resolution"`
 	Platform              string    `json:"platform"`
 	CalendarEventsEnabled bool      `json:"calendar_events_enabled"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	CreatedAt             FleetTime `json:"created_at"`
+	UpdatedAt             FleetTime `json:"updated_at"`
 	Response              string    `json:"response"` // e.g., "pass", "fail"
 }
 
 // HostLabel represents a label applied to a specific host.
 type HostLabel struct {
 	ID                  uint      `json:"id"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	CreatedAt           FleetTime `json:"created_at"`
+	UpdatedAt           FleetTime `json:"updated_at"`
 	Name                string    `json:"name"`
 	Description         string    `json:"description"`
 	Query               string    `json:"query"`
@@ -81,62 +80,62 @@ type DeviceMappingItem struct {
 // Host represents a FleetDM host.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#list-hosts
 type Host struct {
-	ID                            int                 `json:"id"`
-	CreatedAt                     time.Time           `json:"created_at"`
-	UpdatedAt                     time.Time           `json:"updated_at"`
-	SoftwareUpdatedAt             *time.Time          `json:"software_updated_at"`
-	DetailUpdatedAt               time.Time           `json:"detail_updated_at"`
-	LabelUpdatedAt                time.Time           `json:"label_updated_at"`
-	PolicyUpdatedAt               time.Time           `json:"policy_updated_at"`
-	LastEnrolledAt                time.Time           `json:"last_enrolled_at"`
-	SeenTime                      time.Time           `json:"seen_time"`
-	RefetchRequested              bool                `json:"refetch_requested"`
-	UUID                          string              `json:"uuid"`
-	Hostname                      string              `json:"hostname"`
-	DisplayName                   string              `json:"display_name"`
-	DisplayText                   string              `json:"display_text"`
-	ComputerName                  string              `json:"computer_name"`
-	Platform                      string              `json:"platform"`
-	PlatformLike                  string              `json:"platform_like"`
-	OsVersion                     string              `json:"os_version"`
-	Build                         string              `json:"build"`
-	CodeName                      string              `json:"code_name"`
-	Uptime                        int64               `json:"uptime"` // Nanoseconds
-	Memory                        int64               `json:"memory"` // bytes
-	CPUType                       string              `json:"cpu_type"`
-	CPUSubtype                    string              `json:"cpu_subtype"`
-	CPUBrand                      string              `json:"cpu_brand"`
-	CPUPhysicalCores              int                 `json:"cpu_physical_cores"`
-	CPULogicalCores               int                 `json:"cpu_logical_cores"`
-	HardwareVendor                string              `json:"hardware_vendor"`
-	HardwareModel                 string              `json:"hardware_model"`
-	HardwareVersion               string              `json:"hardware_version"`
-	HardwareSerial                string              `json:"hardware_serial"`
-	PrimaryIP                     string              `json:"primary_ip"`
-	PrimaryMac                    string              `json:"primary_mac"`
-	PublicIP                      string              `json:"public_ip"`
-	OrbitVersion                  *string             `json:"orbit_version"`
-	FleetDesktopVersion           *string             `json:"fleet_desktop_version"`
-	ScriptsEnabled                *bool               `json:"scripts_enabled"`
-	OsqueryVersion                *string             `json:"osquery_version"`
-	TeamID                        *int                `json:"team_id"`
-	TeamName                      *string             `json:"team_name"`
-	DistributedInterval           *int                `json:"distributed_interval"`
-	ConfigTLSRefresh              *int                `json:"config_tls_refresh"`
-	LoggerTLSPeriod               *int                `json:"logger_tls_period"`
-	PackStats                     *json.RawMessage    `json:"pack_stats"`
-	GigsDiskSpaceAvailable        float64             `json:"gigs_disk_space_available"`
-	PercentDiskSpaceAvailable     float64             `json:"percent_disk_space_available"`
-	GigsTotalDiskSpace            float64             `json:"gigs_total_disk_space"`
-	Status                        string              `json:"status"`
-	Issues                        *HostIssues         `json:"issues"`
-	MDM                           *HostMDM            `json:"mdm"`
-	RefetchCriticalQueriesUntil   *time.Time          `json:"refetch_critical_queries_until"`
-	LastRestartedAt               *time.Time          `json:"last_restarted_at"`
-	Users                         []HostUser          `json:"users,omitempty"`
-	Policies                      []HostPolicy        `json:"policies,omitempty"`
-	Labels                        []HostLabel         `json:"labels,omitempty"`
-	DeviceMapping                 []DeviceMappingItem `json:"device_mapping,omitempty"` // Updated from *json.RawMessage
+	ID                          int                 `json:"id"`
+	CreatedAt                   FleetTime           `json:"created_at"`
+	UpdatedAt                   FleetTime           `json:"updated_at"`
+	SoftwareUpdatedAt           *FleetTime          `json:"software_updated_at"`
+	DetailUpdatedAt             FleetTime           `json:"detail_updated_at"`
+	LabelUpdatedAt              FleetTime           `json:"label_updated_at"`
+	PolicyUpdatedAt             FleetTime           `json:"policy_updated_at"`
+	LastEnrolledAt              FleetTime           `json:"last_enrolled_at"`
+	SeenTime                    FleetTime           `json:"seen_time"`
+	RefetchRequested            bool                `json:"refetch_requested"`
+	UUID                        string              `json:"uuid"`
+	Hostname                    string              `json:"hostname"`
+	DisplayName                 string              `json:"display_name"`
+	DisplayText                 string              `json:"display_text"`
+	ComputerName                string              `json:"computer_name"`
+	Platform                    string              `json:"platform"`
+	PlatformLike                string              `json:"platform_like"`
+	OsVersion                   string              `json:"os_version"`
+	Build                       string              `json:"build"`
+	CodeName                    string              `json:"code_name"`
+	Uptime                      int64               `json:"uptime"` // Nanoseconds
+	Memory                      int64               `json:"memory"` // bytes
+	CPUType                     string              `json:"cpu_type"`
+	CPUSubtype                  string              `json:"cpu_subtype"`
+	CPUBrand                    string              `json:"cpu_brand"`
+	CPUPhysicalCores            int                 `json:"cpu_physical_cores"`
+	CPULogicalCores             int                 `json:"cpu_logical_cores"`
+	HardwareVendor              string              `json:"hardware_vendor"`
+	HardwareModel               string              `json:"hardware_model"`
+	HardwareVersion             string              `json:"hardware_version"`
+	HardwareSerial              string              `json:"hardware_serial"`
+	PrimaryIP                   string              `json:"primary_ip"`
+	PrimaryMac                  string              `json:"primary_mac"`
+	PublicIP                    string              `json:"public_ip"`
+	OrbitVersion                *string             `json:"orbit_version"`
+	FleetDesktopVersion         *string             `json:"fleet_desktop_version"`
+	ScriptsEnabled              *bool               `json:"scripts_enabled"`
+	OsqueryVersion              *string             `json:"osquery_version"`
+	TeamID                      *int                `json:"team_id"`
+	TeamName                    *string             `json:"team_name"`
+	DistributedInterval         *int                `json:"distributed_interval"`
+	ConfigTLSRefresh            *int                `json:"config_tls_refresh"`
+	LoggerTLSPeriod             *int                `json:"logger_tls_period"`
+	PackStats                   *json.RawMessage    `json:"pack_stats"`
+	GigsDiskSpaceAvailable      float64             `json:"gigs_disk_space_available"`
+	PercentDiskSpaceAvailable   float64             `json:"percent_disk_space_available"`
+	GigsTotalDiskSpace          float64             `json:"gigs_total_disk_space"`
+	Status                      string              `json:"status"`
+	Issues                      *HostIssues         `json:"issues"`
+	MDM                         *HostMDM            `json:"mdm"`
+	RefetchCriticalQueriesUntil *FleetTime          `json:"refetch_critical_queries_until"`
+	LastRestartedAt             *FleetTime          `json:"last_restarted_at"`
+	Users                       []HostUser          `json:"users,omitempty"`
+	Policies                    []HostPolicy        `json:"policies,omitempty"`
+	Labels                      []HostLabel         `json:"labels,omitempty"`
+	DeviceMapping               []DeviceMappingItem `json:"device_mapping,omitempty"` // Updated from *json.RawMessage
 }
 
 // ListHostsResponse is the expected structure for the list hosts API call.
@@ -181,7 +180,6 @@ func arrayOrObjectToJSONString(ctx context.Context, d *transform.TransformData) 
 	return string(jsonBytes), nil
 }
 
-
 func tableFleetdmHost(ctx context.Context) *plugin.Table {
 	return &plugin.Table{
 		Name:        "fleetdm_host",
@@ -200,17 +198,17 @@ func tableFleetdmHost(ctx context.Context) *plugin.Table {
 
 			// Status and Timestamps
 			{Name: "status", Type: proto.ColumnType_STRING, Description: "The current status of the host (online, offline, mia)."},
-			{Name: "seen_time", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host was last seen by Fleet."},
-			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host was created in Fleet."},
-			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host record was last updated in Fleet."},
-			{Name: "software_updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host software inventory was last updated."},
-			{Name: "detail_updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host details were last updated."},
-			{Name: "label_updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host labels were last updated."},
-			{Name: "policy_updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host policy status was last updated."},
-			{Name: "last_enrolled_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host last enrolled."},
-			{Name: "last_restarted_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp of the last host restart event."},
+			{Name: "seen_time", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("SeenTime").Transform(flexibleTimeTransform), Description: "Timestamp when the host was last seen by Fleet."},
+			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host was created in Fleet."},
+			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host record was last updated in Fleet."},
+			{Name: "software_updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("SoftwareUpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host software inventory was last updated."},
+			{Name: "detail_updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("DetailUpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host details were last updated."},
+			{Name: "label_updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LabelUpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host labels were last updated."},
+			{Name: "policy_updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("PolicyUpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host policy status was last updated."},
+			{Name: "last_enrolled_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LastEnrolledAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host last enrolled."},
+			{Name: "last_restarted_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LastRestartedAt").Transform(flexibleTimeTransform), Description: "Timestamp of the last host restart event."},
 			{Name: "refetch_requested", Type: proto.ColumnType_BOOL, Description: "Indicates if a refetch of host details has been requested."},
-			{Name: "refetch_critical_queries_until", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp until which critical queries will be refetched for this host."},
+			{Name: "refetch_critical_queries_until", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("RefetchCriticalQueriesUntil").Transform(flexibleTimeTransform), Description: "Timestamp until which critical queries will be refetched for this host."},
 
 			// OS and Platform
 			{Name: "platform", Type: proto.ColumnType_STRING, Description: "The platform of the host (e.g., 'darwin', 'windows', 'linux')."},
@@ -286,10 +284,10 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		params.Add("per_page", strconv.Itoa(perPage))
 		params.Add("order_key", "id")
 		params.Add("order_direction", "desc") // Get latest hosts first, or 'asc' for consistent paging
-		
+
 		addHostPopulationParams(params)
 		plugin.Logger(ctx).Debug("fleetdm_host.listHosts", "request_params", params.Encode())
-		
+
 		var response ListHostsResponse
 		_, err := client.Get(ctx, "hosts", params, &response)
 		if err != nil {

@@ -5,17 +5,17 @@ import (
 	"encoding/json" // Added import for json.RawMessage
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
 
 // Team represents a FleetDM team.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#team-object
 type Team struct {
 	ID           uint             `json:"id"`
-	CreatedAt    time.Time        `json:"created_at"`
+	CreatedAt    FleetTime        `json:"created_at"`
 	Name         string           `json:"name"`
 	Description  string           `json:"description"`
 	UserCount    int              `json:"user_count"`    // Calculated field, number of users in the team
@@ -30,7 +30,7 @@ type Team struct {
 // TeamSecret represents an enrollment secret for a team.
 type TeamSecret struct {
 	Secret    string    `json:"secret"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt FleetTime `json:"created_at"`
 	TeamID    uint      `json:"team_id"` // This might be redundant if secrets are always nested under a team object
 }
 
@@ -72,7 +72,7 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 			{Name: "description", Type: proto.ColumnType_STRING, Description: "Description of the team."},
 			{Name: "user_count", Type: proto.ColumnType_INT, Description: "Number of users in the team."},
 			{Name: "host_count", Type: proto.ColumnType_INT, Description: "Number of hosts assigned to the team."},
-			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the team was created."},
+			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the team was created."},
 			{Name: "agent_options", Type: proto.ColumnType_JSON, Description: "Agent options configured for this team."},
 
 			// Secrets and Users are complex objects/arrays, exposing as JSON.

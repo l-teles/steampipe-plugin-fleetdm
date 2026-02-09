@@ -1,3 +1,17 @@
+## v1.2.3 [2026-02-09]
+
+_What's new?_
+
+- Bump github.com/turbot/steampipe-plugin-sdk/v5 from 5.13.0 to 5.13.1 by @dependabot[bot] in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/20
+- Bump golang.org/x/crypto from 0.36.0 to 0.45.0 in the go_modules group across 1 directory by @dependabot[bot] in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/21
+- Bump github.com/turbot/steampipe-plugin-sdk/v5 from 5.13.1 to 5.13.2 by @dependabot[bot] in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/22
+- Fix: Handle empty time strings from FleetDM API across all tables by l-teles in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/24
+
+## v1.2.2 [2025-08-28]
+
+_What's new?_
+- * Bump the go_modules group with 2 updates by @dependabot[bot] in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/19
+
 ## v1.2.1 [2025-07-28]
 
 _What's new?_
@@ -8,6 +22,7 @@ _What's new?_
 _What's new?_
 - New `fleetdm_carves` and `fleetdm_host_detail` tables by @l-teles in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/16
 - Bump github.com/turbot/steampipe-plugin-sdk/v5 from 5.12.0 to 5.13.0 by @dependabot[bot] in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/17
+
 ## v1.1.1 [2025-07-25]
 
 _What's new?_

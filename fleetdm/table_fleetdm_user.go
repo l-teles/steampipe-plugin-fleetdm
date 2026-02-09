@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
@@ -15,8 +14,8 @@ import (
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#user-object
 type User struct {
 	ID                       uint       `json:"id"`
-	CreatedAt                time.Time  `json:"created_at"`
-	UpdatedAt                time.Time  `json:"updated_at"`
+	CreatedAt                FleetTime  `json:"created_at"`
+	UpdatedAt                FleetTime  `json:"updated_at"`
 	Name                     string     `json:"name"`
 	Email                    string     `json:"email"`
 	AdminForcedPasswordReset bool       `json:"admin_forced_password_reset"`
@@ -58,8 +57,8 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 			{Name: "sso_enabled", Type: proto.ColumnType_BOOL, Description: "Indicates if Single Sign-On is enabled for the user."},
 			{Name: "admin_forced_password_reset", Type: proto.ColumnType_BOOL, Description: "Indicates if an admin has forced a password reset for the user."},
 			{Name: "gravatar_url", Type: proto.ColumnType_STRING, Description: "URL for the user's Gravatar image."},
-			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the user was created."},
-			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the user was last updated."},
+			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the user was created."},
+			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the user was last updated."},
 			{Name: "teams", Type: proto.ColumnType_JSON, Description: "Teams the user belongs to, including their role in each team.", Transform: transform.FromField("Teams")},
 		},
 	}

@@ -5,7 +5,6 @@ import (
 	"encoding/json" // For json.RawMessage
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
@@ -16,8 +15,8 @@ import (
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#pack-object
 type Pack struct {
 	ID                         uint             `json:"id"`
-	CreatedAt                  time.Time        `json:"created_at"`
-	UpdatedAt                  time.Time        `json:"updated_at"`
+	CreatedAt                  FleetTime        `json:"created_at"`
+	UpdatedAt                  FleetTime        `json:"updated_at"`
 	Name                       string           `json:"name"`
 	Description                string           `json:"description"`
 	Platform                   string           `json:"platform"` // Comma-separated list or empty for all
@@ -79,8 +78,8 @@ func tableFleetdmPack(ctx context.Context) *plugin.Table {
 			{Name: "team_id", Type: proto.ColumnType_INT, Description: "ID of the team the pack belongs to. Null if it's a global pack."},
 			{Name: "target_count", Type: proto.ColumnType_INT, Description: "Number of targets (hosts/labels/teams) for this pack."},
 			{Name: "total_scheduled_queries_count", Type: proto.ColumnType_INT, Description: "Total number of scheduled queries in this pack."},
-			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the pack was created."},
-			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the pack was last updated."},
+			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the pack was created."},
+			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the pack was last updated."},
 
 			// Details available from GET /packs/{id}
 			{Name: "targets", Type: proto.ColumnType_JSON, Description: "Target hosts, labels, and teams for this pack (details from GET)."},
