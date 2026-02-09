@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
@@ -15,8 +14,8 @@ import (
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#label-object
 type Label struct {
 	ID                  uint      `json:"id"`
-	CreatedAt           time.Time `json:"created_at"`
-	UpdatedAt           time.Time `json:"updated_at"`
+	CreatedAt           FleetTime `json:"created_at"`
+	UpdatedAt           FleetTime `json:"updated_at"`
 	Name                string    `json:"name"`
 	Description         string    `json:"description"`
 	Query               string    `json:"query"`                 // The SQL query for dynamic labeling
@@ -61,8 +60,8 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 			{Name: "label_membership_type", Type: proto.ColumnType_STRING, Description: "Membership type, e.g., 'dynamic' or 'manual'."},
 			{Name: "host_count", Type: proto.ColumnType_INT, Description: "Number of hosts associated with this label."},
 			{Name: "built_in", Type: proto.ColumnType_BOOL, Description: "Indicates if the label is a built-in label."},
-			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the label was created."},
-			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the label was last updated."},
+			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the label was created."},
+			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the label was last updated."},
 		},
 	}
 }

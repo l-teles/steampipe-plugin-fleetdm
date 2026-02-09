@@ -13,7 +13,64 @@ import (
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
+
+// FleetTime is a custom time type that handles empty strings in JSON unmarshalling.
+// The Fleet DM API may return empty strings for time fields, which causes
+// the standard time.Time JSON unmarshaller to fail.
+type FleetTime struct {
+	time.Time
+}
+
+// UnmarshalJSON implements the json.Unmarshaler interface for FleetTime.
+func (ft *FleetTime) UnmarshalJSON(data []byte) error {
+	s := string(data)
+	if s == "null" || s == `""` {
+		ft.Time = time.Time{}
+		return nil
+	}
+	return ft.Time.UnmarshalJSON(data)
+}
+
+// MarshalJSON implements the json.Marshaler interface for FleetTime.
+func (ft FleetTime) MarshalJSON() ([]byte, error) {
+	if ft.IsZero() {
+		return []byte("null"), nil
+	}
+	return ft.Time.MarshalJSON()
+}
+
+// flexibleTimeTransform converts FleetTime or time.Time values to time.Time for Steampipe TIMESTAMP columns.
+func flexibleTimeTransform(_ context.Context, d *transform.TransformData) (interface{}, error) {
+	if d.Value == nil {
+		return nil, nil
+	}
+	switch v := d.Value.(type) {
+	case FleetTime:
+		if v.IsZero() {
+			return nil, nil
+		}
+		return v.Time, nil
+	case *FleetTime:
+		if v == nil || v.IsZero() {
+			return nil, nil
+		}
+		return v.Time, nil
+	case time.Time:
+		if v.IsZero() {
+			return nil, nil
+		}
+		return v, nil
+	case *time.Time:
+		if v == nil || v.IsZero() {
+			return nil, nil
+		}
+		return *v, nil
+	default:
+		return nil, fmt.Errorf("flexibleTimeTransform: unexpected type %T", d.Value)
+	}
+}
 
 // FleetDMClient is a client for the FleetDM API.
 type FleetDMClient struct {

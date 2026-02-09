@@ -5,17 +5,17 @@ import (
 	"encoding/json" // For json.RawMessage
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
 
 // Activity represents an audit log activity in FleetDM.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#activity-object
 type Activity struct {
 	ID              uint            `json:"id"`
-	CreatedAt       time.Time       `json:"created_at"`
+	CreatedAt       FleetTime       `json:"created_at"`
 	ActorFullName   string          `json:"actor_full_name"`
 	ActorID         *uint           `json:"actor_id"` // Can be null for system activities
 	ActorGravatar   string          `json:"actor_gravatar"`
@@ -55,7 +55,7 @@ func tableFleetdmActivity(ctx context.Context) *plugin.Table {
 		// No GetConfig for activities as individual activity GET is not standard.
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the activity."},
-			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the activity occurred."},
+			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the activity occurred."},
 			{Name: "actor_full_name", Type: proto.ColumnType_STRING, Description: "Full name of the actor who performed the activity."},
 			{Name: "actor_id", Type: proto.ColumnType_INT, Description: "ID of the actor (user). Null for system activities."},
 			{Name: "actor_email", Type: proto.ColumnType_STRING, Description: "Email of the actor."},

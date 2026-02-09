@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
@@ -50,7 +49,7 @@ type HostGeolocation struct {
 
 // HostMaintenanceWindow represents a configured maintenance window.
 type HostMaintenanceWindow struct {
-	StartsAt time.Time `json:"starts_at"`
+	StartsAt FleetTime `json:"starts_at"`
 	Timezone string    `json:"timezone"`
 }
 
@@ -62,7 +61,7 @@ type HostOtherEmail struct {
 
 // HostEndUser represents an end user associated with a device.
 type HostEndUser struct {
-	IdpInfoUpdatedAt time.Time        `json:"idp_info_updated_at"`
+	IdpInfoUpdatedAt FleetTime        `json:"idp_info_updated_at"`
 	IdpID            string           `json:"idp_id"`
 	IdpUsername      string           `json:"idp_username"`
 	IdpFullName      string           `json:"idp_full_name"`
@@ -78,7 +77,7 @@ type HostSoftware struct {
 	Source           string           `json:"source"`
 	Browser          string           `json:"browser"`
 	BundleIdentifier string           `json:"bundle_identifier"`
-	LastOpenedAt     *time.Time       `json:"last_opened_at"`
+	LastOpenedAt     *FleetTime       `json:"last_opened_at"`
 	GeneratedCPE     string           `json:"generated_cpe"`
 	Vulnerabilities  *json.RawMessage `json:"vulnerabilities"`
 	InstalledPaths   []string         `json:"installed_paths"`
@@ -86,69 +85,70 @@ type HostSoftware struct {
 
 // HostDetail represents the full, rich host object from GET /hosts/:id
 type HostDetail struct {
-	ID                            int                    `json:"id"`
-	CreatedAt                     time.Time              `json:"created_at"`
-	UpdatedAt                     time.Time              `json:"updated_at"`
-	SoftwareUpdatedAt             time.Time              `json:"software_updated_at"`
-	DetailUpdatedAt               time.Time              `json:"detail_updated_at"`
-	LabelUpdatedAt                time.Time              `json:"label_updated_at"`
-	PolicyUpdatedAt               time.Time              `json:"policy_updated_at"`
-	LastEnrolledAt                time.Time              `json:"last_enrolled_at"`
-	LastMdmCheckedInAt            time.Time              `json:"last_mdm_checked_in_at"`
-	LastMdmEnrolledAt             time.Time              `json:"last_mdm_enrolled_at"`
-	LastRestartedAt               *time.Time             `json:"last_restarted_at"`
-	SeenTime                      time.Time              `json:"seen_time"`
-	RefetchRequested              bool                   `json:"refetch_requested"`
-	Hostname                      string                 `json:"hostname"`
-	UUID                          string                 `json:"uuid"`
-	Platform                      string                 `json:"platform"`
-	OsqueryVersion                string                 `json:"osquery_version"`
-	OrbitVersion                  *string                `json:"orbit_version"`
-	FleetDesktopVersion           *string                `json:"fleet_desktop_version"`
-	ScriptsEnabled                *bool                  `json:"scripts_enabled"`
-	OsVersion                     string                 `json:"os_version"`
-	Build                         string                 `json:"build"`
-	PlatformLike                  string                 `json:"platform_like"`
-	CodeName                      string                 `json:"code_name"`
-	Uptime                        int64                  `json:"uptime"`
-	Memory                        int64                  `json:"memory"`
-	CPUType                       string                 `json:"cpu_type"`
-	CPUSubtype                    string                 `json:"cpu_subtype"`
-	CPUBrand                      string                 `json:"cpu_brand"`
-	CPUPhysicalCores              int                    `json:"cpu_physical_cores"`
-	CPULogicalCores               int                    `json:"cpu_logical_cores"`
-	HardwareVendor                string                 `json:"hardware_vendor"`
-	HardwareModel                 string                 `json:"hardware_model"`
-	HardwareVersion               string                 `json:"hardware_version"`
-	HardwareSerial                string                 `json:"hardware_serial"`
-	ComputerName                  string                 `json:"computer_name"`
-	DisplayName                   string                 `json:"display_name"`
-	PublicIP                      string                 `json:"public_ip"`
-	PrimaryIP                     string                 `json:"primary_ip"`
-	PrimaryMac                    string                 `json:"primary_mac"`
-	DistributedInterval           int                    `json:"distributed_interval"`
-	ConfigTLSRefresh              int                    `json:"config_tls_refresh"`
-	LoggerTLSPeriod               int                    `json:"logger_tls_period"`
-	TeamID                        *int                   `json:"team_id"`
-	TeamName                      *string                `json:"team_name"`
-	GigsDiskSpaceAvailable        float64                `json:"gigs_disk_space_available"`
-	PercentDiskSpaceAvailable     float64                `json:"percent_disk_space_available"`
-	GigsTotalDiskSpace            float64                `json:"gigs_total_disk_space"`
-	DiskEncryptionEnabled         *bool                  `json:"disk_encryption_enabled"`
-	Status                        string                 `json:"status"`
-	DisplayText                   string                 `json:"display_text"`
-	Additional                    *json.RawMessage       `json:"additional"`
-	Issues                        *HostIssues            `json:"issues"`
-	Batteries                     []HostBattery          `json:"batteries"`
-	Geolocation                   *HostGeolocation       `json:"geolocation"`
-	MaintenanceWindow             *HostMaintenanceWindow `json:"maintenance_window"`
-	Users                         []HostUser             `json:"users"`
-	EndUsers                      []HostEndUser          `json:"end_users"`
-	Labels                        []HostLabel            `json:"labels"`
-	Packs                         *json.RawMessage       `json:"packs"`
-	Policies                      []HostPolicy           `json:"policies"`
-	Software                      []HostSoftware         `json:"software"`
-	MDM                           *HostMDMDetail         `json:"mdm"`
+	ID                          int                    `json:"id"`
+	CreatedAt                   FleetTime              `json:"created_at"`
+	UpdatedAt                   FleetTime              `json:"updated_at"`
+	SoftwareUpdatedAt           FleetTime              `json:"software_updated_at"`
+	DetailUpdatedAt             FleetTime              `json:"detail_updated_at"`
+	LabelUpdatedAt              FleetTime              `json:"label_updated_at"`
+	PolicyUpdatedAt             FleetTime              `json:"policy_updated_at"`
+	LastEnrolledAt              FleetTime              `json:"last_enrolled_at"`
+	LastMdmCheckedInAt          FleetTime              `json:"last_mdm_checked_in_at"`
+	LastMdmEnrolledAt           FleetTime              `json:"last_mdm_enrolled_at"`
+	LastRestartedAt             *FleetTime             `json:"last_restarted_at"`
+	RefetchCriticalQueriesUntil *FleetTime             `json:"refetch_critical_queries_until"`
+	SeenTime                    FleetTime              `json:"seen_time"`
+	RefetchRequested            bool                   `json:"refetch_requested"`
+	Hostname                  string                 `json:"hostname"`
+	UUID                      string                 `json:"uuid"`
+	Platform                  string                 `json:"platform"`
+	OsqueryVersion            string                 `json:"osquery_version"`
+	OrbitVersion              *string                `json:"orbit_version"`
+	FleetDesktopVersion       *string                `json:"fleet_desktop_version"`
+	ScriptsEnabled            *bool                  `json:"scripts_enabled"`
+	OsVersion                 string                 `json:"os_version"`
+	Build                     string                 `json:"build"`
+	PlatformLike              string                 `json:"platform_like"`
+	CodeName                  string                 `json:"code_name"`
+	Uptime                    int64                  `json:"uptime"`
+	Memory                    int64                  `json:"memory"`
+	CPUType                   string                 `json:"cpu_type"`
+	CPUSubtype                string                 `json:"cpu_subtype"`
+	CPUBrand                  string                 `json:"cpu_brand"`
+	CPUPhysicalCores          int                    `json:"cpu_physical_cores"`
+	CPULogicalCores           int                    `json:"cpu_logical_cores"`
+	HardwareVendor            string                 `json:"hardware_vendor"`
+	HardwareModel             string                 `json:"hardware_model"`
+	HardwareVersion           string                 `json:"hardware_version"`
+	HardwareSerial            string                 `json:"hardware_serial"`
+	ComputerName              string                 `json:"computer_name"`
+	DisplayName               string                 `json:"display_name"`
+	PublicIP                  string                 `json:"public_ip"`
+	PrimaryIP                 string                 `json:"primary_ip"`
+	PrimaryMac                string                 `json:"primary_mac"`
+	DistributedInterval       int                    `json:"distributed_interval"`
+	ConfigTLSRefresh          int                    `json:"config_tls_refresh"`
+	LoggerTLSPeriod           int                    `json:"logger_tls_period"`
+	TeamID                    *int                   `json:"team_id"`
+	TeamName                  *string                `json:"team_name"`
+	GigsDiskSpaceAvailable    float64                `json:"gigs_disk_space_available"`
+	PercentDiskSpaceAvailable float64                `json:"percent_disk_space_available"`
+	GigsTotalDiskSpace        float64                `json:"gigs_total_disk_space"`
+	DiskEncryptionEnabled     *bool                  `json:"disk_encryption_enabled"`
+	Status                    string                 `json:"status"`
+	DisplayText               string                 `json:"display_text"`
+	Additional                *json.RawMessage       `json:"additional"`
+	Issues                    *HostIssues            `json:"issues"`
+	Batteries                 []HostBattery          `json:"batteries"`
+	Geolocation               *HostGeolocation       `json:"geolocation"`
+	MaintenanceWindow         *HostMaintenanceWindow `json:"maintenance_window"`
+	Users                     []HostUser             `json:"users"`
+	EndUsers                  []HostEndUser          `json:"end_users"`
+	Labels                    []HostLabel            `json:"labels"`
+	Packs                     *json.RawMessage       `json:"packs"`
+	Policies                  []HostPolicy           `json:"policies"`
+	Software                  []HostSoftware         `json:"software"`
+	MDM                       *HostMDMDetail         `json:"mdm"`
 }
 
 // Custom transform to ensure MDM struct is marshalled to JSON string
@@ -196,20 +196,20 @@ func tableFleetdmHostDetail(ctx context.Context) *plugin.Table {
 			{Name: "team_name", Type: proto.ColumnType_STRING, Description: "The name of the team the host belongs to, if any."},
 			{Name: "display_text", Type: proto.ColumnType_STRING, Description: "The display text for the host."},
 			{Name: "computer_name", Type: proto.ColumnType_STRING, Description: "The computer name of the host."},
-			{Name: "seen_time", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host was last seen by Fleet."},
-			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host was created in Fleet."},
-			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host record was last updated in Fleet."},
+			{Name: "seen_time", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("SeenTime").Transform(flexibleTimeTransform), Description: "Timestamp when the host was last seen by Fleet."},
+			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host was created in Fleet."},
+			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host record was last updated in Fleet."},
 			{Name: "platform", Type: proto.ColumnType_STRING, Description: "The platform of the host (e.g., 'darwin', 'windows', 'linux')."},
 			{Name: "os_version", Type: proto.ColumnType_STRING, Description: "The operating system version."},
 			{Name: "osquery_version", Type: proto.ColumnType_STRING, Description: "The version of osquery running on the host."},
-			{Name: "last_enrolled_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host last enrolled."},
-			{Name: "last_mdm_checked_in_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host last checked in with MDM."},
-			{Name: "last_mdm_enrolled_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host was last enrolled in MDM."},
-			{Name: "detail_updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host details were last updated."},
-			{Name: "label_updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host labels were last updated."},
-			{Name: "policy_updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host policy status was last updated."},
-			{Name: "software_updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the host software inventory was last updated."},
-			{Name: "last_restarted_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp of the last host restart event."},
+			{Name: "last_enrolled_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LastEnrolledAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host last enrolled."},
+			{Name: "last_mdm_checked_in_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LastMdmCheckedInAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host last checked in with MDM."},
+			{Name: "last_mdm_enrolled_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LastMdmEnrolledAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host was last enrolled in MDM."},
+			{Name: "detail_updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("DetailUpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host details were last updated."},
+			{Name: "label_updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LabelUpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host labels were last updated."},
+			{Name: "policy_updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("PolicyUpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host policy status was last updated."},
+			{Name: "software_updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("SoftwareUpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host software inventory was last updated."},
+			{Name: "last_restarted_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LastRestartedAt").Transform(flexibleTimeTransform), Description: "Timestamp of the last host restart event."},
 			{Name: "platform_like", Type: proto.ColumnType_STRING, Description: "Platform-like classification (e.g., 'darwin')."},
 			{Name: "build", Type: proto.ColumnType_STRING, Description: "The operating system build string."},
 			{Name: "code_name", Type: proto.ColumnType_STRING, Description: "The OS code name."},
@@ -240,7 +240,7 @@ func tableFleetdmHostDetail(ctx context.Context) *plugin.Table {
 			{Name: "logger_tls_period", Type: proto.ColumnType_INT, Description: "The logger TLS period."},
 
 			// Columns that require the getHostDetails hydration call (HAS HYDRATE)
-			{Name: "refetch_critical_queries_until", Type: proto.ColumnType_TIMESTAMP, Hydrate: getHostDetails, Description: "Timestamp until which critical queries will be refetched for this host."},
+			{Name: "refetch_critical_queries_until", Type: proto.ColumnType_TIMESTAMP, Hydrate: getHostDetails, Transform: transform.FromField("RefetchCriticalQueriesUntil").Transform(flexibleTimeTransform), Description: "Timestamp until which critical queries will be refetched for this host."},
 			{Name: "users", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("Users").Transform(arrayOrObjectToJSONString), Description: "Local users on this host."},
 			{Name: "end_users", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("EndUsers").Transform(arrayOrObjectToJSONString), Description: "End users associated with this device via IdP or other mappings."},
 			{Name: "policies", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("Policies").Transform(arrayOrObjectToJSONString), Description: "Policy compliance status for this host."},
@@ -266,7 +266,7 @@ func listHostsForDetails(ctx context.Context, d *plugin.QueryData, h *plugin.Hyd
 	}
 
 	page := 0
-	perPage := 100
+	perPage := 10000
 
 	for {
 		params := url.Values{}
@@ -308,11 +308,11 @@ func getHostDetails(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 	} else {
 		hostID = int(d.EqualsQuals["id"].GetInt64Value())
 	}
-	
+
 	if hostID == 0 {
 		return nil, nil
 	}
-	
+
 	plugin.Logger(ctx).Info("fleetdm_host_detail.getHostDetails", "hydrating_host_id", hostID)
 
 	client, err := NewFleetDMClient(ctx, d.Connection)
@@ -323,17 +323,17 @@ func getHostDetails(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 
 	params := url.Values{}
 	addHostPopulationParams(params)
-	
+
 	var response struct {
 		Host HostDetail `json:"host"` // Use the new rich HostDetail struct
 	}
 	endpointPath := fmt.Sprintf("hosts/%d", hostID)
-	_, err = client.Get(ctx, endpointPath, params, &response) 
+	_, err = client.Get(ctx, endpointPath, params, &response)
 
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_host_detail.getHostDetails", "client_get_error", err, "host_id", hostID)
-		return nil, err 
+		return nil, err
 	}
-	
+
 	return response.Host, nil
 }

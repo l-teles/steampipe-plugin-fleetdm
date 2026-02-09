@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
@@ -16,8 +15,8 @@ import (
 // And: https://fleetdm.com/docs/rest-api/rest-api#get-a-policy
 type Policy struct {
 	ID                    uint      `json:"id"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	CreatedAt             FleetTime `json:"created_at"`
+	UpdatedAt             FleetTime `json:"updated_at"`
 	Name                  string    `json:"name"`
 	Query                 string    `json:"query"` // This is the actual osquery query text
 	Description           string    `json:"description"`
@@ -77,8 +76,8 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 			{Name: "author_email", Type: proto.ColumnType_STRING, Description: "Email of the user who created the policy."},
 			{Name: "critical", Type: proto.ColumnType_BOOL, Description: "Whether the policy is marked as critical."},
 			{Name: "calendar_events_enabled", Type: proto.ColumnType_BOOL, Description: "Whether calendar events are enabled for this policy."},
-			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the policy was created."},
-			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the policy was last updated."},
+			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the policy was created."},
+			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the policy was last updated."},
 
 			// Key column for filtering via API 'query' parameter
 			{Name: "filter_search_query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("filter_search_query"), Description: "Search query string to filter policies by name or query text. Use in WHERE clause."},
