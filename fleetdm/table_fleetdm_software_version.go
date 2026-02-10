@@ -88,18 +88,19 @@ type ListSoftwareResponse struct {
 	CountsUpdatedAt FleetTime `json:"counts_updated_at"`
 }
 
-func tableFleetdmSoftware(ctx context.Context) *plugin.Table {
+func tableFleetdmSoftwareVersion(ctx context.Context) *plugin.Table {
 	return &plugin.Table{
-		Name:        "fleetdm_software",
-		Description: "Software inventory from FleetDM.",
+		Name:        "fleetdm_software_version",
+		Description: "Software versions inventory from FleetDM. Uses the /software/versions endpoint.",
 		List: &plugin.ListConfig{
-			Hydrate: listSoftware,
-			KeyColumns: []*plugin.KeyColumn{ // Corrected: Use a slice of *plugin.KeyColumn
-				{Name: "vulnerable_only", Require: plugin.Optional}, // Allow filtering for vulnerable software
-				{Name: "os_id", Require: plugin.Optional},           // Filter by OS ID
-				{Name: "os_name", Require: plugin.Optional},         // Filter by OS name
-				{Name: "os_version", Require: plugin.Optional},      // Filter by OS version
-				{Name: "team_id", Require: plugin.Optional},         // Filter by team ID
+			Hydrate: listSoftwareVersions,
+			KeyColumns: []*plugin.KeyColumn{
+				{Name: "vulnerable_only", Require: plugin.Optional}, // Filter for vulnerable software
+				{Name: "team_id", Require: plugin.Optional},         // Filter by team ID (Fleet Premium)
+				{Name: "query", Require: plugin.Optional},           // Search by name, version, or CVE
+				{Name: "min_cvss_score", Require: plugin.Optional},  // Min CVSS v3.x base score (Fleet Premium)
+				{Name: "max_cvss_score", Require: plugin.Optional},  // Max CVSS v3.x base score (Fleet Premium)
+				{Name: "exploit", Require: plugin.Optional},         // Filter for CISA known exploits (Fleet Premium)
 			},
 		},
 		Columns: []*plugin.Column{
@@ -125,20 +126,21 @@ func tableFleetdmSoftware(ctx context.Context) *plugin.Table {
 			// Users can query into this using JSON functions in SQL.
 			{Name: "vulnerabilities", Type: proto.ColumnType_JSON, Description: "Vulnerabilities associated with this software."},
 
-			// Query parameters that can be used for filtering
+			// Query parameters that can be used for filtering (key columns)
 			{Name: "vulnerable_only", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("vulnerable_only"), Description: "Filter for software with known vulnerabilities. Set in WHERE clause."},
-			{Name: "os_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("os_id"), Description: "Filter by OS ID. Set in WHERE clause."},
-			{Name: "os_name", Type: proto.ColumnType_STRING, Transform: transform.FromQual("os_name"), Description: "Filter by OS name. Set in WHERE clause."},
-			{Name: "os_version", Type: proto.ColumnType_STRING, Transform: transform.FromQual("os_version"), Description: "Filter by OS version. Set in WHERE clause."},
-			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("team_id"), Description: "Filter by team ID. Set in WHERE clause."},
+			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("team_id"), Description: "Filter by team ID (Fleet Premium). Use 0 for hosts assigned to 'No team'. Set in WHERE clause."},
+			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable fields include name, version, and CVE. Set in WHERE clause."},
+			{Name: "min_cvss_score", Type: proto.ColumnType_INT, Transform: transform.FromQual("min_cvss_score"), Description: "Filter for software with vulnerabilities having a CVSS v3.x base score higher than this value (Fleet Premium). Set in WHERE clause."},
+			{Name: "max_cvss_score", Type: proto.ColumnType_INT, Transform: transform.FromQual("max_cvss_score"), Description: "Filter for software with vulnerabilities having a CVSS v3.x base score lower than this value (Fleet Premium). Set in WHERE clause."},
+			{Name: "exploit", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("exploit"), Description: "Filter for software with vulnerabilities that have been actively exploited in the wild — CISA known exploit (Fleet Premium). Set in WHERE clause."},
 		},
 	}
 }
 
-func listSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+func listSoftwareVersions(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	client, err := NewFleetDMClient(ctx, d.Connection)
 	if err != nil {
-		plugin.Logger(ctx).Error("fleetdm_software.listSoftware", "connection_error", err)
+		plugin.Logger(ctx).Error("fleetdm_software_version.listSoftwareVersions", "connection_error", err)
 		return nil, err
 	}
 
@@ -156,36 +158,47 @@ func listSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		if d.EqualsQuals["vulnerable_only"] != nil {
 			params.Add("vulnerable", strconv.FormatBool(d.EqualsQuals["vulnerable_only"].GetBoolValue()))
 		}
-		if d.EqualsQuals["os_id"] != nil {
-			params.Add("os_id", strconv.FormatInt(d.EqualsQuals["os_id"].GetInt64Value(), 10))
-		}
-		if d.EqualsQuals["os_name"] != nil {
-			params.Add("os_name", d.EqualsQuals["os_name"].GetStringValue())
-		}
-		if d.EqualsQuals["os_version"] != nil {
-			params.Add("os_version", d.EqualsQuals["os_version"].GetStringValue())
-		}
 		if d.EqualsQuals["team_id"] != nil {
 			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
+		if d.EqualsQuals["query"] != nil {
+			params.Add("query", d.EqualsQuals["query"].GetStringValue())
+		}
+
+		// The API requires vulnerable=true when using min_cvss_score, max_cvss_score, or exploit.
+		// Auto-set vulnerable=true if any of these are specified and vulnerable_only was not explicitly set.
+		hasCVSSOrExploit := d.EqualsQuals["min_cvss_score"] != nil || d.EqualsQuals["max_cvss_score"] != nil || d.EqualsQuals["exploit"] != nil
+		if hasCVSSOrExploit && d.EqualsQuals["vulnerable_only"] == nil {
+			params.Add("vulnerable", "true")
+		}
+
+		if d.EqualsQuals["min_cvss_score"] != nil {
+			params.Add("min_cvss_score", strconv.FormatInt(d.EqualsQuals["min_cvss_score"].GetInt64Value(), 10))
+		}
+		if d.EqualsQuals["max_cvss_score"] != nil {
+			params.Add("max_cvss_score", strconv.FormatInt(d.EqualsQuals["max_cvss_score"].GetInt64Value(), 10))
+		}
+		if d.EqualsQuals["exploit"] != nil {
+			params.Add("exploit", strconv.FormatBool(d.EqualsQuals["exploit"].GetBoolValue()))
+		}
 
 		var response ListSoftwareResponse
-		_, err := client.Get(ctx, "software", params, &response) // Endpoint is /api/v1/fleet/software
+		_, err := client.Get(ctx, "software/versions", params, &response) // Endpoint is /api/v1/fleet/software/versions
 		if err != nil {
-			plugin.Logger(ctx).Error("fleetdm_software.listSoftware", "api_error", err, "page", page, "params", params.Encode())
+			plugin.Logger(ctx).Error("fleetdm_software_version.listSoftwareVersions", "api_error", err, "page", page, "params", params.Encode())
 			return nil, err
 		}
 
 		for _, swItem := range response.Software {
 			d.StreamListItem(ctx, swItem)
 			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_software.listSoftware", "limit_reached_sdk", "true")
+				plugin.Logger(ctx).Debug("fleetdm_software_version.listSoftwareVersions", "limit_reached_sdk", "true")
 				return nil, nil
 			}
 		}
 
 		// Log pagination details from the API response
-		plugin.Logger(ctx).Info("fleetdm_software.listSoftware",
+		plugin.Logger(ctx).Info("fleetdm_software_version.listSoftwareVersions",
 			"page_processed", page,
 			"items_on_page", len(response.Software),
 			"api_total_count", response.Count, // Total items matching filter, not just on this page
@@ -196,14 +209,14 @@ func listSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		// Determine if there are more pages to fetch.
 		// Primary condition: Continue if the API returned a full page of items.
 		if len(response.Software) < perPage {
-			plugin.Logger(ctx).Info("fleetdm_software.listSoftware", "pagination_ended_item_count_less_than_per_page", true, "current_page", page, "items_on_page", len(response.Software), "per_page", perPage)
+			plugin.Logger(ctx).Info("fleetdm_software_version.listSoftwareVersions", "pagination_ended_item_count_less_than_per_page", true, "current_page", page, "items_on_page", len(response.Software), "per_page", perPage)
 			break
 		}
 
 		// Secondary check (optional, but good for observation): Log if HasNextResults is false but we got a full page.
 		// This might indicate an inconsistency in the API's meta field.
 		if !response.Meta.HasNextResults && len(response.Software) == perPage {
-			plugin.Logger(ctx).Warn("fleetdm_software.listSoftware", "api_has_next_results_is_false_but_full_page_received", true, "current_page", page)
+			plugin.Logger(ctx).Warn("fleetdm_software_version.listSoftwareVersions", "api_has_next_results_is_false_but_full_page_received", true, "current_page", page)
 			// Depending on API behavior, you might still want to try fetching the next page,
 			// or trust len(response.Software) < perPage as the more reliable indicator.
 			// For now, we will break if len(response.Software) < perPage, making HasNextResults secondary.
@@ -212,14 +225,14 @@ func listSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		// If HasNextResults is explicitly false, and we trust it, we can break early.
 		// However, considering a previous issue existed, let's prioritize the item count.
 		// if !response.Meta.HasNextResults {
-		// 	plugin.Logger(ctx).Info("fleetdm_software.listSoftware", "pagination_ended_by_api_has_next_results_false", true, "current_page", page)
+		// 	plugin.Logger(ctx).Info("fleetdm_software_version.listSoftwareVersions", "pagination_ended_by_api_has_next_results_false", true, "current_page", page)
 		// 	break
 		// }
 
 		page++
-		plugin.Logger(ctx).Debug("fleetdm_software.listSoftware", "incrementing_to_next_page", page)
+		plugin.Logger(ctx).Debug("fleetdm_software_version.listSoftwareVersions", "incrementing_to_next_page", page)
 	}
 
-	plugin.Logger(ctx).Info("fleetdm_software.listSoftware", "list_software_completed", true)
+	plugin.Logger(ctx).Info("fleetdm_software_version.listSoftwareVersions", "list_software_versions_completed", true)
 	return nil, nil
 }

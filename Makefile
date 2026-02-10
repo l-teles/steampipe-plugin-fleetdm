@@ -5,8 +5,8 @@ install:
 	
 # LOCAL DEVELOPMENT
 # install:
-# 	go build -o ~/.steampipe/plugins/local/fleetdm/fleetdm.plugin *.go
+# 	go build -o ~/.steampipe/plugins/local/fleetdm/steampipe-plugin-fleetdm.plugin *.go
 
 # Linux ARM64
 # install:
-# 	GOOS=linux GOARCH=arm64 go build -o ~/.steampipe/plugins/local/fleetdm/fleetdm-linux.plugin *.go
+# 	GOOS=linux GOARCH=arm64 go build -o ~/.steampipe/plugins/local/fleetdm/steampipe-plugin-fleetdm-linux.plugin *.go

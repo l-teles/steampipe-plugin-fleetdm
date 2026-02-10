@@ -1,3 +1,21 @@
+## v1.3.0 [2026-02-10]
+
+_What's new?_
+
+- New OS Version, Software Title, Fleet-Maintained App, App Store App Tables & Software Version Rename by @l-teles in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/23
+
+- New tables
+  - [fleetdm_software_title](https://hub.steampipe.io/plugins/l-teles/steampipe-plugin-fleetdm/tables/fleetdm_software_title)
+  - [fleetdm_fleet_maintained_app](https://hub.steampipe.io/plugins/l-teles/steampipe-plugin-fleetdm/tables/fleetdm_fleet_maintained_app)
+  - [fleetdm_os_version](https://hub.steampipe.io/plugins/l-teles/steampipe-plugin-fleetdm/tables/fleetdm_os_version)
+  - [fleetdm_app_store_app](https://hub.steampipe.io/plugins/l-teles/steampipe-plugin-fleetdm/tables/fleetdm_app_store_app)
+
+⚠️ Breaking Changes - read before upgrading
+
+- The table `fleetdm_software` has been renamed to `fleetdm_software_version`. All queries, dashboards, and references must be updated to use the new table name.
+- All pre-existing tables have been audited and updated to match only API-supported key columns. Some key columns were added, removed, or renamed to align with FleetDM REST API parameters. Queries using unsupported or legacy key columns may need to be updated.
+- The `fleetdm_policy` table now dynamically switches between global and team policy endpoints based on the `team_id` key column. The `filter_search_query` key column only works when `team_id` is specified. Please go through the [PR description](https://github.com/l-teles/steampipe-plugin-fleetdm/pull/23) for details on all the changes made.
+
 ## v1.2.3 [2026-02-09]
 
 _What's new?_
@@ -5,7 +23,7 @@ _What's new?_
 - Bump github.com/turbot/steampipe-plugin-sdk/v5 from 5.13.0 to 5.13.1 by @dependabot[bot] in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/20
 - Bump golang.org/x/crypto from 0.36.0 to 0.45.0 in the go_modules group across 1 directory by @dependabot[bot] in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/21
 - Bump github.com/turbot/steampipe-plugin-sdk/v5 from 5.13.1 to 5.13.2 by @dependabot[bot] in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/22
-- Fix: Handle empty time strings from FleetDM API across all tables by l-teles in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/24
+- Fix: Handle empty time strings from FleetDM API across all tables by @l-teles in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/24
 
 ## v1.2.2 [2025-08-28]
 

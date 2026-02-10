@@ -5,7 +5,7 @@ icon_url: "/images/plugins/l-teles/fleetdm.svg"
 brand_color: "#1A73E8"
 display_name: FleetDM
 name: fleetdm
-description: Steampipe plugin for querying FleetDM hosts, software inventory, users, teams, policies, queries, packs, labels, and audit activities.
+description: Steampipe plugin for querying FleetDM hosts, software inventory, Fleet-maintained apps & App Store apps, OS versions, users, teams, policies, queries, packs, labels, and audit activities.
 og_description: Query FleetDM with SQL! Open source CLI. No DB required.
 og_image: "/images/plugins/l-teles/fleetdm-social-graphic.png"
 engines: ["steampipe", "sqlite", "postgres", "export"]
@@ -74,5 +74,5 @@ connection "fleetdm" {
 }
 ```
 
-* `server_url` - Your FleetDM server URL. The plugin will attempt to append `/api/v1/` if it's not present.
-* `api_token` - Your FleetDM API token, which can be generated from your FleetDM instance (User Menu -> Settings -> API Tokens)
+- `server_url` - Your FleetDM server URL. The plugin will attempt to append `/api/v1/` if it's not present.
+- `api_token` - Your FleetDM API token, which can be generated from your FleetDM instance (User Menu -> Settings -> API Tokens)

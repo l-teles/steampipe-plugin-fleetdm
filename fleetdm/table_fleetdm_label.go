@@ -47,7 +47,9 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 		Description: "Labels used for grouping hosts in FleetDM.",
 		List: &plugin.ListConfig{
 			Hydrate: listLabels,
-			// KeyColumns: plugin.KeyColumnEquals("query"), // For text search if API supports it
+			KeyColumns: []*plugin.KeyColumn{
+				{Name: "team_id", Require: plugin.Optional}, // Filter by team (Fleet Premium). Use 'global' for global-only labels.
+			},
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the label."},
@@ -62,6 +64,9 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 			{Name: "built_in", Type: proto.ColumnType_BOOL, Description: "Indicates if the label is a built-in label."},
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the label was created."},
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the label was last updated."},
+
+			// Query parameters that can be used for filtering (key columns)
+			{Name: "team_id", Type: proto.ColumnType_STRING, Transform: transform.FromQual("team_id"), Description: "Filter by team (Fleet Premium). Use 'global' for global-only labels. Set in WHERE clause."},
 		},
 	}
 }
@@ -87,10 +92,9 @@ func listLabels(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData)
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
 
-		// TODO: Add KeyColumn for text search if API supports 'query' parameter for labels
-		// if d.EqualsQuals["query"] != nil {
-		// 	params.Add("query", d.EqualsQuals["query"].GetStringValue())
-		// }
+		if d.EqualsQuals["team_id"] != nil {
+			params.Add("team_id", d.EqualsQuals["team_id"].GetStringValue())
+		}
 
 		var response ListLabelsResponse
 		_, err := client.Get(ctx, "labels", params, &response)

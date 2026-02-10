@@ -46,7 +46,10 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 		Description: "Information about users in FleetDM.",
 		List: &plugin.ListConfig{
 			Hydrate: listUsers,
-			// KeyColumns: plugin.KeyColumnEquals("team_id"), // TODO: Check if API supports filtering users by team_id directly
+			KeyColumns: []*plugin.KeyColumn{
+				{Name: "query", Require: plugin.Optional},   // Search by name or email
+				{Name: "team_id", Require: plugin.Optional}, // Filter by team (Fleet Premium)
+			},
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the user."},
@@ -60,6 +63,10 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the user was created."},
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the user was last updated."},
 			{Name: "teams", Type: proto.ColumnType_JSON, Description: "Teams the user belongs to, including their role in each team.", Transform: transform.FromField("Teams")},
+
+			// Query parameters that can be used for filtering (key columns)
+			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable fields include name and email. Set in WHERE clause."},
+			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("team_id"), Description: "Filter by team ID (Fleet Premium). Set in WHERE clause."},
 		},
 	}
 }
@@ -84,6 +91,13 @@ func listUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
+
+		if d.EqualsQuals["query"] != nil {
+			params.Add("query", d.EqualsQuals["query"].GetStringValue())
+		}
+		if d.EqualsQuals["team_id"] != nil {
+			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+		}
 
 		var usersResponse ListUsersResponse
 

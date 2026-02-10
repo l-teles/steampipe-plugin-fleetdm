@@ -11,9 +11,19 @@ FleetDM is an open-source device management platform that helps you manage and s
 
 The `fleetdm_activity` table provides comprehensive insights into all audit log activities within your FleetDM instance. As a security administrator or system administrator, you can use this table to monitor user actions, track system changes, and investigate security incidents. The table helps you understand who did what, when, and with what details, enabling better security oversight and compliance management.
 
+**Note:** This table supports the following optional key columns for server-side API filtering:
+
+- `type` — Filter by activity type (e.g., `live_query`, `created_policy`). Maps to the API `activity_type` parameter.
+- `query` — Search activities by actor name or email.
+- `start_created_at` — Return only activities created after this timestamp.
+- `end_created_at` — Return only activities created before this timestamp.
+
+Using these key columns in your `WHERE` clause pushes the filtering to the FleetDM API, reducing data transfer and improving query performance.
+
 ## Examples
 
 ### List the 100 most recent activities
+
 Monitor recent system activities to stay informed about ongoing operations and potential security concerns. This helps in maintaining system security and identifying any unusual patterns.
 
 ```sql+postgres
@@ -45,6 +55,7 @@ limit 100;
 ```
 
 ### Find all activities performed by a specific user
+
 Track all actions taken by a particular user to monitor their system usage and ensure compliance with security policies.
 
 ```sql+postgres
@@ -76,6 +87,7 @@ order by
 ```
 
 ### List all "live_query" activities and the query executed
+
 Analyze live query executions to understand how users are interacting with the system and what data they're accessing.
 
 ```sql+postgres
@@ -106,7 +118,72 @@ order by
   created_at desc;
 ```
 
+### Search activities by actor name or email
+
+Use the `query` key column to search activities by actor name or email (server-side filtering via the API).
+
+```sql+postgres
+select
+  id,
+  created_at,
+  actor_full_name,
+  type
+from
+  fleetdm_activity
+where
+  query = 'admin@example.com'
+order by
+  created_at desc;
+```
+
+```sql+sqlite
+select
+  id,
+  created_at,
+  actor_full_name,
+  type
+from
+  fleetdm_activity
+where
+  query = 'admin@example.com'
+order by
+  created_at desc;
+```
+
+### Get activities from the last 24 hours
+
+Use the `start_created_at` key column to restrict results to a specific time window.
+
+```sql+postgres
+select
+  id,
+  created_at,
+  actor_full_name,
+  type
+from
+  fleetdm_activity
+where
+  start_created_at = (now() - interval '24 hours')::text
+order by
+  created_at desc;
+```
+
+```sql+sqlite
+select
+  id,
+  created_at,
+  actor_full_name,
+  type
+from
+  fleetdm_activity
+where
+  start_created_at = datetime('now', '-1 day')
+order by
+  created_at desc;
+```
+
 ### Count activities by type
+
 Analyze the distribution of different types of activities to understand system usage patterns and identify potential areas of concern.
 
 ```sql+postgres

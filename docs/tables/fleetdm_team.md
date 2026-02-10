@@ -11,9 +11,16 @@ FleetDM is an open-source device management platform that helps you manage and s
 
 The `fleetdm_team` table provides comprehensive insights into team configurations within your FleetDM instance. As a system administrator, you can use this table to manage team structures, monitor team sizes, and track host distributions across different teams. The table helps you understand team organization, resource allocation, and access control patterns.
 
+**Note:** This table supports the following optional key column for server-side API filtering:
+
+- `query` — Search teams by name.
+
+Using this key column in your `WHERE` clause pushes the filtering to the FleetDM API.
+
 ## Examples
 
 ### List all teams and their user/host counts
+
 Get an overview of all teams in your FleetDM instance, including their size and resource distribution.
 
 ```sql+postgres
@@ -45,6 +52,7 @@ order by
 ```
 
 ### Find teams with more than 100 hosts
+
 Identify large teams that may need additional management attention or resource allocation.
 
 ```sql+postgres
@@ -73,7 +81,36 @@ order by
   host_count desc;
 ```
 
+### Search teams by name
+
+Use the `query` key column to search teams by name.
+
+```sql+postgres
+select
+  id,
+  name,
+  host_count,
+  user_count
+from
+  fleetdm_team
+where
+  query = 'Engineering';
+```
+
+```sql+sqlite
+select
+  id,
+  name,
+  host_count,
+  user_count
+from
+  fleetdm_team
+where
+  query = 'Engineering';
+```
+
 ### Get agent options for a specific team
+
 Examine the configuration settings for a particular team to ensure proper agent behavior.
 
 ```sql+postgres

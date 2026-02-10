@@ -50,15 +50,13 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 		Description: "Information about policies in FleetDM.",
 		List: &plugin.ListConfig{
 			Hydrate: listPolicies,
-			// KeyColumns define how the table can be filtered.
-			// The 'query' KeyColumn is used for the API's search parameter.
-			// The 'team_id' KeyColumn is for filtering by team.
-			// Note: If /global/policies endpoint does not support team_id filtering,
-			// this KeyColumn might not work as expected for that specific endpoint.
-			// A separate table or logic for team-specific policies might be needed if their endpoint is different, to be checked later.
+			// The API uses two different endpoints:
+			// - Without team_id: GET /global/policies (supports page, per_page only)
+			// - With team_id:    GET /teams/:id/policies (supports query, merge_inherited, page, per_page)
 			KeyColumns: []*plugin.KeyColumn{
-				{Name: "filter_search_query", Require: plugin.Optional}, // Maps to API 'query' param for text search
-				{Name: "team_id", Require: plugin.Optional},             // For filtering by team_id if supported by endpoint
+				{Name: "filter_search_query", Require: plugin.Optional}, // Maps to API 'query' param (team policies only)
+				{Name: "team_id", Require: plugin.Optional},             // Switches to team policies endpoint
+				{Name: "merge_inherited", Require: plugin.Optional},     // Include global policies with team results (Fleet Premium)
 			},
 		},
 		Columns: []*plugin.Column{
@@ -80,7 +78,8 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the policy was last updated."},
 
 			// Key column for filtering via API 'query' parameter
-			{Name: "filter_search_query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("filter_search_query"), Description: "Search query string to filter policies by name or query text. Use in WHERE clause."},
+			{Name: "filter_search_query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("filter_search_query"), Description: "Search query string to filter policies by name or query text. Only works when team_id is specified. Set in WHERE clause."},
+			{Name: "merge_inherited", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("merge_inherited"), Description: "If true, includes global policies in team policy results (Fleet Premium). Requires team_id. Set in WHERE clause."},
 		},
 	}
 }
@@ -100,26 +99,33 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 	// 	// perPage = int(*limit)
 	// }
 
+	// Determine endpoint: global/policies or teams/:id/policies
+	endpoint := "global/policies"
+	if d.EqualsQuals["team_id"] != nil {
+		teamID := strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10)
+		endpoint = "teams/" + teamID + "/policies"
+		plugin.Logger(ctx).Debug("fleetdm_policy.listPolicies", "using_team_endpoint", endpoint)
+	}
+
 	for {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
 
-		if d.EqualsQuals["filter_search_query"] != nil {
-			params.Add("query", d.EqualsQuals["filter_search_query"].GetStringValue())
-		}
+		// query and merge_inherited are only supported on the team policies endpoint
 		if d.EqualsQuals["team_id"] != nil {
-			// If /global/policies doesn't support team_id, this will be ignored by the API
-			// or might cause an error. This needs to be verified against the actual API behavior for this endpoint.
-			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
-			plugin.Logger(ctx).Debug("fleetdm_policy.listPolicies", "filtering_by_team_id_on_global_policies_endpoint", d.EqualsQuals["team_id"].GetInt64Value())
+			if d.EqualsQuals["filter_search_query"] != nil {
+				params.Add("query", d.EqualsQuals["filter_search_query"].GetStringValue())
+			}
+			if d.EqualsQuals["merge_inherited"] != nil {
+				params.Add("merge_inherited", strconv.FormatBool(d.EqualsQuals["merge_inherited"].GetBoolValue()))
+			}
 		}
 
 		var response ListPoliciesResponse
-		// Using "global/policies" as requested
-		_, err := client.Get(ctx, "global/policies", params, &response)
+		_, err := client.Get(ctx, endpoint, params, &response)
 		if err != nil {
-			plugin.Logger(ctx).Error("fleetdm_policy.listPolicies", "api_error", err, "page", page, "params", params.Encode(), "endpoint", "global/policies")
+			plugin.Logger(ctx).Error("fleetdm_policy.listPolicies", "api_error", err, "page", page, "params", params.Encode(), "endpoint", endpoint)
 			return nil, err
 		}
 

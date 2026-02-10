@@ -46,10 +46,10 @@ func tableFleetdmActivity(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listActivities,
 			KeyColumns: []*plugin.KeyColumn{
-				{Name: "type", Require: plugin.Optional},
-				// The API also supports 'after' (timestamp string) for cursor-like pagination,
-				// and 'order_key', 'order_direction'.
-				// For simplicity, we'll use page-based pagination.
+				{Name: "type", Require: plugin.Optional},             // Maps to API 'activity_type' param
+				{Name: "query", Require: plugin.Optional},            // Search by actor_full_name or actor_email
+				{Name: "start_created_at", Require: plugin.Optional}, // Filter activities after this date
+				{Name: "end_created_at", Require: plugin.Optional},   // Filter activities before this date
 			},
 		},
 		// No GetConfig for activities as individual activity GET is not standard.
@@ -64,6 +64,11 @@ func tableFleetdmActivity(ctx context.Context) *plugin.Table {
 			{Name: "details", Type: proto.ColumnType_JSON, Description: "JSON object containing details specific to the activity type."},
 			{Name: "host_id", Type: proto.ColumnType_INT, Description: "ID of the host related to this activity, if applicable."},
 			{Name: "host_display_name", Type: proto.ColumnType_STRING, Description: "Display name of the host related to this activity, if applicable."},
+
+			// Query parameters that can be used for filtering (key columns)
+			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable fields include actor_full_name and actor_email. Set in WHERE clause."},
+			{Name: "start_created_at", Type: proto.ColumnType_STRING, Transform: transform.FromQual("start_created_at"), Description: "Filter activities that happened after this date (e.g., '2024-01-01T00:00:00Z'). Set in WHERE clause."},
+			{Name: "end_created_at", Type: proto.ColumnType_STRING, Transform: transform.FromQual("end_created_at"), Description: "Filter activities that happened before this date (e.g., '2024-12-31T23:59:59Z'). Set in WHERE clause."},
 		},
 	}
 }
@@ -94,7 +99,16 @@ func listActivities(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		params.Add("order_direction", "asc") // Most recent (highest ID) last
 
 		if d.EqualsQuals["type"] != nil {
-			params.Add("type", d.EqualsQuals["type"].GetStringValue())
+			params.Add("activity_type", d.EqualsQuals["type"].GetStringValue())
+		}
+		if d.EqualsQuals["query"] != nil {
+			params.Add("query", d.EqualsQuals["query"].GetStringValue())
+		}
+		if d.EqualsQuals["start_created_at"] != nil {
+			params.Add("start_created_at", d.EqualsQuals["start_created_at"].GetStringValue())
+		}
+		if d.EqualsQuals["end_created_at"] != nil {
+			params.Add("end_created_at", d.EqualsQuals["end_created_at"].GetStringValue())
 		}
 
 		var response ListActivitiesResponse
