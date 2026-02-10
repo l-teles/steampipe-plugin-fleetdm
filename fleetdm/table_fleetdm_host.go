@@ -186,6 +186,19 @@ func tableFleetdmHost(ctx context.Context) *plugin.Table {
 		Description: "Information about hosts managed by FleetDM.",
 		List: &plugin.ListConfig{
 			Hydrate: listHosts,
+			KeyColumns: []*plugin.KeyColumn{
+				{Name: "query", Require: plugin.Optional},                 // Search by hostname, serial, uuid, ip, email
+				{Name: "team_id", Require: plugin.Optional},               // Filter by team (Fleet Premium)
+				{Name: "status", Require: plugin.Optional},                // Filter by host status
+				{Name: "os_version_id", Require: plugin.Optional},         // Filter by OS version ID
+				{Name: "vulnerability", Require: plugin.Optional},         // Filter by CVE
+				{Name: "software_version_id", Require: plugin.Optional},   // Filter by software version ID
+				{Name: "software_title_id", Require: plugin.Optional},     // Filter by software title ID
+				{Name: "policy_id", Require: plugin.Optional},             // Filter by policy ID
+				{Name: "policy_response", Require: plugin.Optional},       // Requires policy_id. 'passing' or 'failing'
+				{Name: "mdm_enrollment_status", Require: plugin.Optional}, // Filter by MDM enrollment status
+				{Name: "low_disk_space", Require: plugin.Optional},        // Filter by low disk space threshold (Fleet Premium)
+			},
 		},
 		Columns: []*plugin.Column{
 			// Core Identification
@@ -256,6 +269,17 @@ func tableFleetdmHost(ctx context.Context) *plugin.Table {
 			{Name: "policies", Type: proto.ColumnType_JSON, Transform: transform.FromField("Policies").Transform(arrayOrObjectToJSONString), Description: "Policy compliance status for this host (requires populate_policies=true)."},
 			{Name: "labels", Type: proto.ColumnType_JSON, Transform: transform.FromField("Labels").Transform(arrayOrObjectToJSONString), Description: "Labels applied to this host (requires populate_labels=true)."},
 			{Name: "device_mapping", Type: proto.ColumnType_JSON, Transform: transform.FromField("DeviceMapping").Transform(arrayOrObjectToJSONString), Description: "Device mapping information (requires device_mapping=true)."},
+
+			// Query parameters that can be used for filtering (key columns)
+			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable fields include hostname, hardware_serial, uuid, ipv4, and email. Set in WHERE clause."},
+			{Name: "os_version_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("os_version_id"), Description: "Filter by OS version ID. Set in WHERE clause."},
+			{Name: "vulnerability", Type: proto.ColumnType_STRING, Transform: transform.FromQual("vulnerability"), Description: "Filter by CVE identifier (e.g., 'cve-2021-44228'). Set in WHERE clause."},
+			{Name: "software_version_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("software_version_id"), Description: "Filter by software version ID. Set in WHERE clause."},
+			{Name: "software_title_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("software_title_id"), Description: "Filter by software title ID. Set in WHERE clause."},
+			{Name: "policy_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("policy_id"), Description: "Filter by policy ID. Set in WHERE clause."},
+			{Name: "policy_response", Type: proto.ColumnType_STRING, Transform: transform.FromQual("policy_response"), Description: "Filter by policy response. Requires policy_id. Options: 'passing', 'failing'. Set in WHERE clause."},
+			{Name: "mdm_enrollment_status", Type: proto.ColumnType_STRING, Transform: transform.FromQual("mdm_enrollment_status"), Description: "Filter by MDM enrollment status: 'manual', 'automatic', 'enrolled', 'pending', 'unenrolled'. Set in WHERE clause."},
+			{Name: "low_disk_space", Type: proto.ColumnType_INT, Transform: transform.FromQual("low_disk_space"), Description: "Filter hosts with less than N GB free disk space (1-100, Fleet Premium). Set in WHERE clause."},
 		},
 	}
 }
@@ -286,6 +310,42 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		params.Add("order_direction", "desc") // Get latest hosts first, or 'asc' for consistent paging
 
 		addHostPopulationParams(params)
+
+		// Apply key column filters
+		if d.EqualsQuals["query"] != nil {
+			params.Add("query", d.EqualsQuals["query"].GetStringValue())
+		}
+		if d.EqualsQuals["team_id"] != nil {
+			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+		}
+		if d.EqualsQuals["status"] != nil {
+			params.Add("status", d.EqualsQuals["status"].GetStringValue())
+		}
+		if d.EqualsQuals["os_version_id"] != nil {
+			params.Add("os_version_id", strconv.FormatInt(d.EqualsQuals["os_version_id"].GetInt64Value(), 10))
+		}
+		if d.EqualsQuals["vulnerability"] != nil {
+			params.Add("vulnerability", d.EqualsQuals["vulnerability"].GetStringValue())
+		}
+		if d.EqualsQuals["software_version_id"] != nil {
+			params.Add("software_version_id", strconv.FormatInt(d.EqualsQuals["software_version_id"].GetInt64Value(), 10))
+		}
+		if d.EqualsQuals["software_title_id"] != nil {
+			params.Add("software_title_id", strconv.FormatInt(d.EqualsQuals["software_title_id"].GetInt64Value(), 10))
+		}
+		if d.EqualsQuals["policy_id"] != nil {
+			params.Add("policy_id", strconv.FormatInt(d.EqualsQuals["policy_id"].GetInt64Value(), 10))
+		}
+		if d.EqualsQuals["policy_response"] != nil {
+			params.Add("policy_response", d.EqualsQuals["policy_response"].GetStringValue())
+		}
+		if d.EqualsQuals["mdm_enrollment_status"] != nil {
+			params.Add("mdm_enrollment_status", d.EqualsQuals["mdm_enrollment_status"].GetStringValue())
+		}
+		if d.EqualsQuals["low_disk_space"] != nil {
+			params.Add("low_disk_space", strconv.FormatInt(d.EqualsQuals["low_disk_space"].GetInt64Value(), 10))
+		}
+
 		plugin.Logger(ctx).Debug("fleetdm_host.listHosts", "request_params", params.Encode())
 
 		var response ListHostsResponse

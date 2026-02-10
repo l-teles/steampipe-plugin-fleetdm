@@ -63,12 +63,11 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 		Description: "Saved queries in FleetDM.",
 		List: &plugin.ListConfig{
 			Hydrate: listQueries,
-			KeyColumns: []*plugin.KeyColumn{ // Corrected: Use a slice of *plugin.KeyColumn
+			KeyColumns: []*plugin.KeyColumn{
 				{Name: "query_text_filter", Require: plugin.Optional}, // Maps to 'query' API parameter for search
-				{Name: "team_id", Require: plugin.Optional},
-				// TODO: Add other optional key columns if needed
-				// {Name: "order_key", Require: plugin.Optional},
-				// {Name: "order_direction", Require: plugin.Optional},
+				{Name: "team_id", Require: plugin.Optional},           // Filter by team (Fleet Premium)
+				{Name: "platform_filter", Require: plugin.Optional},   // Filter by scheduled platform
+				{Name: "merge_inherited", Require: plugin.Optional},   // Include global queries with team queries (Fleet Premium)
 			},
 		},
 		Columns: []*plugin.Column{
@@ -93,6 +92,8 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 
 			// Key column for filtering via API 'query' parameter
 			{Name: "query_text_filter", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query_text_filter"), Description: "Search query string to filter saved queries by name or SQL. Use in WHERE clause."},
+			{Name: "platform_filter", Type: proto.ColumnType_STRING, Transform: transform.FromQual("platform_filter"), Description: "Filter by scheduled platform: 'macos', 'windows', or 'linux'. Set in WHERE clause."},
+			{Name: "merge_inherited", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("merge_inherited"), Description: "Include global queries when team_id is specified (Fleet Premium). Set in WHERE clause."},
 		},
 	}
 }
@@ -122,6 +123,12 @@ func listQueries(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 		}
 		if d.EqualsQuals["team_id"] != nil {
 			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+		}
+		if d.EqualsQuals["platform_filter"] != nil {
+			params.Add("platform", d.EqualsQuals["platform_filter"].GetStringValue())
+		}
+		if d.EqualsQuals["merge_inherited"] != nil {
+			params.Add("merge_inherited", strconv.FormatBool(d.EqualsQuals["merge_inherited"].GetBoolValue()))
 		}
 		// TODO: Support order_key and order_direction via Quals
 

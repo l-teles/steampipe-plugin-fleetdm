@@ -11,9 +11,16 @@ FleetDM is an open-source device management platform that helps you manage and s
 
 The `fleetdm_label` table provides comprehensive insights into label configurations within your FleetDM instance. As a system administrator, you can use this table to manage host groupings, monitor label distributions, and maintain dynamic labeling rules. The table helps you understand how hosts are categorized and how labels are being used across your fleet.
 
+**Note:** This table supports the following optional key column for server-side API filtering:
+
+- `team_id` — Filter labels by team (Fleet Premium). Use `'global'` to return only global labels.
+
+Using this key column in your `WHERE` clause pushes the filtering to the FleetDM API.
+
 ## Examples
 
 ### List all labels and their host counts
+
 Get an overview of all labels in your FleetDM instance, including their type and associated host counts.
 
 ```sql+postgres
@@ -45,6 +52,7 @@ order by
 ```
 
 ### Find all system labels
+
 Identify built-in system labels that are automatically managed by FleetDM.
 
 ```sql+postgres
@@ -72,6 +80,7 @@ where
 ```
 
 ### List dynamic labels and their queries
+
 Examine dynamic labels and their associated SQL queries to understand automated host categorization rules.
 
 ```sql+postgres
@@ -100,7 +109,38 @@ order by
   name;
 ```
 
+### List labels for a specific team (Fleet Premium)
+
+Filter labels by team to see only those relevant to a particular team.
+
+```sql+postgres
+select
+  id,
+  name,
+  host_count
+from
+  fleetdm_label
+where
+  team_id = '5'
+order by
+  name;
+```
+
+```sql+sqlite
+select
+  id,
+  name,
+  host_count
+from
+  fleetdm_label
+where
+  team_id = '5'
+order by
+  name;
+```
+
 ### Find labels specifically for macOS hosts
+
 Identify labels that are specifically configured for macOS devices.
 
 ```sql+postgres

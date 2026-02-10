@@ -11,9 +11,17 @@ FleetDM is an open-source device management platform that helps you manage and s
 
 The `fleetdm_user` table provides detailed insights into user management within your FleetDM instance. As a system administrator, you can use this table to monitor user roles, track team memberships, and manage access control. The table helps you understand user distribution, role assignments, and authentication configurations.
 
+**Note:** This table supports the following optional key columns for server-side API filtering:
+
+- `query` — Search users by name or email.
+- `team_id` — Filter users by team (Fleet Premium).
+
+Using these key columns in your `WHERE` clause pushes the filtering to the FleetDM API, reducing data transfer and improving query performance.
+
 ## Examples
 
 ### List all administrators
+
 Identify all users with administrative privileges to ensure proper access control and security oversight.
 
 ```sql+postgres
@@ -45,6 +53,7 @@ order by
 ```
 
 ### Find users who are API-only
+
 Identify users that are configured for API access only, useful for service account management.
 
 ```sql+postgres
@@ -70,6 +79,7 @@ where
 ```
 
 ### List users and the teams they belong to
+
 Get a comprehensive view of user team memberships and their roles within each team.
 
 ```sql+postgres
@@ -100,7 +110,62 @@ order by
   team_name;
 ```
 
+### Search users by name or email
+
+Use the `query` key column to search users server-side by name or email.
+
+```sql+postgres
+select
+  id,
+  name,
+  email,
+  global_role
+from
+  fleetdm_user
+where
+  query = 'admin';
+```
+
+```sql+sqlite
+select
+  id,
+  name,
+  email,
+  global_role
+from
+  fleetdm_user
+where
+  query = 'admin';
+```
+
+### List users belonging to a specific team
+
+Use the `team_id` key column to filter users by team membership (Fleet Premium).
+
+```sql+postgres
+select
+  id,
+  name,
+  email
+from
+  fleetdm_user
+where
+  team_id = 3;
+```
+
+```sql+sqlite
+select
+  id,
+  name,
+  email
+from
+  fleetdm_user
+where
+  team_id = 3;
+```
+
 ### Count users by global role
+
 Analyze the distribution of user roles across your FleetDM instance to ensure proper role allocation.
 
 ```sql+postgres

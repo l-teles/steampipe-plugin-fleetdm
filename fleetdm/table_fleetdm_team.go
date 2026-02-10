@@ -64,7 +64,9 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 		Description: "Information about teams in FleetDM.",
 		List: &plugin.ListConfig{
 			Hydrate: listTeams,
-			// KeyColumns: plugin.KeyColumnEquals("name"), // If API supports direct filtering by name
+			KeyColumns: []*plugin.KeyColumn{
+				{Name: "query", Require: plugin.Optional}, // Search by team name
+			},
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the team."},
@@ -79,6 +81,9 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 			// Could be expanded into separate tables or hydrated further.
 			{Name: "secrets", Type: proto.ColumnType_JSON, Description: "Enrollment secrets associated with the team."},
 			{Name: "users", Type: proto.ColumnType_JSON, Description: "Users belonging to this team and their roles. Fetched via GetTeam hydrate function."},
+
+			// Query parameters that can be used for filtering (key columns)
+			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable field is team name. Set in WHERE clause."},
 		},
 	}
 }
@@ -103,6 +108,10 @@ func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
+
+		if d.EqualsQuals["query"] != nil {
+			params.Add("query", d.EqualsQuals["query"].GetStringValue())
+		}
 
 		var response ListTeamsResponse
 		_, err := client.Get(ctx, "teams", params, &response)
