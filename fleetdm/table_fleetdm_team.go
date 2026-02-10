@@ -92,7 +92,7 @@ func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 
 	// Pagination for teams: The /api/v1/fleet/teams endpoint supports `page` and `per_page`
 	page := 0
-	perPage := 50 // Adjust as needed
+	perPage := 10000
 
 	// limit := d.QueryContext.Limit
 	// if limit != nil && *limit < int64(perPage) {
