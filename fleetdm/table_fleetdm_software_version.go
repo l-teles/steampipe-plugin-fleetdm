@@ -61,19 +61,19 @@ type Software struct {
 	Name             string                  `json:"name"`
 	Version          string                  `json:"version"`
 	Source           string                  `json:"source"`
-	BundleIdentifier *string                 `json:"bundle_identifier"` // macOS, iOS
+	ExtensionFor     *string                 `json:"extension_for"` // For browser extensions - extension for which app
+	Browser          *string                 `json:"browser,omitempty"`       // For browser extensions
+	Vendor           *string                 `json:"vendor,omitempty"`        // e.g., for RPMs
 	GeneratedCPE     string                  `json:"generated_cpe"`
-	HostCount        uint                    `json:"host_count"` // Number of hosts with this software
+	BundleIdentifier *string                 `json:"bundle_identifier"` // macOS, iOS
+	HostCount        uint                    `json:"hosts_count"`       // Number of hosts with this software (note: API uses "hosts_count" plural)
 	Vulnerabilities  []SoftwareVulnerability `json:"vulnerabilities"`
-	CountsUpdatedAt  FleetTime               `json:"counts_updated_at"`        // Timestamp for when host_count was last updated
-	LastOpenedAt     *FleetTime              `json:"last_opened_at"`           // This is typically per-host, might be null or aggregated differently in the global software list
-	Release          *string                 `json:"release,omitempty"`        // e.g., for RPMs
-	Vendor           *string                 `json:"vendor,omitempty"`         // e.g., for RPMs
-	Arch             *string                 `json:"arch,omitempty"`           // e.g., for RPMs
-	ExtensionID      *string                 `json:"extension_id,omitempty"`   // For browser extensions
-	Browser          *string                 `json:"browser,omitempty"`        // For browser extensions
-	Path             *string                 `json:"path,omitempty"`           // e.g., for Programs
-	InstalledPath    *string                 `json:"installed_path,omitempty"` // e.g., for Homebrew packages
+	UpgradeCode      *string                 `json:"upgrade_code"`           // Windows installer upgrade code
+	DisplayName      *string                 `json:"display_name"`           // Display name for the software
+	LastOpenedAt     *FleetTime              `json:"last_opened_at"`         // This is typically per-host, might be null or aggregated differently in the global software list
+	Release          *string                 `json:"release,omitempty"`      // e.g., for RPMs
+	Arch             *string                 `json:"arch,omitempty"`         // e.g., for RPMs
+	ExtensionID      *string                 `json:"extension_id,omitempty"` // For browser extensions
 }
 
 // ListSoftwareResponse is the expected structure for the list software API call.
@@ -85,7 +85,6 @@ type ListSoftwareResponse struct {
 		NextCursor         string `json:"next_cursor"`
 	} `json:"meta"`
 	Count           int       `json:"count"` // Total count of all software items matching the query
-	CountsUpdatedAt FleetTime `json:"counts_updated_at"`
 }
 
 func tableFleetdmSoftwareVersion(ctx context.Context) *plugin.Table {
@@ -109,18 +108,18 @@ func tableFleetdmSoftwareVersion(ctx context.Context) *plugin.Table {
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "Name of the software."},
 			{Name: "version", Type: proto.ColumnType_STRING, Description: "Version of the software."},
 			{Name: "source", Type: proto.ColumnType_STRING, Description: "Source of the software information (e.g., 'apps', 'deb_packages', 'chrome_extensions')."},
-			{Name: "host_count", Type: proto.ColumnType_INT, Description: "Number of hosts where this software is installed."},
-			{Name: "generated_cpe", Type: proto.ColumnType_STRING, Description: "Generated Common Platform Enumeration (CPE) string for the software."},
+			{Name: "host_count", Type: proto.ColumnType_INT, Transform: transform.FromField("HostCount"), Description: "Number of hosts where this software is installed."},
+			{Name: "generated_cpe", Type: proto.ColumnType_STRING, Transform: transform.FromField("GeneratedCPE"), Description: "Generated Common Platform Enumeration (CPE) string for the software."},
 			{Name: "bundle_identifier", Type: proto.ColumnType_STRING, Description: "Bundle identifier, typically for macOS and iOS software."},
+			{Name: "upgrade_code", Type: proto.ColumnType_STRING, Description: "Windows installer upgrade code."},
+			{Name: "display_name", Type: proto.ColumnType_STRING, Description: "Display name for the software."},
+			{Name: "extension_for", Type: proto.ColumnType_STRING, Description: "For browser extensions - indicates which application the extension is for."},
 			{Name: "release", Type: proto.ColumnType_STRING, Description: "Release information, e.g., for RPM packages."},
 			{Name: "vendor", Type: proto.ColumnType_STRING, Description: "Vendor information, e.g., for RPM packages."},
 			{Name: "arch", Type: proto.ColumnType_STRING, Description: "Architecture information, e.g., for RPM packages."},
 			{Name: "extension_id", Type: proto.ColumnType_STRING, Description: "Extension ID for browser extensions."},
 			{Name: "browser", Type: proto.ColumnType_STRING, Description: "Browser name for browser extensions."},
-			{Name: "path", Type: proto.ColumnType_STRING, Description: "Install path for certain software types like Programs."},
-			{Name: "installed_path", Type: proto.ColumnType_STRING, Description: "Installed path, e.g., for Homebrew packages."},
 			{Name: "last_opened_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LastOpenedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the software was last opened (may be aggregated or host-specific)."},
-			{Name: "counts_updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CountsUpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the host_count for this software item was last updated."},
 
 			// Vulnerabilities - stored as JSONB as it's an array of complex objects
 			// Users can query into this using JSON functions in SQL.
