@@ -1,3 +1,9 @@
+## v1.3.1 [2026-02-13]
+
+_What's new?_
+
+- Fix `fleetdm_software_version` table API field mapping issues by @l-teles in https://github.com/l-teles/steampipe-plugin-fleetdm/pull/25
+
 ## v1.3.0 [2026-02-10]
 
 _What's new?_
