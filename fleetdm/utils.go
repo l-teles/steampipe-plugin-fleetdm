@@ -181,7 +181,11 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 
 	// Check for non-2xx status codes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				plugin.Logger(ctx).Error("FleetDMClient.Get", "close_error", err, "url", fullURL.String())
+			}
+		}()
 		bodyBytes, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
 			plugin.Logger(ctx).Error("FleetDMClient.Get", "read_error_body_failed", readErr, "url", fullURL.String(), "status_code", resp.StatusCode)
