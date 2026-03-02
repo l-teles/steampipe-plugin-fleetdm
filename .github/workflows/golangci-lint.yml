@@ -1,14 +1,9 @@
 name: golangci-lint
 on:
   push:
-    tags:
-      - v*
-    branches:
-      - main
-  pull_request:
 
 jobs:
   golangci_lint_workflow:
-    uses: turbot/steampipe-workflows/.github/workflows/golangci-lint.yml@main
+    uses: l-teles/steampipe-workflows/.github/workflows/golangci-lint.yml@e5721a1cc6c1c94e1d63b5c0cf6f04f53b307bc1
     with:
       timeout: 20m
