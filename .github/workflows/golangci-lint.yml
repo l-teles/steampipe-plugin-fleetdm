@@ -10,5 +10,7 @@ on:
 jobs:
   golangci_lint_workflow:
     uses: turbot/steampipe-workflows/.github/workflows/golangci-lint.yml@main
+    secrets:
+      SECURITY_API_TOKEN: ${{ secrets.SECURITY_API_TOKEN }}
     with:
       timeout: 20m
