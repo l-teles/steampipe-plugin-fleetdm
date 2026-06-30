@@ -13,5 +13,7 @@ on:
 jobs:
   stale_workflow:
     uses: turbot/steampipe-workflows/.github/workflows/stale.yml@main
+    secrets:
+      SECURITY_API_TOKEN: ${{ secrets.SECURITY_API_TOKEN }}
     with:
       dryRun: ${{ github.event.inputs.dryRun }}
