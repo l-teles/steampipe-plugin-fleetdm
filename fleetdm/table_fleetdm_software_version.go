@@ -61,9 +61,9 @@ type Software struct {
 	Name             string                  `json:"name"`
 	Version          string                  `json:"version"`
 	Source           string                  `json:"source"`
-	ExtensionFor     *string                 `json:"extension_for"` // For browser extensions - extension for which app
-	Browser          *string                 `json:"browser,omitempty"`       // For browser extensions
-	Vendor           *string                 `json:"vendor,omitempty"`        // e.g., for RPMs
+	ExtensionFor     *string                 `json:"extension_for"`     // For browser extensions - extension for which app
+	Browser          *string                 `json:"browser,omitempty"` // For browser extensions
+	Vendor           *string                 `json:"vendor,omitempty"`  // e.g., for RPMs
 	GeneratedCPE     string                  `json:"generated_cpe"`
 	BundleIdentifier *string                 `json:"bundle_identifier"` // macOS, iOS
 	HostCount        uint                    `json:"hosts_count"`       // Number of hosts with this software (note: API uses "hosts_count" plural)
@@ -84,7 +84,7 @@ type ListSoftwareResponse struct {
 		HasPreviousResults bool   `json:"has_previous_results"`
 		NextCursor         string `json:"next_cursor"`
 	} `json:"meta"`
-	Count           int       `json:"count"` // Total count of all software items matching the query
+	Count int `json:"count"` // Total count of all software items matching the query
 }
 
 func tableFleetdmSoftwareVersion(ctx context.Context) *plugin.Table {

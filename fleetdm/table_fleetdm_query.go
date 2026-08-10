@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
@@ -16,8 +15,8 @@ import (
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#saved-query-object
 type QuerySaved struct {
 	ID                 uint            `json:"id"`
-	CreatedAt          time.Time       `json:"created_at"`
-	UpdatedAt          time.Time       `json:"updated_at"`
+	CreatedAt          FleetTime       `json:"created_at"`
+	UpdatedAt          FleetTime       `json:"updated_at"`
 	Name               string          `json:"name"`
 	Description        string          `json:"description"`
 	Query              string          `json:"query"` // The actual SQL query
@@ -87,8 +86,8 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 			{Name: "logging_type", Type: proto.ColumnType_STRING, Transform: transform.FromField("Logging"), Description: "Type of logging for query results (e.g., snapshot, differential)."},
 			{Name: "stats", Type: proto.ColumnType_JSON, Description: "Performance statistics for the query execution."},
 			{Name: "packs", Type: proto.ColumnType_JSON, Description: "Packs this query belongs to (details available on GET)."},
-			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the query was created."},
-			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the query was last updated."},
+			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the query was created."},
+			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the query was last updated."},
 
 			// Key column for filtering via API 'query' parameter
 			{Name: "query_text_filter", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query_text_filter"), Description: "Search query string to filter saved queries by name or SQL. Use in WHERE clause."},

@@ -10,9 +10,16 @@ on:
         default: "false"
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   stale_workflow:
-    uses: turbot/steampipe-workflows/.github/workflows/stale.yml@main
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    uses: turbot/steampipe-workflows/.github/workflows/stale.yml@210ab7cc3f105a795a389cf30d68c394ee46af5e # main 2026-07-29
     secrets:
       SECURITY_API_TOKEN: ${{ secrets.SECURITY_API_TOKEN }}
     with:

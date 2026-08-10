@@ -221,7 +221,7 @@ func tableFleetdmHostDetail(ctx context.Context) *plugin.Table {
 			{Name: "hardware_serial", Type: proto.ColumnType_STRING, Description: "Hardware serial number."},
 			{Name: "hardware_vendor", Type: proto.ColumnType_STRING, Description: "Hardware vendor."},
 			{Name: "hardware_version", Type: proto.ColumnType_STRING, Description: "Hardware version."},
-			{Name: "disk_encryption_enabled", Type: proto.ColumnType_BOOL, Description: "Indicates if disk encryption is enabled on the host."},
+			{Name: "disk_encryption_enabled", Type: proto.ColumnType_BOOL, Hydrate: getHostDetails, Description: "Indicates if disk encryption is enabled on the host."},
 			{Name: "uptime", Type: proto.ColumnType_INT, Description: "Uptime of the host in nanoseconds."},
 			{Name: "memory", Type: proto.ColumnType_INT, Description: "Total physical memory in bytes."},
 			{Name: "cpu_type", Type: proto.ColumnType_STRING, Description: "CPU type."},

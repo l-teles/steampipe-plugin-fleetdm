@@ -4,16 +4,16 @@ import (
 	"context"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
 )
 
 // Carve represents a file carving session in FleetDM.
 type Carve struct {
 	ID         uint      `json:"id"`
-	CreatedAt  time.Time `json:"created_at"`
+	CreatedAt  FleetTime `json:"created_at"`
 	HostID     uint      `json:"host_id"`
 	Name       string    `json:"name"`
 	BlockCount int64     `json:"block_count"`
@@ -57,7 +57,7 @@ func tableFleetdmCarve(ctx context.Context) *plugin.Table {
 			{Name: "max_block", Type: proto.ColumnType_INT, Description: "The index of the last block received."},
 			{Name: "expired", Type: proto.ColumnType_BOOL, Description: "Indicates if the carve session has expired."},
 			{Name: "error", Type: proto.ColumnType_STRING, Description: "Any error message associated with the carve session."},
-			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Description: "Timestamp when the carve session was created."},
+			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the carve session was created."},
 		},
 	}
 }
@@ -78,7 +78,7 @@ func listCarves(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData)
 		params.Add("per_page", strconv.Itoa(perPage))
 		params.Add("order_key", "id")
 		params.Add("order_direction", "desc") // Get most recent carves first
-		params.Add("expired", "true") // Also get expired carves
+		params.Add("expired", "true")         // Also get expired carves
 
 		var response ListCarvesResponse
 		_, err := client.Get(ctx, "carves", params, &response)

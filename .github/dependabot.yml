@@ -9,6 +9,8 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     pull-request-branch-name:
       separator: "-"
     assignees:
@@ -29,6 +31,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 7
     pull-request-branch-name:
       separator: "-"
     assignees:

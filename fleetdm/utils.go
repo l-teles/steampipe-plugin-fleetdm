@@ -118,8 +118,29 @@ func NewFleetDMClient(ctx context.Context, connection *plugin.Connection) (*Flee
 		return nil, errors.New("api_token must be configured in fleetdm.spc or via FLEETDM_API_TOKEN environment variable")
 	}
 
+	// Validate the server URL: the API token is sent as a bearer header, so
+	// plain http would leak it in cleartext. Only allow http for loopback hosts.
+	parsedURL, err := url.Parse(serverURL)
+	if err != nil {
+		return nil, fmt.Errorf("server_url %q is not a valid URL: %w", serverURL, err)
+	}
+	if parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return nil, fmt.Errorf("server_url %q must be an absolute URL including scheme, e.g. https://fleet.example.com", serverURL)
+	}
+	switch parsedURL.Scheme {
+	case "https":
+		// ok
+	case "http":
+		host := parsedURL.Hostname()
+		if host != "localhost" && host != "127.0.0.1" && host != "::1" {
+			return nil, fmt.Errorf("server_url %q uses http, which would send the API token in cleartext; use https (http is only allowed for localhost)", serverURL)
+		}
+	default:
+		return nil, fmt.Errorf("server_url %q has unsupported scheme %q; use https", serverURL, parsedURL.Scheme)
+	}
+
 	// Normalize the baseURL
-	baseURL := strings.TrimSuffix(serverURL, "/")
+	baseURL := strings.TrimSuffix(parsedURL.String(), "/")
 	if strings.HasSuffix(baseURL, "/api/v1/fleet") {
 		baseURL += "/"
 	} else if strings.HasSuffix(baseURL, "/api/v1") {
@@ -129,17 +150,26 @@ func NewFleetDMClient(ctx context.Context, connection *plugin.Connection) (*Flee
 	} else {
 		baseURL += "/api/v1/fleet/"
 	}
-	
-	plugin.Logger(ctx).Debug("NewFleetDMClient", "final_derived_base_url", baseURL)
 
+	plugin.Logger(ctx).Debug("NewFleetDMClient", "final_derived_base_url", baseURL)
 
 	return &FleetDMClient{
 		BaseURL:  baseURL,
 		APIToken: apiToken,
 		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second, 
+			Timeout: 30 * time.Second,
 		},
 	}, nil
+}
+
+// truncateBody returns at most n bytes of a response body as a string, for use
+// in error messages surfaced to the SQL client. The full body is only ever
+// written to the plugin log.
+func truncateBody(b []byte, n int) string {
+	if len(b) <= n {
+		return string(b)
+	}
+	return string(b[:n]) + "… (truncated)"
 }
 
 // Get performs a GET request to the specified FleetDM API endpoint.
@@ -149,7 +179,7 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 	// Ensure endpoint doesn't start with a slash if BaseURL already ends with one
 	trimmedEndpoint := strings.TrimPrefix(endpoint, "/")
 	fullURLString := c.BaseURL + trimmedEndpoint
-	
+
 	fullURL, err := url.Parse(fullURLString)
 	if err != nil {
 		plugin.Logger(ctx).Error("FleetDMClient.Get", "url_parse_error", err, "base_url", c.BaseURL, "endpoint", endpoint)
@@ -192,7 +222,7 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 			return resp, fmt.Errorf("API request to %s failed with status %s (unable to read error body)", fullURL.String(), resp.Status)
 		}
 		plugin.Logger(ctx).Error("FleetDMClient.Get", "api_error_response", string(bodyBytes), "url", fullURL.String(), "status_code", resp.StatusCode)
-		return resp, fmt.Errorf("API request to %s failed with status %s: %s", fullURL.String(), resp.Status, string(bodyBytes))
+		return resp, fmt.Errorf("API request to %s failed with status %s: %s", fullURL.String(), resp.Status, truncateBody(bodyBytes, 200))
 	}
 
 	// Decode the JSON response
@@ -203,10 +233,9 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 			return resp, fmt.Errorf("error reading response body from %s: %w", fullURL.String(), err)
 		}
 
-
 		if err := json.Unmarshal(bodyBytes, target); err != nil {
-			plugin.Logger(ctx).Error("FleetDMClient.Get", "json_decode_error", err, "url", fullURL.String(), "response_body_snippet", string(bodyBytes[:500])) // Log a snippet
-			return resp, fmt.Errorf("error decoding JSON response from %s: %w. Response body: %s", fullURL.String(), err, string(bodyBytes))
+			plugin.Logger(ctx).Error("FleetDMClient.Get", "json_decode_error", err, "url", fullURL.String(), "response_body_snippet", truncateBody(bodyBytes, 500))
+			return resp, fmt.Errorf("error decoding JSON response from %s: %w. Response body: %s", fullURL.String(), err, truncateBody(bodyBytes, 200))
 		}
 	}
 

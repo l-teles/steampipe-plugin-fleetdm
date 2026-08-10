@@ -10,6 +10,10 @@ import (
 type fleetdmConfig struct {
 	ServerURL *string `cty:"server_url"`
 	APIToken  *string `cty:"api_token"`
+	// ExposeSecrets opts in to returning live secret material (e.g. team
+	// enrollment secrets) in query results. Deliberately has no environment
+	// variable fallback: widening secret exposure must be explicit in the .spc.
+	ExposeSecrets *bool `cty:"expose_secrets"`
 }
 
 // ConfigSchema defines the schema for the plugin's connection configuration.
@@ -19,6 +23,9 @@ var ConfigSchema = map[string]*schema.Attribute{
 	},
 	"api_token": {
 		Type: schema.TypeString,
+	},
+	"expose_secrets": {
+		Type: schema.TypeBool,
 	},
 }
 

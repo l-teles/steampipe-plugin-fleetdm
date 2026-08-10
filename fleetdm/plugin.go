@@ -15,7 +15,9 @@ func Plugin(ctx context.Context) *plugin.Plugin {
 			NewInstance: ConfigInstance,
 			Schema:      ConfigSchema,
 		},
-		DefaultTransform: transform.FromGo().NullIfZero(),
+		// Note: deliberately no NullIfZero() here — it would turn legitimate
+		// false/0 values (e.g. pack.disabled, label.host_count) into SQL NULL.
+		DefaultTransform: transform.FromGo(),
 		TableMap: map[string]*plugin.Table{
 			"fleetdm_activity":             tableFleetdmActivity(ctx),
 			"fleetdm_app_store_app":        tableFleetdmAppStoreApp(ctx),

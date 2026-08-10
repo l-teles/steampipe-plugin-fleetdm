@@ -4,8 +4,14 @@ on:
     - cron: "30 22 * * 1"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   sync_labels_workflow:
-    uses: turbot/steampipe-workflows/.github/workflows/sync-labels.yml@main
+    permissions:
+      contents: read
+      issues: write
+    uses: turbot/steampipe-workflows/.github/workflows/sync-labels.yml@210ab7cc3f105a795a389cf30d68c394ee46af5e # main 2026-07-29
     secrets:
       SECURITY_API_TOKEN: ${{ secrets.SECURITY_API_TOKEN }}
