@@ -3,6 +3,7 @@ package fleetdm
 import (
 	"context"
 	"encoding/json" // Added import for json.RawMessage
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -79,13 +80,32 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 
 			// Secrets and Users are complex objects/arrays, exposing as JSON.
 			// Could be expanded into separate tables or hydrated further.
-			{Name: "secrets", Type: proto.ColumnType_JSON, Description: "Enrollment secrets associated with the team."},
+			{Name: "secrets", Type: proto.ColumnType_JSON, Hydrate: getTeamSecrets, Transform: transform.FromValue(), Description: "Enrollment secrets associated with the team. NULL unless expose_secrets = true is set in the connection config, as these are live credentials that allow device enrollment."},
 			{Name: "users", Type: proto.ColumnType_JSON, Description: "Users belonging to this team and their roles. Fetched via GetTeam hydrate function."},
 
 			// Query parameters that can be used for filtering (key columns)
 			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable field is team name. Set in WHERE clause."},
 		},
 	}
+}
+
+// getTeamSecrets gates the secrets column behind the expose_secrets connection
+// config flag. Enrollment secrets are live credentials; by default they must
+// not land in Steampipe query caches, exports, or dashboards. This is a pure
+// gate over the already-fetched list item — no extra API call is made.
+func getTeamSecrets(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	config := GetConfig(d.Connection)
+	if config.ExposeSecrets == nil || !*config.ExposeSecrets {
+		return nil, nil
+	}
+	team, ok := h.Item.(Team)
+	if !ok {
+		return nil, fmt.Errorf("getTeamSecrets: unexpected item type %T", h.Item)
+	}
+	if len(team.Secrets) == 0 {
+		return nil, nil
+	}
+	return team.Secrets, nil
 }
 
 func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {

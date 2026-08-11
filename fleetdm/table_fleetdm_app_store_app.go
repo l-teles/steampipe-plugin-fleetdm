@@ -88,7 +88,12 @@ func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 
 	if d.EqualsQuals["team_id"] != nil {
 		// User specified a team_id in the WHERE clause — only query that team.
-		teamID := uint(d.EqualsQuals["team_id"].GetInt64Value())
+		teamIDValue := d.EqualsQuals["team_id"].GetInt64Value()
+		if teamIDValue < 0 {
+			// Team IDs are non-negative; a negative qual can never match.
+			return nil, nil
+		}
+		teamID := uint(teamIDValue)
 		teamsToQuery = append(teamsToQuery, teamInfo{ID: teamID, Name: ""})
 		plugin.Logger(ctx).Info("fleetdm_app_store_app.listAppStoreApps", "using_specific_team_id", teamID)
 	} else {
@@ -131,8 +136,10 @@ func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		var response ListAppStoreAppsResponse
 		_, err := client.Get(ctx, "software/app_store_apps", params, &response)
 		if err != nil {
-			plugin.Logger(ctx).Error("fleetdm_app_store_app.listAppStoreApps", "api_error", err, "team_id", team.ID)
-			return nil, err
+			// Teams without a VPP token (or without the required license) return
+			// 4xx here; that must not abort the results of the other teams.
+			plugin.Logger(ctx).Warn("fleetdm_app_store_app.listAppStoreApps", "skipping_team", team.ID, "api_error", err)
+			continue
 		}
 
 		plugin.Logger(ctx).Info("fleetdm_app_store_app.listAppStoreApps",

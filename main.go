@@ -1,11 +1,8 @@
 package main
 
 import (
-
-	"steampipe-plugin-fleetdm/fleetdm"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
-
-
+	"steampipe-plugin-fleetdm/fleetdm"
 )
 
 func main() {

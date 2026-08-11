@@ -28,7 +28,7 @@ connection "fleetdm" {
   server_url = "https://aiworld.cloud.fleetdm.com/"
 
   # FleetDM API Token
-  # Generate this from your FleetDM instance (User Menu -> Settings -> API Tokens)
+  # Generate this from your FleetDM instance (User Menu -> My account -> Get API token)
   api_token = "ZZFN9BBL+OldDhBzs61V1fRHg/2RkuYYq6qlLiDamDCCPL1vlFdHw=="
 }
 ```
@@ -202,8 +202,13 @@ connection "fleetdm" {
   server_url = "https://aiworld.cloud.fleetdm.com/"
 
   # FleetDM API Token
-  # Generate this from your FleetDM instance (User Menu -> Settings -> API Tokens)
+  # Generate this from your FleetDM instance (User Menu -> My account -> Get API token)
   api_token = "ZZFN9BBL+OldDhBzs61V1fRHg/2RkuYYq6qlLiDamDCCPL1vlFdHw=="
+
+  # Optional: opt in to returning live secret material (e.g. team enrollment
+  # secrets) in query results. Default: false. Secrets will land in Steampipe
+  # query caches, exports, and dashboards — leave unset unless you need it.
+  # expose_secrets = false
 }
 ```
 

@@ -69,10 +69,26 @@ connection "fleetdm" {
   server_url = "https://fleet.example.com"
 
   # FleetDM API Token
-  # Generate this from your FleetDM instance (User Menu -> Settings -> API Tokens)
+  # Generate this from your FleetDM instance (User Menu -> My account -> Get API token)
   api_token = "your_api_token"
+
+  # Optional: opt in to returning live secret material (e.g. team enrollment
+  # secrets) in query results. Default: false.
+  # expose_secrets = false
 }
 ```
 
-- `server_url` - Your FleetDM server URL. The plugin will attempt to append `/api/v1/` if it's not present.
-- `api_token` - Your FleetDM API token, which can be generated from your FleetDM instance (User Menu -> Settings -> API Tokens)
+- `server_url` - Your FleetDM server URL. Must use `https` (`http` is only allowed for localhost). The plugin will attempt to append `/api/v1/` if it's not present.
+- `api_token` - Your FleetDM API token, which can be generated from your FleetDM instance (User Menu -> My account -> Get API token)
+- `expose_secrets` - Optional, default `false`. When `true`, columns containing live secret material (e.g. `fleetdm_team.secrets`, which holds agent enrollment secrets) are populated. Leave unset unless you need it: exposed secrets will land in Steampipe query caches, exports, and dashboards.
+
+### Credentials via environment variables
+
+Instead of setting `server_url`/`api_token` in the config file, you can use environment variables (the config file takes precedence when both are set):
+
+```sh
+export FLEETDM_URL=https://fleet.example.com
+export FLEETDM_API_TOKEN=your_api_token
+```
+
+There is deliberately no environment variable for `expose_secrets` — widening secret exposure must be explicit in the config file.
