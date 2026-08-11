@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -52,10 +53,12 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 			Hydrate: listPolicies,
 			// The API uses two different endpoints:
 			// - Without team_id: GET /global/policies (supports page, per_page only)
-			// - With team_id:    GET /teams/:id/policies (supports query, merge_inherited, page, per_page)
+			// - With team_id:    GET /teams/:id/policies, renamed upstream to
+			//   /fleets/:id/policies (supports query, merge_inherited, page, per_page)
 			KeyColumns: []*plugin.KeyColumn{
 				{Name: "filter_search_query", Require: plugin.Optional}, // Maps to API 'query' param (team policies only)
 				{Name: "team_id", Require: plugin.Optional},             // Switches to team policies endpoint
+				{Name: "fleet_id", Require: plugin.Optional},            // Alias of team_id (newer Fleet naming)
 				{Name: "merge_inherited", Require: plugin.Optional},     // Include global policies with team results (Fleet Premium)
 			},
 		},
@@ -79,6 +82,7 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 
 			// Key column for filtering via API 'query' parameter
 			{Name: "filter_search_query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("filter_search_query"), Description: "Search query string to filter policies by name or query text. Only works when team_id is specified. Set in WHERE clause."},
+			{Name: "fleet_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("fleet_id"), Description: "Alias of team_id using the newer Fleet naming (teams were renamed to fleets). Set in WHERE clause to list a specific fleet's policies."},
 			{Name: "merge_inherited", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("merge_inherited"), Description: "If true, includes global policies in team policy results (Fleet Premium). Requires team_id. Set in WHERE clause."},
 		},
 	}
@@ -91,12 +95,22 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		return nil, err
 	}
 
-	// Determine endpoint: global/policies or teams/:id/policies
-	endpoint := "global/policies"
+	// Resolve the team/fleet scope: team_id and its newer alias fleet_id are
+	// interchangeable, but conflicting values are a user error.
+	var teamID *int64
 	if d.EqualsQuals["team_id"] != nil {
-		teamID := strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10)
-		endpoint = "teams/" + teamID + "/policies"
-		plugin.Logger(ctx).Debug("fleetdm_policy.listPolicies", "using_team_endpoint", endpoint)
+		v := d.EqualsQuals["team_id"].GetInt64Value()
+		teamID = &v
+	}
+	if d.EqualsQuals["fleet_id"] != nil {
+		v := d.EqualsQuals["fleet_id"].GetInt64Value()
+		if teamID != nil && *teamID != v {
+			return nil, fmt.Errorf("team_id (%d) and fleet_id (%d) are aliases and must match when both are set", *teamID, v)
+		}
+		teamID = &v
+	}
+	if teamID != nil {
+		plugin.Logger(ctx).Debug("fleetdm_policy.listPolicies", "using_team_endpoint_for_id", *teamID)
 	}
 
 	err = paginatedList(ctx, d, 100, func(ctx context.Context, page, perPage int) ([]Policy, *ListMeta, error) {
@@ -105,7 +119,7 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		params.Add("per_page", strconv.Itoa(perPage))
 
 		// query and merge_inherited are only supported on the team policies endpoint
-		if d.EqualsQuals["team_id"] != nil {
+		if teamID != nil {
 			if d.EqualsQuals["filter_search_query"] != nil {
 				params.Add("query", d.EqualsQuals["filter_search_query"].GetStringValue())
 			}
@@ -115,9 +129,17 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		}
 
 		var response ListPoliciesResponse
-		if err := client.Get(ctx, endpoint, params, &response); err != nil {
-			plugin.Logger(ctx).Error("fleetdm_policy.listPolicies", "api_error", err, "page", page, "params", params.Encode(), "endpoint", endpoint)
-			return nil, nil, err
+		var getErr error
+		if teamID != nil {
+			// Team-scoped: teams/:id/policies, renamed to fleets/:id/policies.
+			getErr = client.GetCompat(ctx, d, famFleetPolicies, []any{*teamID}, params, &response)
+		} else {
+			// The global endpoint was not renamed.
+			getErr = client.Get(ctx, "global/policies", params, &response)
+		}
+		if getErr != nil {
+			plugin.Logger(ctx).Error("fleetdm_policy.listPolicies", "api_error", getErr, "page", page, "params", params.Encode())
+			return nil, nil, getErr
 		}
 		// The policies endpoints do not document a meta object for pagination.
 		return response.Policies, nil, nil

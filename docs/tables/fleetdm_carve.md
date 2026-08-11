@@ -28,6 +28,8 @@ from
 order by
   id desc
 limit 50;
+```
+
 ```sql+sqlite
 select
   id,
@@ -58,6 +60,8 @@ where
   error is not null
 order by
   created_at desc;
+```
+
 ```sql+sqlite
 select
   id,
@@ -89,6 +93,8 @@ where
   host_id = 7 -- Replace with an actual host ID
 order by
   id desc;
+```
+
 ```sql+sqlite
 select
   id,

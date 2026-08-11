@@ -47,16 +47,13 @@ type TeamUser struct {
 	Role       string  `json:"role"`        // User's role within this specific team
 }
 
-// ListTeamsResponse is the structure for the list teams API response.
-// The API `GET /api/v1/fleet/teams` returns an array of teams directly.
-// For consistency, we'll use a wrapper, but the actual API might just be `[]Team`.
-// Update: The API doc for "List teams" (https://fleetdm.com/docs/rest-api/rest-api#list-all-teams)
-// shows a response like: { "teams": [ { ...team_object... } ] }
+// ListTeamsResponse is the structure for the list teams/fleets API response.
+// Old servers respond with { "teams": [...] }; servers past the teams->fleets
+// rename respond with { "fleets": [...] }. Both keys are declared so either
+// generation unmarshals; use coalesceSlice(Fleets, Teams) to read the result.
 type ListTeamsResponse struct {
-	Teams []Team `json:"teams"`
-	// Meta  struct { // If pagination meta is introduced for teams
-	// 	HasNextResults bool `json:"has_next_results"`
-	// } `json:"meta"`
+	Teams  []Team `json:"teams"`
+	Fleets []Team `json:"fleets"`
 }
 
 func tableFleetdmTeam(ctx context.Context) *plugin.Table {
@@ -125,14 +122,14 @@ func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		}
 
 		var response ListTeamsResponse
-		if err := client.Get(ctx, "teams", params, &response); err != nil {
+		if err := client.GetCompat(ctx, d, famFleets, nil, params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_team.listTeams", "api_error", err, "page", page)
 			return nil, nil, err
 		}
-		// The /teams endpoint does not document a meta object for pagination.
-		// The list endpoint provides top-level team info only; `users` and
-		// `secrets` are populated by the "Get team" endpoint.
-		return response.Teams, nil, nil
+		// Neither the /teams nor the /fleets endpoint documents a meta object
+		// for pagination. The list endpoint provides top-level team info only;
+		// `users` and `secrets` are populated by the "Get team" endpoint.
+		return coalesceSlice(response.Fleets, response.Teams), nil, nil
 	})
 	if err != nil {
 		return nil, err

@@ -45,7 +45,6 @@ Using these key columns in your `WHERE` clause pushes the filtering to the Fleet
 | query_text_filter   | `TEXT`      | (Key Column) Search query string to filter saved queries by name or SQL. Use in `WHERE` clause.         |
 | platform_filter     | `TEXT`      | (Key Column) Filter by scheduled platform: `macos`, `windows`, or `linux`. Use in `WHERE` clause.       |
 | merge_inherited     | `BOOLEAN`   | (Key Column) Include global queries when `team_id` is specified (Fleet Premium). Use in `WHERE` clause. |
-| server_url          | `TEXT`      | FleetDM server URL from connection config.                                                              |
 
 ## Examples
 

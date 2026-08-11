@@ -118,7 +118,7 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 			params.Add("vulnerable", strconv.FormatBool(d.EqualsQuals["vulnerable_only"].GetBoolValue()))
 		}
 		if d.EqualsQuals["team_id"] != nil {
-			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			addFleetIDParam(params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
 		if d.EqualsQuals["available_for_install"] != nil {
 			params.Add("available_for_install", strconv.FormatBool(d.EqualsQuals["available_for_install"].GetBoolValue()))

@@ -41,7 +41,6 @@ The `fleetdm_software_title` table provides aggregated insights into your softwa
 | exploit                       | `BOOLEAN` | (Key Column) Filter for software with CISA-known actively exploited vulnerabilities (Fleet Premium). Use in `WHERE` clause.                        |
 | platform                      | `TEXT`    | (Key Column) Filter installable titles by platform. Options: 'macos', 'darwin', 'windows', 'linux', 'chrome', 'ios', 'ipados'. Requires team_id.   |
 | exclude_fleet_maintained_apps | `BOOLEAN` | (Key Column) Exclude Fleet-maintained apps from the results. Use in `WHERE` clause.                                                                |
-| server_url                    | `TEXT`    | FleetDM server URL from connection config.                                                                                                         |
 
 ## Examples
 
