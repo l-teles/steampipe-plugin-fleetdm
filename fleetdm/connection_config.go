@@ -14,6 +14,8 @@ type fleetdmConfig struct {
 	// enrollment secrets) in query results. Deliberately has no environment
 	// variable fallback: widening secret exposure must be explicit in the .spc.
 	ExposeSecrets *bool `cty:"expose_secrets"`
+	// RequestTimeout is the per-request timeout in seconds (default 30).
+	RequestTimeout *int `cty:"request_timeout"`
 }
 
 // ConfigSchema defines the schema for the plugin's connection configuration.
@@ -26,6 +28,9 @@ var ConfigSchema = map[string]*schema.Attribute{
 	},
 	"expose_secrets": {
 		Type: schema.TypeBool,
+	},
+	"request_timeout": {
+		Type: schema.TypeInt,
 	},
 }
 

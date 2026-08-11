@@ -85,19 +85,11 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 }
 
 func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_policy.listPolicies", "connection_error", err)
 		return nil, err
 	}
-
-	page := 0
-	perPage := 50
-
-	// limit := d.QueryContext.Limit
-	// if limit != nil && *limit < int64(perPage) {
-	// 	// perPage = int(*limit)
-	// }
 
 	// Determine endpoint: global/policies or teams/:id/policies
 	endpoint := "global/policies"
@@ -107,7 +99,7 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		plugin.Logger(ctx).Debug("fleetdm_policy.listPolicies", "using_team_endpoint", endpoint)
 	}
 
-	for {
+	err = paginatedList(ctx, d, 100, func(ctx context.Context, page, perPage int) ([]Policy, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -123,27 +115,15 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		}
 
 		var response ListPoliciesResponse
-		_, err := client.Get(ctx, endpoint, params, &response)
-		if err != nil {
+		if err := client.Get(ctx, endpoint, params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_policy.listPolicies", "api_error", err, "page", page, "params", params.Encode(), "endpoint", endpoint)
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, policy := range response.Policies {
-			d.StreamListItem(ctx, policy)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_policy.listPolicies", "limit_reached", true)
-				return nil, nil
-			}
-		}
-
-		if len(response.Policies) < perPage {
-			plugin.Logger(ctx).Debug("fleetdm_policy.listPolicies", "end_of_results", true, "policies_on_page", len(response.Policies))
-			break
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_policy.listPolicies", "next_page", page)
+		// The policies endpoints do not document a meta object for pagination.
+		return response.Policies, nil, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil

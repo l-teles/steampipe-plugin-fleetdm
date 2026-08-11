@@ -75,12 +75,16 @@ connection "fleetdm" {
   # Optional: opt in to returning live secret material (e.g. team enrollment
   # secrets) in query results. Default: false.
   # expose_secrets = false
+
+  # Optional: per-request timeout in seconds. Default: 30.
+  # request_timeout = 30
 }
 ```
 
 - `server_url` - Your FleetDM server URL. Must use `https` (`http` is only allowed for localhost). The plugin will attempt to append `/api/v1/` if it's not present.
 - `api_token` - Your FleetDM API token, which can be generated from your FleetDM instance (User Menu -> My account -> Get API token)
 - `expose_secrets` - Optional, default `false`. When `true`, columns containing live secret material (e.g. `fleetdm_team.secrets`, which holds agent enrollment secrets) are populated. Leave unset unless you need it: exposed secrets will land in Steampipe query caches, exports, and dashboards.
+- `request_timeout` - Optional, default `30`. Per-request timeout in seconds for FleetDM API calls.
 
 ### Credentials via environment variables
 

@@ -93,22 +93,13 @@ func tableFleetdmPack(ctx context.Context) *plugin.Table {
 }
 
 func listPacks(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_pack.listPacks", "connection_error", err)
 		return nil, err
 	}
 
-	// Pagination for packs: The /api/v1/fleet/packs endpoint supports `page` and `per_page`
-	page := 0
-	perPage := 50 // API default is 20, max 100
-
-	// limit := d.QueryContext.Limit
-	// if limit != nil && *limit < int64(perPage) {
-	// 	// perPage = int(*limit)
-	// }
-
-	for {
+	err = paginatedList(ctx, d, 100, func(ctx context.Context, page, perPage int) ([]Pack, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -118,32 +109,17 @@ func listPacks(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		// }
 
 		var response ListPacksResponse
-		_, err := client.Get(ctx, "packs", params, &response)
-		if err != nil {
+		if err := client.Get(ctx, "packs", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_pack.listPacks", "api_error", err, "page", page, "params", params.Encode())
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, pack := range response.Packs {
-			// List endpoint for packs usually provides summary data.
-			// Detailed fields like 'targets', 'scheduled_queries', 'agent_options' are from GET /packs/{id}.
-			// These will be null/empty here and populated by getPack if a single item is fetched.
-			d.StreamListItem(ctx, pack)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_pack.listPacks", "limit_reached", true)
-				return nil, nil
-			}
-		}
-
-		// Pagination check: if the number of packs returned is less than per_page,
-		// it's likely the last page. The /packs endpoint does not specify a `meta.has_next_results`.
-		if len(response.Packs) < perPage {
-			plugin.Logger(ctx).Debug("fleetdm_pack.listPacks", "end_of_results", true, "packs_on_page", len(response.Packs))
-			break
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_pack.listPacks", "next_page", page)
+		// The /packs endpoint does not document a meta object for pagination.
+		// List endpoint for packs provides summary data; detailed fields like
+		// 'targets', 'scheduled_queries', 'agent_options' come from GET /packs/{id}.
+		return response.Packs, nil, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil

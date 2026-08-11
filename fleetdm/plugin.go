@@ -18,6 +18,19 @@ func Plugin(ctx context.Context) *plugin.Plugin {
 		// Note: deliberately no NullIfZero() here — it would turn legitimate
 		// false/0 values (e.g. pack.disabled, label.host_count) into SQL NULL.
 		DefaultTransform: transform.FromGo(),
+		// Retry rate limits (429) and transient server errors (5xx) with
+		// exponential backoff; treat 404s as "no rows" rather than an error.
+		DefaultRetryConfig: &plugin.RetryConfig{
+			ShouldRetryErrorFunc: shouldRetryError,
+			MaxAttempts:          5,
+			BackoffAlgorithm:     "Exponential",
+			RetryInterval:        500,    // ms
+			CappedDuration:       30000,  // ms
+			MaxDuration:          120000, // ms
+		},
+		DefaultIgnoreConfig: &plugin.IgnoreConfig{
+			ShouldIgnoreErrorFunc: shouldIgnoreError,
+		},
 		TableMap: map[string]*plugin.Table{
 			"fleetdm_activity":             tableFleetdmActivity(ctx),
 			"fleetdm_app_store_app":        tableFleetdmAppStoreApp(ctx),

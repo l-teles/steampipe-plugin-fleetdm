@@ -25,10 +25,7 @@ type FleetMaintainedApp struct {
 // ListFleetMaintainedAppsResponse is the expected structure for the list Fleet-maintained apps API call.
 type ListFleetMaintainedAppsResponse struct {
 	FleetMaintainedApps []FleetMaintainedApp `json:"fleet_maintained_apps"`
-	Meta                struct {
-		HasNextResults     bool `json:"has_next_results"`
-		HasPreviousResults bool `json:"has_previous_results"`
-	} `json:"meta"`
+	Meta                *ListMeta            `json:"meta"`
 }
 
 func tableFleetdmFleetMaintainedApp(ctx context.Context) *plugin.Table {
@@ -58,16 +55,14 @@ func tableFleetdmFleetMaintainedApp(ctx context.Context) *plugin.Table {
 }
 
 func listFleetMaintainedApps(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_fleet_maintained_app.listFleetMaintainedApps", "connection_error", err)
 		return nil, err
 	}
 
-	page := 0
-	perPage := 10000
-
-	for {
+	// Bulk endpoint: large pages keep the page count low on big catalogs.
+	err = paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]FleetMaintainedApp, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -77,39 +72,15 @@ func listFleetMaintainedApps(ctx context.Context, d *plugin.QueryData, h *plugin
 		}
 
 		var response ListFleetMaintainedAppsResponse
-		_, err := client.Get(ctx, "software/fleet_maintained_apps", params, &response) // Endpoint is /api/v1/fleet/software/fleet_maintained_apps
-		if err != nil {
+		if err := client.Get(ctx, "software/fleet_maintained_apps", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_fleet_maintained_app.listFleetMaintainedApps", "api_error", err, "page", page, "params", params.Encode())
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, app := range response.FleetMaintainedApps {
-			d.StreamListItem(ctx, app)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_fleet_maintained_app.listFleetMaintainedApps", "limit_reached_sdk", "true")
-				return nil, nil
-			}
-		}
-
-		plugin.Logger(ctx).Info("fleetdm_fleet_maintained_app.listFleetMaintainedApps",
-			"page_processed", page,
-			"items_on_page", len(response.FleetMaintainedApps),
-			"api_has_next_results", response.Meta.HasNextResults,
-		)
-
-		if len(response.FleetMaintainedApps) < perPage {
-			plugin.Logger(ctx).Info("fleetdm_fleet_maintained_app.listFleetMaintainedApps", "pagination_ended_item_count_less_than_per_page", true, "current_page", page, "items_on_page", len(response.FleetMaintainedApps), "per_page", perPage)
-			break
-		}
-
-		if !response.Meta.HasNextResults && len(response.FleetMaintainedApps) == perPage {
-			plugin.Logger(ctx).Warn("fleetdm_fleet_maintained_app.listFleetMaintainedApps", "api_has_next_results_is_false_but_full_page_received", true, "current_page", page)
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_fleet_maintained_app.listFleetMaintainedApps", "incrementing_to_next_page", page)
+		return response.FleetMaintainedApps, response.Meta, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	plugin.Logger(ctx).Info("fleetdm_fleet_maintained_app.listFleetMaintainedApps", "list_fleet_maintained_apps_completed", true)
 	return nil, nil
 }

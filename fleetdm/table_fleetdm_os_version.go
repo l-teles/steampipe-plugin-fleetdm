@@ -39,13 +39,10 @@ type OSVersion struct {
 
 // ListOSVersionsResponse is the expected structure for the list OS versions API call.
 type ListOSVersionsResponse struct {
-	OSVersions []OSVersion `json:"os_versions"`
-	Meta       struct {
-		HasNextResults     bool `json:"has_next_results"`
-		HasPreviousResults bool `json:"has_previous_results"`
-	} `json:"meta"`
-	Count           int        `json:"count"`
-	CountsUpdatedAt *FleetTime `json:"counts_updated_at"`
+	OSVersions      []OSVersion `json:"os_versions"`
+	Meta            *ListMeta   `json:"meta"`
+	Count           int         `json:"count"`
+	CountsUpdatedAt *FleetTime  `json:"counts_updated_at"`
 }
 
 func tableFleetdmOSVersion(ctx context.Context) *plugin.Table {
@@ -82,16 +79,14 @@ func tableFleetdmOSVersion(ctx context.Context) *plugin.Table {
 }
 
 func listOSVersions(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_os_version.listOSVersions", "connection_error", err)
 		return nil, err
 	}
 
-	page := 0
-	perPage := 10000
-
-	for {
+	// Bulk endpoint: large pages keep the page count low on big fleets.
+	err = paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]OSVersion, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -112,40 +107,15 @@ func listOSVersions(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		}
 
 		var response ListOSVersionsResponse
-		_, err := client.Get(ctx, "os_versions", params, &response) // Endpoint is /api/v1/fleet/os_versions
-		if err != nil {
+		if err := client.Get(ctx, "os_versions", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_os_version.listOSVersions", "api_error", err, "page", page, "params", params.Encode())
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, osVer := range response.OSVersions {
-			d.StreamListItem(ctx, osVer)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_os_version.listOSVersions", "limit_reached_sdk", "true")
-				return nil, nil
-			}
-		}
-
-		plugin.Logger(ctx).Info("fleetdm_os_version.listOSVersions",
-			"page_processed", page,
-			"items_on_page", len(response.OSVersions),
-			"api_total_count", response.Count,
-			"api_has_next_results", response.Meta.HasNextResults,
-		)
-
-		if len(response.OSVersions) < perPage {
-			plugin.Logger(ctx).Info("fleetdm_os_version.listOSVersions", "pagination_ended_item_count_less_than_per_page", true, "current_page", page, "items_on_page", len(response.OSVersions), "per_page", perPage)
-			break
-		}
-
-		if !response.Meta.HasNextResults && len(response.OSVersions) == perPage {
-			plugin.Logger(ctx).Warn("fleetdm_os_version.listOSVersions", "api_has_next_results_is_false_but_full_page_received", true, "current_page", page)
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_os_version.listOSVersions", "incrementing_to_next_page", page)
+		return response.OSVersions, response.Meta, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	plugin.Logger(ctx).Info("fleetdm_os_version.listOSVersions", "list_os_versions_completed", true)
 	return nil, nil
 }

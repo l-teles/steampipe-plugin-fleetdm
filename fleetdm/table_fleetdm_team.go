@@ -109,22 +109,13 @@ func getTeamSecrets(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 }
 
 func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_team.listTeams", "connection_error", err)
 		return nil, err
 	}
 
-	// Pagination for teams: The /api/v1/fleet/teams endpoint supports `page` and `per_page`
-	page := 0
-	perPage := 10000
-
-	// limit := d.QueryContext.Limit
-	// if limit != nil && *limit < int64(perPage) {
-	// 	// perPage = int(*limit)
-	// }
-
-	for {
+	err = paginatedList(ctx, d, 100, func(ctx context.Context, page, perPage int) ([]Team, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -134,42 +125,17 @@ func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		}
 
 		var response ListTeamsResponse
-		_, err := client.Get(ctx, "teams", params, &response)
-		if err != nil {
+		if err := client.Get(ctx, "teams", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_team.listTeams", "api_error", err, "page", page)
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, team := range response.Teams {
-			// The list endpoint for teams might not include all details like full user list or secrets.
-			// These are typically available in the "Get team" endpoint.
-			// We can stream the basic info here, and rely on GetTeam or a separate hydrate for richer details if needed.
-			// For now, we assume the list endpoint provides sufficient top-level info.
-			// The `users` field in the `Team` struct will be populated by `getTeam` when a single team is fetched.
-			// For `listTeams`, the `users` field might be empty or contain minimal info from the list endpoint.
-			// The API doc for "List teams" does not show `users` or `secrets` in the response items.
-			// These are shown in "Get team". So, for list, these fields will be nil/empty.
-			// We can add a hydrate function to populate them if `plugin.GetConfig` is not used.
-			// Or, document that these fields are primarily for `Get`.
-			// For simplicity in list, we stream what `GET /teams` provides.
-			// The `users` column in the table definition will be hydrated by `getTeam` for individual `GET`s.
-			// If we want `users` for `LIST`, we'd need a separate hydrate call for each team.
-			d.StreamListItem(ctx, team)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_team.listTeams", "limit_reached", true)
-				return nil, nil
-			}
-		}
-
-		// Pagination check: if the number of teams returned is less than per_page,
-		// it's the last page. The `/teams` endpoint does not specify a `meta.has_next_results`.
-		if len(response.Teams) < perPage {
-			plugin.Logger(ctx).Debug("fleetdm_team.listTeams", "end_of_results", true, "teams_on_page", len(response.Teams))
-			break
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_team.listTeams", "next_page", page)
+		// The /teams endpoint does not document a meta object for pagination.
+		// The list endpoint provides top-level team info only; `users` and
+		// `secrets` are populated by the "Get team" endpoint.
+		return response.Teams, nil, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil

@@ -72,7 +72,7 @@ func tableFleetdmAppStoreApp(ctx context.Context) *plugin.Table {
 }
 
 func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_app_store_app.listAppStoreApps", "connection_error", err)
 		return nil, err
@@ -98,31 +98,28 @@ func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		plugin.Logger(ctx).Info("fleetdm_app_store_app.listAppStoreApps", "using_specific_team_id", teamID)
 	} else {
 		// Auto-discover all teams by calling GET /api/v1/fleet/teams.
+		// This is a nested full fetch (not a stream), so it uses a plain page
+		// loop that terminates on the first empty page.
 		plugin.Logger(ctx).Info("fleetdm_app_store_app.listAppStoreApps", "discovering_all_teams", true)
 
-		page := 0
-		perPage := 10000
-
-		for {
+		perPage := 100
+		for page := 0; ; page++ {
 			params := url.Values{}
 			params.Add("page", strconv.Itoa(page))
 			params.Add("per_page", strconv.Itoa(perPage))
 
 			var teamsResponse ListTeamsResponse
-			_, err := client.Get(ctx, "teams", params, &teamsResponse)
-			if err != nil {
+			if err := client.Get(ctx, "teams", params, &teamsResponse); err != nil {
 				plugin.Logger(ctx).Error("fleetdm_app_store_app.listAppStoreApps", "teams_api_error", err, "page", page)
 				return nil, err
 			}
 
+			if len(teamsResponse.Teams) == 0 {
+				break
+			}
 			for _, team := range teamsResponse.Teams {
 				teamsToQuery = append(teamsToQuery, teamInfo{ID: team.ID, Name: team.Name})
 			}
-
-			if len(teamsResponse.Teams) < perPage {
-				break
-			}
-			page++
 		}
 
 		plugin.Logger(ctx).Info("fleetdm_app_store_app.listAppStoreApps", "total_teams_discovered", len(teamsToQuery))
@@ -134,8 +131,7 @@ func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		params.Add("team_id", strconv.FormatUint(uint64(team.ID), 10))
 
 		var response ListAppStoreAppsResponse
-		_, err := client.Get(ctx, "software/app_store_apps", params, &response)
-		if err != nil {
+		if err := client.Get(ctx, "software/app_store_apps", params, &response); err != nil {
 			// Teams without a VPP token (or without the required license) return
 			// 4xx here; that must not abort the results of the other teams.
 			plugin.Logger(ctx).Warn("fleetdm_app_store_app.listAppStoreApps", "skipping_team", team.ID, "api_error", err)
