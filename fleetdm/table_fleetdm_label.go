@@ -72,22 +72,13 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 }
 
 func listLabels(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_label.listLabels", "connection_error", err)
 		return nil, err
 	}
 
-	// Pagination for labels: The /api/v1/fleet/labels endpoint supports `page` and `per_page`
-	page := 0
-	perPage := 50 // API default is 20, max 100
-
-	// limit := d.QueryContext.Limit
-	// if limit != nil && *limit < int64(perPage) {
-	// 	// perPage = int(*limit)
-	// }
-
-	for {
+	err = paginatedList(ctx, d, 100, func(ctx context.Context, page, perPage int) ([]Label, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -97,29 +88,15 @@ func listLabels(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData)
 		}
 
 		var response ListLabelsResponse
-		_, err := client.Get(ctx, "labels", params, &response)
-		if err != nil {
+		if err := client.Get(ctx, "labels", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_label.listLabels", "api_error", err, "page", page, "params", params.Encode())
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, label := range response.Labels {
-			d.StreamListItem(ctx, label)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_label.listLabels", "limit_reached", true)
-				return nil, nil
-			}
-		}
-
-		// Pagination check: if the number of labels returned is less than per_page,
-		// it's likely the last page. The /labels endpoint does not specify a `meta.has_next_results`.
-		if len(response.Labels) < perPage {
-			plugin.Logger(ctx).Debug("fleetdm_label.listLabels", "end_of_results", true, "labels_on_page", len(response.Labels))
-			break
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_label.listLabels", "next_page", page)
+		// The /labels endpoint does not document a meta object for pagination.
+		return response.Labels, nil, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil

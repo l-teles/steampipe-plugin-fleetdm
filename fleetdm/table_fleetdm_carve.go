@@ -63,16 +63,13 @@ func tableFleetdmCarve(ctx context.Context) *plugin.Table {
 }
 
 func listCarves(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_carve.listCarves", "connection_error", err)
 		return nil, err
 	}
 
-	page := 0
-	perPage := 50
-
-	for {
+	err = paginatedList(ctx, d, 100, func(ctx context.Context, page, perPage int) ([]Carve, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -81,29 +78,15 @@ func listCarves(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData)
 		params.Add("expired", "true")         // Also get expired carves
 
 		var response ListCarvesResponse
-		_, err := client.Get(ctx, "carves", params, &response)
-		if err != nil {
+		if err := client.Get(ctx, "carves", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_carve.listCarves", "api_error", err, "page", page, "params", params.Encode())
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, carve := range response.Carves {
-			d.StreamListItem(ctx, carve)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_carve.listCarves", "limit_reached", true)
-				return nil, nil
-			}
-		}
-
-		// The /carves endpoint does not specify a meta object for pagination,
-		// so we rely on the number of items returned.
-		if len(response.Carves) < perPage {
-			plugin.Logger(ctx).Debug("fleetdm_carve.listCarves", "end_of_results", true, "carves_on_page", len(response.Carves))
-			break
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_carve.listCarves", "next_page", page)
+		// The /carves endpoint does not document a meta object for pagination.
+		return response.Carves, nil, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil

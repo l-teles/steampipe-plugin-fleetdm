@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strconv"
 
 	"github.com/turbot/steampipe-plugin-sdk/v5/grpc/proto"
 	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
@@ -180,10 +181,18 @@ func tableFleetdmHostDetail(ctx context.Context) *plugin.Table {
 		Description: "Provides fully detailed information for each host by fetching details individually.",
 		List: &plugin.ListConfig{
 			Hydrate: listHostsForDetails,
+			KeyColumns: []*plugin.KeyColumn{
+				{Name: "team_id", Require: plugin.Optional},
+				{Name: "status", Require: plugin.Optional},
+				{Name: "query", Require: plugin.Optional},
+			},
 		},
 		Get: &plugin.GetConfig{
 			KeyColumns: plugin.SingleColumn("id"),
 			Hydrate:    getHostDetails,
+		},
+		HydrateConfig: []plugin.HydrateConfig{
+			{Func: getHostDetails, MaxConcurrency: 10},
 		},
 		Columns: []*plugin.Column{
 			// Columns from the basic host list call (NO HYDRATE)
@@ -253,46 +262,50 @@ func tableFleetdmHostDetail(ctx context.Context) *plugin.Table {
 			{Name: "maintenance_window", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("MaintenanceWindow").Transform(arrayOrObjectToJSONString), Description: "Configured maintenance window for the host."},
 			{Name: "additional", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("Additional").Transform(arrayOrObjectToJSONString), Description: "Additional custom details for the host."},
 			{Name: "packs", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("Packs").Transform(arrayOrObjectToJSONString), Description: "Query packs applied to the host."},
+
+			// Query parameters that can be used for filtering (key columns)
+			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords for hostname, UUID, serial number, or IP. Set in WHERE clause."},
 		},
 	}
 }
 
 // listHostsForDetails gets the minimal host object for hydration.
 func listHostsForDetails(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_host_detail.listHostsForDetails", "connection_error", err)
 		return nil, err
 	}
 
-	page := 0
-	perPage := 10000
-
-	for {
+	// Large pages: this list only feeds the per-host detail hydrate, so fewer,
+	// bigger list calls are cheaper than many small ones.
+	err = paginatedList(ctx, d, 500, func(ctx context.Context, page, perPage int) ([]Host, *ListMeta, error) {
 		params := url.Values{}
-		params.Add("page", fmt.Sprintf("%d", page))
-		params.Add("per_page", fmt.Sprintf("%d", perPage))
+		params.Add("page", strconv.Itoa(page))
+		params.Add("per_page", strconv.Itoa(perPage))
 		params.Add("order_key", "id")
 		params.Add("order_direction", "asc")
 
+		if d.EqualsQuals["team_id"] != nil {
+			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+		}
+		if d.EqualsQuals["status"] != nil {
+			params.Add("status", d.EqualsQuals["status"].GetStringValue())
+		}
+		if d.EqualsQuals["query"] != nil {
+			params.Add("query", d.EqualsQuals["query"].GetStringValue())
+		}
+
 		var response ListHostsResponse
-		_, err := client.Get(ctx, "hosts", params, &response)
-		if err != nil {
+		if err := client.Get(ctx, "hosts", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_host_detail.listHostsForDetails", "api_error", err, "page", page)
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, host := range response.Hosts {
-			d.StreamListItem(ctx, host)
-			if d.RowsRemaining(ctx) == 0 {
-				return nil, nil
-			}
-		}
-
-		if len(response.Hosts) < perPage {
-			break
-		}
-		page++
+		// GET /hosts does not document a meta object for pagination.
+		return response.Hosts, nil, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil
@@ -303,7 +316,10 @@ func getHostDetails(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 	var hostID int
 	if h.Item != nil {
 		// h.Item is the minimal Host object from listHostsForDetails
-		hostFromList := h.Item.(Host) // Use the simpler Host struct here
+		hostFromList, ok := h.Item.(Host)
+		if !ok {
+			return nil, fmt.Errorf("getHostDetails: unexpected item type %T, expected Host", h.Item)
+		}
 		hostID = hostFromList.ID
 	} else {
 		hostID = int(d.EqualsQuals["id"].GetInt64Value())
@@ -315,7 +331,7 @@ func getHostDetails(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 
 	plugin.Logger(ctx).Info("fleetdm_host_detail.getHostDetails", "hydrating_host_id", hostID)
 
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_host_detail.getHostDetails", "connection_error", err, "host_id", hostID)
 		return nil, err
@@ -328,9 +344,7 @@ func getHostDetails(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		Host HostDetail `json:"host"` // Use the new rich HostDetail struct
 	}
 	endpointPath := fmt.Sprintf("hosts/%d", hostID)
-	_, err = client.Get(ctx, endpointPath, params, &response)
-
-	if err != nil {
+	if err := client.Get(ctx, endpointPath, params, &response); err != nil {
 		plugin.Logger(ctx).Error("fleetdm_host_detail.getHostDetails", "client_get_error", err, "host_id", hostID)
 		return nil, err
 	}

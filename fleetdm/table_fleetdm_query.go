@@ -98,21 +98,13 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 }
 
 func listQueries(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_query.listQueries", "connection_error", err)
 		return nil, err
 	}
 
-	page := 0
-	perPage := 50 // API default is 20, max 100
-
-	// limit := d.QueryContext.Limit
-	// if limit != nil && *limit < int64(perPage) {
-	// 	// perPage = int(*limit)
-	// }
-
-	for {
+	err = paginatedList(ctx, d, 100, func(ctx context.Context, page, perPage int) ([]QuerySaved, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -132,30 +124,17 @@ func listQueries(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 		// TODO: Support order_key and order_direction via Quals
 
 		var response ListQueriesResponse
-		_, err := client.Get(ctx, "queries", params, &response)
-		if err != nil {
+		if err := client.Get(ctx, "queries", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_query.listQueries", "api_error", err, "page", page, "params", params.Encode())
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, query := range response.Queries {
-			// The list endpoint for queries might not include 'packs'.
-			// 'packs' are listed in the response for GET /api/v1/fleet/queries/{id}.
-			// So, for list, 'packs' will be nil/empty.
-			d.StreamListItem(ctx, query)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_query.listQueries", "limit_reached", true)
-				return nil, nil
-			}
-		}
-
-		if len(response.Queries) < perPage {
-			plugin.Logger(ctx).Debug("fleetdm_query.listQueries", "end_of_results", true, "queries_on_page", len(response.Queries))
-			break
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_query.listQueries", "next_page", page)
+		// The /queries endpoint does not document a meta object for pagination.
+		// 'packs' is only populated by GET /api/v1/fleet/queries/{id}, so it is
+		// nil/empty for list rows.
+		return response.Queries, nil, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil

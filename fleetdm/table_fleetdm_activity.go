@@ -31,12 +31,8 @@ type Activity struct {
 // The API returns {"activities": [...]}
 type ListActivitiesResponse struct {
 	Activities []Activity `json:"activities"`
-	Meta       struct {   // FleetDM API for activities includes a meta object for pagination
-		HasNextResults     bool   `json:"has_next_results"`
-		HasPreviousResults bool   `json:"has_previous_results"`
-		NextCursor         string `json:"next_cursor"` // The API docs mention 'after' parameter with a timestamp, but also page/per_page. Let's assume page/per_page for now as per examples.
-	} `json:"meta"`
-	Count int `json:"count"` // Total count of activities matching the query
+	Meta       *ListMeta  `json:"meta"`
+	Count      int        `json:"count"` // Total count of activities matching the query
 }
 
 func tableFleetdmActivity(ctx context.Context) *plugin.Table {
@@ -74,24 +70,13 @@ func tableFleetdmActivity(ctx context.Context) *plugin.Table {
 }
 
 func listActivities(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_activity.listActivities", "connection_error", err)
 		return nil, err
 	}
 
-	// Pagination for activities: The /api/v1/fleet/activities endpoint supports `page` and `per_page`
-	// It also supports `after` (timestamp string like "2022-11-22T17:39:00Z") for cursor-based pagination.
-	// We'll use page/per_page for consistency with other tables.
-	page := 0
-	perPage := 50 // API default is 20, max 100
-
-	// limit := d.QueryContext.Limit
-	// if limit != nil && *limit < int64(perPage) {
-	// 	// perPage = int(*limit)
-	// }
-
-	for {
+	err = paginatedList(ctx, d, 50, func(ctx context.Context, page, perPage int) ([]Activity, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -112,32 +97,14 @@ func listActivities(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		}
 
 		var response ListActivitiesResponse
-		_, err := client.Get(ctx, "activities", params, &response)
-		if err != nil {
+		if err := client.Get(ctx, "activities", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_activity.listActivities", "api_error", err, "page", page, "params", params.Encode())
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, activity := range response.Activities {
-			d.StreamListItem(ctx, activity)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_activity.listActivities", "limit_reached", true)
-				return nil, nil
-			}
-		}
-
-		// Pagination check
-		if !response.Meta.HasNextResults && response.Meta.NextCursor == "" {
-			plugin.Logger(ctx).Debug("fleetdm_activity.listActivities", "end_of_results_by_meta", true, "activities_on_page", len(response.Activities), "has_next_meta", response.Meta.HasNextResults)
-			break
-		}
-		if len(response.Activities) < perPage { // Fallback if meta isn't conclusive with page/per_page
-			plugin.Logger(ctx).Debug("fleetdm_activity.listActivities", "end_of_results_by_count", true, "activities_on_page", len(response.Activities))
-			break
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_activity.listActivities", "next_page", page)
+		return response.Activities, response.Meta, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil

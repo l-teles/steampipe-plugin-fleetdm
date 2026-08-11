@@ -72,22 +72,13 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 }
 
 func listUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_user.listUsers", "connection_error", err)
 		return nil, err
 	}
 
-	// Pagination for users: The /api/v1/fleet/users endpoint supports `page` and `per_page`
-	page := 0
-	perPage := 50 // A reasonable default, adjust as needed or if API has specific limits/max
-
-	// limit := d.QueryContext.Limit
-	// if limit != nil && *limit < int64(perPage) {
-	// 	// perPage = int(*limit) // Be cautious if API has minimum per_page
-	// }
-
-	for {
+	err = paginatedList(ctx, d, 100, func(ctx context.Context, page, perPage int) ([]User, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -100,45 +91,15 @@ func listUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		}
 
 		var usersResponse ListUsersResponse
-
-		httpResp, err := client.Get(ctx, "users", params, &usersResponse) // Pass ListUsersResponse struct
-		if err != nil {
+		if err := client.Get(ctx, "users", params, &usersResponse); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_user.listUsers", "api_error", err, "page", page)
-			return nil, err
+			return nil, nil, err
 		}
-
-		// Check if usersResponse.Users is nil after a successful HTTP call, which might indicate an empty list or unexpected response format
-		if httpResp.StatusCode == 200 && usersResponse.Users == nil {
-			// This could happen if the API returned `[]` instead of `{"users": []}` and the decoder didn't error but also didn't populate.
-			// Or if it returned `{"users": null}`.
-			// Given the API docs, `{"users": [...]}` is expected, so `usersResponse.Users` should be populated.
-			// If it's nil, it implies an empty list of users from the API for this page.
-			plugin.Logger(ctx).Debug("fleetdm_user.listUsers", "users_array_is_nil_or_empty_on_page", page)
-			// This is a valid state for the last page if it's empty, or if there are no users.
-		}
-
-		if len(usersResponse.Users) == 0 && page == 0 { // No users found at all on the first page
-			plugin.Logger(ctx).Debug("fleetdm_user.listUsers", "no_users_found_at_all", true)
-			return nil, nil // Stop if no users on the very first call
-		}
-
-		for _, user := range usersResponse.Users {
-			d.StreamListItem(ctx, user)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_user.listUsers", "limit_reached", true)
-				return nil, nil
-			}
-		}
-
-		// Pagination check: if the number of users returned is less than per_page,
-		// it's the last page. FleetDM's /users endpoint does not seem to use a 'meta.has_next_results' field.
-		if len(usersResponse.Users) < perPage {
-			plugin.Logger(ctx).Debug("fleetdm_user.listUsers", "end_of_results", true, "users_on_page", len(usersResponse.Users))
-			break
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_user.listUsers", "next_page", page)
+		// The /users endpoint does not document a meta object for pagination.
+		return usersResponse.Users, nil, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil

@@ -39,13 +39,10 @@ type SoftwareTitle struct {
 
 // ListSoftwareTitlesResponse is the expected structure for the list software titles API call.
 type ListSoftwareTitlesResponse struct {
-	SoftwareTitles []SoftwareTitle `json:"software_titles"`
-	Meta           struct {
-		HasNextResults     bool `json:"has_next_results"`
-		HasPreviousResults bool `json:"has_previous_results"`
-	} `json:"meta"`
-	Count           int        `json:"count"`
-	CountsUpdatedAt *FleetTime `json:"counts_updated_at"`
+	SoftwareTitles  []SoftwareTitle `json:"software_titles"`
+	Meta            *ListMeta       `json:"meta"`
+	Count           int             `json:"count"`
+	CountsUpdatedAt *FleetTime      `json:"counts_updated_at"`
 }
 
 func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
@@ -93,8 +90,8 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable fields include title and CVE. Set in WHERE clause."},
 			{Name: "self_service", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("self_service"), Description: "Filter for self-service software only. Set in WHERE clause."},
 			{Name: "packages_only", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("packages_only"), Description: "Filter for install packages only, excluding app store apps (Fleet Premium). Set in WHERE clause."},
-			{Name: "min_cvss_score", Type: proto.ColumnType_INT, Transform: transform.FromQual("min_cvss_score"), Description: "Filter for software with vulnerabilities having a CVSS v3.x base score higher than this value (Fleet Premium). Set in WHERE clause."},
-			{Name: "max_cvss_score", Type: proto.ColumnType_INT, Transform: transform.FromQual("max_cvss_score"), Description: "Filter for software with vulnerabilities having a CVSS v3.x base score lower than this value (Fleet Premium). Set in WHERE clause."},
+			{Name: "min_cvss_score", Type: proto.ColumnType_DOUBLE, Transform: transform.FromQual("min_cvss_score"), Description: "Filter for software with vulnerabilities having a CVSS v3.x base score higher than this value (Fleet Premium). Set in WHERE clause."},
+			{Name: "max_cvss_score", Type: proto.ColumnType_DOUBLE, Transform: transform.FromQual("max_cvss_score"), Description: "Filter for software with vulnerabilities having a CVSS v3.x base score lower than this value (Fleet Premium). Set in WHERE clause."},
 			{Name: "exploit", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("exploit"), Description: "Filter for software with vulnerabilities that have been actively exploited in the wild — CISA known exploit (Fleet Premium). Set in WHERE clause."},
 			{Name: "platform", Type: proto.ColumnType_STRING, Transform: transform.FromQual("platform"), Description: "Filter installable titles by platform. Options: 'macos', 'darwin', 'windows', 'linux', 'chrome', 'ios', 'ipados'. Requires team_id. Set in WHERE clause."},
 			{Name: "exclude_fleet_maintained_apps", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("exclude_fleet_maintained_apps"), Description: "Exclude Fleet-maintained apps from the results. Set in WHERE clause."},
@@ -103,16 +100,14 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 }
 
 func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_software_title.listSoftwareTitles", "connection_error", err)
 		return nil, err
 	}
 
-	page := 0
-	perPage := 10000
-
-	for {
+	// Bulk endpoint: large pages keep the page count low on big inventories.
+	err = paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]SoftwareTitle, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -146,10 +141,10 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 		}
 
 		if d.EqualsQuals["min_cvss_score"] != nil {
-			params.Add("min_cvss_score", strconv.FormatInt(d.EqualsQuals["min_cvss_score"].GetInt64Value(), 10))
+			params.Add("min_cvss_score", strconv.FormatFloat(d.EqualsQuals["min_cvss_score"].GetDoubleValue(), 'f', -1, 64))
 		}
 		if d.EqualsQuals["max_cvss_score"] != nil {
-			params.Add("max_cvss_score", strconv.FormatInt(d.EqualsQuals["max_cvss_score"].GetInt64Value(), 10))
+			params.Add("max_cvss_score", strconv.FormatFloat(d.EqualsQuals["max_cvss_score"].GetDoubleValue(), 'f', -1, 64))
 		}
 		if d.EqualsQuals["exploit"] != nil {
 			params.Add("exploit", strconv.FormatBool(d.EqualsQuals["exploit"].GetBoolValue()))
@@ -162,40 +157,15 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 		}
 
 		var response ListSoftwareTitlesResponse
-		_, err := client.Get(ctx, "software/titles", params, &response) // Endpoint is /api/v1/fleet/software/titles
-		if err != nil {
+		if err := client.Get(ctx, "software/titles", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_software_title.listSoftwareTitles", "api_error", err, "page", page, "params", params.Encode())
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, title := range response.SoftwareTitles {
-			d.StreamListItem(ctx, title)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_software_title.listSoftwareTitles", "limit_reached_sdk", "true")
-				return nil, nil
-			}
-		}
-
-		plugin.Logger(ctx).Info("fleetdm_software_title.listSoftwareTitles",
-			"page_processed", page,
-			"items_on_page", len(response.SoftwareTitles),
-			"api_total_count", response.Count,
-			"api_has_next_results", response.Meta.HasNextResults,
-		)
-
-		if len(response.SoftwareTitles) < perPage {
-			plugin.Logger(ctx).Info("fleetdm_software_title.listSoftwareTitles", "pagination_ended_item_count_less_than_per_page", true, "current_page", page, "items_on_page", len(response.SoftwareTitles), "per_page", perPage)
-			break
-		}
-
-		if !response.Meta.HasNextResults && len(response.SoftwareTitles) == perPage {
-			plugin.Logger(ctx).Warn("fleetdm_software_title.listSoftwareTitles", "api_has_next_results_is_false_but_full_page_received", true, "current_page", page)
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_software_title.listSoftwareTitles", "incrementing_to_next_page", page)
+		return response.SoftwareTitles, response.Meta, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	plugin.Logger(ctx).Info("fleetdm_software_title.listSoftwareTitles", "list_software_titles_completed", true)
 	return nil, nil
 }

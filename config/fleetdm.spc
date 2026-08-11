@@ -15,4 +15,7 @@ connection "fleetdm" {
   # in query results. Leave unset/false unless you understand that secrets
   # will then land in Steampipe query caches, exports, and dashboards.
   # expose_secrets = false
+
+  # Per-request timeout in seconds. Default: 30.
+  # request_timeout = 30
 }

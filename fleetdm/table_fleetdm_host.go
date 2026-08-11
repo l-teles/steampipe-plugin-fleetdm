@@ -293,21 +293,18 @@ func addHostPopulationParams(params url.Values) {
 
 // listHosts fetches a list of hosts from the FleetDM API.
 func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_host.listHosts", "connection_error", err)
 		return nil, err
 	}
 
-	page := 0
-	perPage := 100
-
-	for {
+	err = paginatedList(ctx, d, 100, func(ctx context.Context, page, perPage int) ([]Host, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
 		params.Add("order_key", "id")
-		params.Add("order_direction", "desc") // Get latest hosts first, or 'asc' for consistent paging
+		params.Add("order_direction", "asc") // Ascending ID keeps offset paging stable while iterating
 
 		addHostPopulationParams(params)
 
@@ -349,27 +346,15 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		plugin.Logger(ctx).Debug("fleetdm_host.listHosts", "request_params", params.Encode())
 
 		var response ListHostsResponse
-		_, err := client.Get(ctx, "hosts", params, &response)
-		if err != nil {
+		if err := client.Get(ctx, "hosts", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_host.listHosts", "api_error", err, "page", page, "params", params.Encode())
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, host := range response.Hosts {
-			d.StreamListItem(ctx, host)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_host.listHosts", "limit_reached", true)
-				return nil, nil
-			}
-		}
-
-		if len(response.Hosts) < perPage {
-			plugin.Logger(ctx).Debug("fleetdm_host.listHosts", "end_of_results", true, "hosts_count_on_page", len(response.Hosts))
-			break
-		}
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_host.listHosts", "next_page", page)
+		// GET /hosts does not document a meta object for pagination.
+		return response.Hosts, nil, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return nil, nil

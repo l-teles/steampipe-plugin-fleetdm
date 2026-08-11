@@ -79,12 +79,8 @@ type Software struct {
 // ListSoftwareResponse is the expected structure for the list software API call.
 type ListSoftwareResponse struct {
 	Software []Software `json:"software"`
-	Meta     struct {
-		HasNextResults     bool   `json:"has_next_results"`
-		HasPreviousResults bool   `json:"has_previous_results"`
-		NextCursor         string `json:"next_cursor"`
-	} `json:"meta"`
-	Count int `json:"count"` // Total count of all software items matching the query
+	Meta     *ListMeta  `json:"meta"`
+	Count    int        `json:"count"` // Total count of all software items matching the query
 }
 
 func tableFleetdmSoftwareVersion(ctx context.Context) *plugin.Table {
@@ -129,25 +125,22 @@ func tableFleetdmSoftwareVersion(ctx context.Context) *plugin.Table {
 			{Name: "vulnerable_only", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("vulnerable_only"), Description: "Filter for software with known vulnerabilities. Set in WHERE clause."},
 			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("team_id"), Description: "Filter by team ID (Fleet Premium). Use 0 for hosts assigned to 'No team'. Set in WHERE clause."},
 			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable fields include name, version, and CVE. Set in WHERE clause."},
-			{Name: "min_cvss_score", Type: proto.ColumnType_INT, Transform: transform.FromQual("min_cvss_score"), Description: "Filter for software with vulnerabilities having a CVSS v3.x base score higher than this value (Fleet Premium). Set in WHERE clause."},
-			{Name: "max_cvss_score", Type: proto.ColumnType_INT, Transform: transform.FromQual("max_cvss_score"), Description: "Filter for software with vulnerabilities having a CVSS v3.x base score lower than this value (Fleet Premium). Set in WHERE clause."},
+			{Name: "min_cvss_score", Type: proto.ColumnType_DOUBLE, Transform: transform.FromQual("min_cvss_score"), Description: "Filter for software with vulnerabilities having a CVSS v3.x base score higher than this value (Fleet Premium). Set in WHERE clause."},
+			{Name: "max_cvss_score", Type: proto.ColumnType_DOUBLE, Transform: transform.FromQual("max_cvss_score"), Description: "Filter for software with vulnerabilities having a CVSS v3.x base score lower than this value (Fleet Premium). Set in WHERE clause."},
 			{Name: "exploit", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("exploit"), Description: "Filter for software with vulnerabilities that have been actively exploited in the wild — CISA known exploit (Fleet Premium). Set in WHERE clause."},
 		},
 	}
 }
 
 func listSoftwareVersions(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	client, err := NewFleetDMClient(ctx, d.Connection)
+	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_software_version.listSoftwareVersions", "connection_error", err)
 		return nil, err
 	}
 
-	page := 0
-	// perPage is the number of items to request per API call.
-	perPage := 10000 // This seems to have no limit and 100 was making it super slow, 1000 slow so let's go with 10000 🤠.
-
-	for {
+	// Bulk endpoint: large pages keep the page count low on big inventories.
+	err = paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]Software, *ListMeta, error) {
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))
 		params.Add("per_page", strconv.Itoa(perPage))
@@ -172,66 +165,25 @@ func listSoftwareVersions(ctx context.Context, d *plugin.QueryData, h *plugin.Hy
 		}
 
 		if d.EqualsQuals["min_cvss_score"] != nil {
-			params.Add("min_cvss_score", strconv.FormatInt(d.EqualsQuals["min_cvss_score"].GetInt64Value(), 10))
+			params.Add("min_cvss_score", strconv.FormatFloat(d.EqualsQuals["min_cvss_score"].GetDoubleValue(), 'f', -1, 64))
 		}
 		if d.EqualsQuals["max_cvss_score"] != nil {
-			params.Add("max_cvss_score", strconv.FormatInt(d.EqualsQuals["max_cvss_score"].GetInt64Value(), 10))
+			params.Add("max_cvss_score", strconv.FormatFloat(d.EqualsQuals["max_cvss_score"].GetDoubleValue(), 'f', -1, 64))
 		}
 		if d.EqualsQuals["exploit"] != nil {
 			params.Add("exploit", strconv.FormatBool(d.EqualsQuals["exploit"].GetBoolValue()))
 		}
 
 		var response ListSoftwareResponse
-		_, err := client.Get(ctx, "software/versions", params, &response) // Endpoint is /api/v1/fleet/software/versions
-		if err != nil {
+		if err := client.Get(ctx, "software/versions", params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_software_version.listSoftwareVersions", "api_error", err, "page", page, "params", params.Encode())
-			return nil, err
+			return nil, nil, err
 		}
-
-		for _, swItem := range response.Software {
-			d.StreamListItem(ctx, swItem)
-			if d.RowsRemaining(ctx) == 0 {
-				plugin.Logger(ctx).Debug("fleetdm_software_version.listSoftwareVersions", "limit_reached_sdk", "true")
-				return nil, nil
-			}
-		}
-
-		// Log pagination details from the API response
-		plugin.Logger(ctx).Info("fleetdm_software_version.listSoftwareVersions",
-			"page_processed", page,
-			"items_on_page", len(response.Software),
-			"api_total_count", response.Count, // Total items matching filter, not just on this page
-			"api_has_next_results", response.Meta.HasNextResults,
-			"api_next_cursor", response.Meta.NextCursor,
-		)
-
-		// Determine if there are more pages to fetch.
-		// Primary condition: Continue if the API returned a full page of items.
-		if len(response.Software) < perPage {
-			plugin.Logger(ctx).Info("fleetdm_software_version.listSoftwareVersions", "pagination_ended_item_count_less_than_per_page", true, "current_page", page, "items_on_page", len(response.Software), "per_page", perPage)
-			break
-		}
-
-		// Secondary check (optional, but good for observation): Log if HasNextResults is false but we got a full page.
-		// This might indicate an inconsistency in the API's meta field.
-		if !response.Meta.HasNextResults && len(response.Software) == perPage {
-			plugin.Logger(ctx).Warn("fleetdm_software_version.listSoftwareVersions", "api_has_next_results_is_false_but_full_page_received", true, "current_page", page)
-			// Depending on API behavior, you might still want to try fetching the next page,
-			// or trust len(response.Software) < perPage as the more reliable indicator.
-			// For now, we will break if len(response.Software) < perPage, making HasNextResults secondary.
-		}
-
-		// If HasNextResults is explicitly false, and we trust it, we can break early.
-		// However, considering a previous issue existed, let's prioritize the item count.
-		// if !response.Meta.HasNextResults {
-		// 	plugin.Logger(ctx).Info("fleetdm_software_version.listSoftwareVersions", "pagination_ended_by_api_has_next_results_false", true, "current_page", page)
-		// 	break
-		// }
-
-		page++
-		plugin.Logger(ctx).Debug("fleetdm_software_version.listSoftwareVersions", "incrementing_to_next_page", page)
+		return response.Software, response.Meta, nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
-	plugin.Logger(ctx).Info("fleetdm_software_version.listSoftwareVersions", "list_software_versions_completed", true)
 	return nil, nil
 }
