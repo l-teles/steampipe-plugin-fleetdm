@@ -1,0 +1,29 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "timezone": "UTC",
+  "schedule": ["before 6am on monday"],
+  "minimumReleaseAge": "7 days",
+  "prConcurrentLimit": 0,
+  "labels": ["dependencies"],
+  "assignees": ["l-teles"],
+  "packageRules": [
+    {
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["require", "indirect"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "go-dependencies"
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchDepTypes": ["toolchain"],
+      "separateMinorPatch": true,
+      "description": "Left ungrouped so a Go stdlib security patch merges as its own PR, independent of regular dependency bumps. Keeps the default 7-day minimumReleaseAge: GitHub's setup-go version manifest lags behind go.dev, and a brand-new patch can be unresolvable in CI until the manifest catches up. separateMinorPatch keeps a same-line patch bump (routine, low-risk) from being collapsed into a Go feature-release bump (1.26.x -> 1.27.0, needs deliberate review) into one PR."
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "github-actions"
+    }
+  ]
+}
