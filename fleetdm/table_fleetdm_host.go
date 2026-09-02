@@ -313,7 +313,7 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 			params.Add("query", d.EqualsQuals["query"].GetStringValue())
 		}
 		if d.EqualsQuals["team_id"] != nil {
-			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			addFleetIDParam(params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
 		if d.EqualsQuals["status"] != nil {
 			params.Add("status", d.EqualsQuals["status"].GetStringValue())

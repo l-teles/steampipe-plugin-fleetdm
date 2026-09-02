@@ -47,6 +47,7 @@ func Plugin(ctx context.Context) *plugin.Plugin {
 			"fleetdm_software_version":     tableFleetdmSoftwareVersion(ctx),
 			"fleetdm_team":                 tableFleetdmTeam(ctx),
 			"fleetdm_user":                 tableFleetdmUser(ctx),
+			"fleetdm_version":              tableFleetdmVersion(ctx),
 		},
 	}
 	return p

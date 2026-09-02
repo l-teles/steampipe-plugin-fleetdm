@@ -84,7 +84,7 @@ func listLabels(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData)
 		params.Add("per_page", strconv.Itoa(perPage))
 
 		if d.EqualsQuals["team_id"] != nil {
-			params.Add("team_id", d.EqualsQuals["team_id"].GetStringValue())
+			addFleetIDParam(params, d.EqualsQuals["team_id"].GetStringValue())
 		}
 
 		var response ListLabelsResponse

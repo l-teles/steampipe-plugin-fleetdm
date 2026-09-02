@@ -5,6 +5,8 @@ description: "Allows users to query FleetDM query packs, providing insights into
 
 # Table: fleetdm_pack - Query FleetDM Query Packs using SQL
 
+> **Deprecation note:** The Packs API has been removed from current FleetDM documentation. This table keeps working against older servers, but on newer ones it may return empty results or a 404 (which the plugin treats as no rows).
+
 FleetDM is an open-source device management platform that helps you manage and secure your devices. Query packs in FleetDM are collections of queries that can be scheduled to run against targeted hosts or labels, enabling automated data collection and monitoring.
 
 ## Table Usage Guide

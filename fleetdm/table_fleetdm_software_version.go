@@ -151,7 +151,7 @@ func listSoftwareVersions(ctx context.Context, d *plugin.QueryData, h *plugin.Hy
 			params.Add("vulnerable", strconv.FormatBool(d.EqualsQuals["vulnerable_only"].GetBoolValue()))
 		}
 		if d.EqualsQuals["team_id"] != nil {
-			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			addFleetIDParam(params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
 		if d.EqualsQuals["query"] != nil {
 			params.Add("query", d.EqualsQuals["query"].GetStringValue())

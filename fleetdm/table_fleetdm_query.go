@@ -29,9 +29,10 @@ type QuerySaved struct {
 	Interval           *uint           `json:"interval"` // For scheduled queries, in seconds
 	Platform           *string         `json:"platform"` // Comma-separated list or empty for all
 	MinOsqueryVersion  *string         `json:"min_osquery_version"`
-	Logging            *string         `json:"logging"` // "snapshot", "differential", "differential_ignore_removals"
-	Stats              json.RawMessage `json:"stats"`   // Performance statistics, complex object
-	Packs              []QueryPack     `json:"packs"`   // Packs this query belongs to (available on GET /queries/{id})
+	Logging            *string         `json:"logging"`            // "snapshot", "differential", "differential_ignore_removals"
+	Stats              json.RawMessage `json:"stats"`              // Performance statistics, complex object
+	Packs              []QueryPack     `json:"packs"`              // Packs this query belongs to (available on GET /queries/{id})
+	LabelsIncludeAny   interface{}     `json:"labels_include_any"` // Labels targeting the query (newer Fleet only)
 }
 
 // QueryPack minimal info for a pack a query belongs to.
@@ -41,13 +42,14 @@ type QueryPack struct {
 	Type string `json:"type"` // e.g. "global", "team"
 }
 
-// ListQueriesResponse is the structure for the list queries API response.
-// `GET /api/v1/fleet/queries` returns `{"queries": [...]}`
+// ListQueriesResponse is the structure for the list queries/reports API
+// response. Old servers respond with { "queries": [...] }; servers past the
+// queries->reports rename respond with { "reports": [...] }. Both keys are
+// declared so either generation unmarshals; use coalesceSlice(Reports,
+// Queries) to read the result.
 type ListQueriesResponse struct {
 	Queries []QuerySaved `json:"queries"`
-	// Meta  struct { // If pagination meta is introduced
-	// 	HasNextResults bool `json:"has_next_results"`
-	// } `json:"meta"`
+	Reports []QuerySaved `json:"reports"`
 }
 
 // GetQueryResponse is the structure for the get query API response.
@@ -86,6 +88,7 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 			{Name: "logging_type", Type: proto.ColumnType_STRING, Transform: transform.FromField("Logging"), Description: "Type of logging for query results (e.g., snapshot, differential)."},
 			{Name: "stats", Type: proto.ColumnType_JSON, Description: "Performance statistics for the query execution."},
 			{Name: "packs", Type: proto.ColumnType_JSON, Description: "Packs this query belongs to (details available on GET)."},
+			{Name: "labels_include_any", Type: proto.ColumnType_JSON, Description: "Labels targeting the query; the query only runs on hosts with at least one of these labels (newer Fleet only)."},
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the query was created."},
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the query was last updated."},
 
@@ -113,7 +116,7 @@ func listQueries(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 			params.Add("query", d.EqualsQuals["query_text_filter"].GetStringValue())
 		}
 		if d.EqualsQuals["team_id"] != nil {
-			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			addFleetIDParam(params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
 		if d.EqualsQuals["platform_filter"] != nil {
 			params.Add("platform", d.EqualsQuals["platform_filter"].GetStringValue())
@@ -124,14 +127,14 @@ func listQueries(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 		// TODO: Support order_key and order_direction via Quals
 
 		var response ListQueriesResponse
-		if err := client.Get(ctx, "queries", params, &response); err != nil {
+		if err := client.GetCompat(ctx, d, famReports, nil, params, &response); err != nil {
 			plugin.Logger(ctx).Error("fleetdm_query.listQueries", "api_error", err, "page", page, "params", params.Encode())
 			return nil, nil, err
 		}
-		// The /queries endpoint does not document a meta object for pagination.
-		// 'packs' is only populated by GET /api/v1/fleet/queries/{id}, so it is
-		// nil/empty for list rows.
-		return response.Queries, nil, nil
+		// Neither the /queries nor the /reports endpoint documents a meta
+		// object for pagination. 'packs' is only populated by the get-by-id
+		// endpoint, so it is nil/empty for list rows.
+		return coalesceSlice(response.Reports, response.Queries), nil, nil
 	})
 	if err != nil {
 		return nil, err

@@ -40,7 +40,6 @@ The `fleetdm_software_version` table provides detailed insights into your softwa
 | min_cvss_score    | `INT`       | (Key Column) Filter for software with vulnerabilities having a CVSS v3.x base score higher than this value (Fleet Premium). Use in `WHERE` clause.               |
 | max_cvss_score    | `INT`       | (Key Column) Filter for software with vulnerabilities having a CVSS v3.x base score lower than this value (Fleet Premium). Use in `WHERE` clause.                |
 | exploit           | `BOOLEAN`   | (Key Column) Filter for software with vulnerabilities that have been actively exploited in the wild — CISA known exploit (Fleet Premium). Use in `WHERE` clause. |
-| server_url        | `TEXT`      | FleetDM server URL from connection config.                                                                                                                       |
 
 ## Examples
 

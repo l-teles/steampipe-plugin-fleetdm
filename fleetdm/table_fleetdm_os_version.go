@@ -94,7 +94,7 @@ func listOSVersions(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		params.Add("order_direction", "desc")
 
 		if d.EqualsQuals["team_id"] != nil {
-			params.Add("team_id", strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			addFleetIDParam(params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
 		if d.EqualsQuals["platform"] != nil {
 			params.Add("platform", d.EqualsQuals["platform"].GetStringValue())

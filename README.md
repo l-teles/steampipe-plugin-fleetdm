@@ -228,14 +228,21 @@ Then, run queries against the available tables.
 **Available Tables:**
 
 * `fleetdm_activity`
+* `fleetdm_app_store_app`
+* `fleetdm_carve`
+* `fleetdm_fleet_maintained_app`
 * `fleetdm_host`
+* `fleetdm_host_detail`
 * `fleetdm_label`
+* `fleetdm_os_version`
 * `fleetdm_pack`
 * `fleetdm_policy`
 * `fleetdm_query`
-* `fleetdm_software`
+* `fleetdm_software_title`
+* `fleetdm_software_version`
 * `fleetdm_team`
 * `fleetdm_user`
+* `fleetdm_version`
 
 **Example Queries:**
 
@@ -275,9 +282,9 @@ WHERE
   id = 24; -- Replace with an actual host ID
 ```
 
-### `fleetdm_software`
+### `fleetdm_software_version`
 
-List the top 10 most installed software:
+List the top 10 most installed software versions:
 ```sql
 SELECT
   name,
@@ -285,13 +292,13 @@ SELECT
   source,
   host_count
 FROM
-  fleetdm_software
+  fleetdm_software_version
 ORDER BY
   host_count DESC
 LIMIT 10;
 ```
 
-Find software with known vulnerabilities (if vulnerability processing is enabled in FleetDM):
+Find software versions with known vulnerabilities (if vulnerability processing is enabled in FleetDM):
 ```sql
 SELECT
   name,
@@ -299,7 +306,7 @@ SELECT
   host_count,
   vulnerabilities
 FROM
-  fleetdm_software
+  fleetdm_software_version
 WHERE
   vulnerable_only = true; -- Uses KeyColumn for API filtering
 ```

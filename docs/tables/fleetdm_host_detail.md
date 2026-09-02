@@ -25,6 +25,8 @@ from
 where
   h.id = 1
   and p ->> 'response' = 'fail';
+```
+
 ```sql+sqlite
 select
   h.hostname,
@@ -50,6 +52,8 @@ from
   jsonb_array_elements(h.software) as s
 where
   h.id = 1;
+```
+
 ```sql+sqlite
 select
   h.hostname,
@@ -75,6 +79,8 @@ from
   jsonb_array_elements(batteries) as b
 where
   (b ->> 'cycle_count')::int < 50;
+```
+
 ```sql+sqlite
 select
   hostname,
@@ -100,6 +106,8 @@ from
   jsonb_array_elements(h.users) as u
 where
   h.id = 1;
+```
+
 ```sql+sqlite
 select
   h.hostname,
@@ -111,3 +119,4 @@ from
   json_each(h.users) as u
 where
   h.id = 1;
+```

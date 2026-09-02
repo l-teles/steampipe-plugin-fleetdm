@@ -109,15 +109,16 @@ func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 			params.Add("per_page", strconv.Itoa(perPage))
 
 			var teamsResponse ListTeamsResponse
-			if err := client.Get(ctx, "teams", params, &teamsResponse); err != nil {
+			if err := client.GetCompat(ctx, d, famFleets, nil, params, &teamsResponse); err != nil {
 				plugin.Logger(ctx).Error("fleetdm_app_store_app.listAppStoreApps", "teams_api_error", err, "page", page)
 				return nil, err
 			}
 
-			if len(teamsResponse.Teams) == 0 {
+			teams := coalesceSlice(teamsResponse.Fleets, teamsResponse.Teams)
+			if len(teams) == 0 {
 				break
 			}
-			for _, team := range teamsResponse.Teams {
+			for _, team := range teams {
 				teamsToQuery = append(teamsToQuery, teamInfo{ID: team.ID, Name: team.Name})
 			}
 		}
@@ -128,7 +129,7 @@ func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 	// For each team, query the app store apps endpoint.
 	for _, team := range teamsToQuery {
 		params := url.Values{}
-		params.Add("team_id", strconv.FormatUint(uint64(team.ID), 10))
+		addFleetIDParam(params, strconv.FormatUint(uint64(team.ID), 10))
 
 		var response ListAppStoreAppsResponse
 		if err := client.Get(ctx, "software/app_store_apps", params, &response); err != nil {
