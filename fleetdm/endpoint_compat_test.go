@@ -262,14 +262,21 @@ func TestHandlePremiumError(t *testing.T) {
 
 	ctx := testCtx(t)
 	// nil QueryData exercises the nil-safe dedupe path.
-	if !handlePremiumError(ctx, nil, "fleetdm_test", apiErr(http.StatusPaymentRequired, "")) {
-		t.Error("handlePremiumError(402) = false, want true")
+	if !handleUnavailableFeature(ctx, nil, "fleetdm_test", apiErr(http.StatusPaymentRequired, "")) {
+		t.Error("handleUnavailableFeature(402) = false, want true")
 	}
-	if handlePremiumError(ctx, nil, "fleetdm_test", apiErr(http.StatusInternalServerError, "boom")) {
-		t.Error("handlePremiumError(500) = true, want false")
+	mdmOff := `{"message": "Bad request", "errors": [{"name": "base", "reason": "MDM features aren't turned on in Fleet."}]}`
+	if !handleUnavailableFeature(ctx, nil, "fleetdm_test", apiErr(http.StatusBadRequest, mdmOff)) {
+		t.Error("handleUnavailableFeature(400 MDM off) = false, want true")
 	}
-	if handlePremiumError(ctx, nil, "fleetdm_test", nil) {
-		t.Error("handlePremiumError(nil) = true, want false")
+	if handleUnavailableFeature(ctx, nil, "fleetdm_test", apiErr(http.StatusBadRequest, "invalid page")) {
+		t.Error("handleUnavailableFeature(400 other) = true, want false")
+	}
+	if handleUnavailableFeature(ctx, nil, "fleetdm_test", apiErr(http.StatusInternalServerError, "boom")) {
+		t.Error("handleUnavailableFeature(500) = true, want false")
+	}
+	if handleUnavailableFeature(ctx, nil, "fleetdm_test", nil) {
+		t.Error("handleUnavailableFeature(nil) = true, want false")
 	}
 }
 

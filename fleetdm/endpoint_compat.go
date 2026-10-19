@@ -191,23 +191,33 @@ func isPremiumError(err error) bool {
 	return false
 }
 
-// handlePremiumError returns true when err is a Fleet Premium licensing
-// failure that should be swallowed (treat as zero rows) instead of failing
-// the query. It logs one Warn per connection+table, deduped via the
-// connection cache.
-func handlePremiumError(ctx context.Context, d *plugin.QueryData, table string, err error) bool {
-	if !isPremiumError(err) {
+// isMDMOffError classifies err as Fleet refusing an MDM endpoint because MDM
+// is not turned on.
+func isMDMOffError(err error) bool {
+	var apiErr *FleetAPIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusBadRequest {
 		return false
 	}
-	cacheKey := "premium_warned/" + table
+	return strings.Contains(strings.ToLower(apiErr.Snippet), "mdm features aren't turned on")
+}
+
+// handleUnavailableFeature returns true when err means the feature behind a
+// table is not available on this server (Fleet Premium license missing, or
+// MDM turned off), so the query should yield zero rows instead of failing.
+// It logs one Warn per connection+table, deduped via the connection cache.
+func handleUnavailableFeature(ctx context.Context, d *plugin.QueryData, table string, err error) bool {
+	if !isPremiumError(err) && !isMDMOffError(err) {
+		return false
+	}
+	cacheKey := "unavailable_warned/" + table
 	if d != nil && d.ConnectionCache != nil {
 		if _, warned := d.ConnectionCache.Get(ctx, cacheKey); warned {
 			return true
 		}
 		if cerr := d.ConnectionCache.Set(ctx, cacheKey, true); cerr != nil {
-			plugin.Logger(ctx).Warn("handlePremiumError", "connection_cache_set_error", cerr, "table", table)
+			plugin.Logger(ctx).Warn("handleUnavailableFeature", "connection_cache_set_error", cerr, "table", table)
 		}
 	}
-	plugin.Logger(ctx).Warn("handlePremiumError", "table", table, "premium_feature_unavailable", err.Error())
+	plugin.Logger(ctx).Warn("handleUnavailableFeature", "table", table, "feature_unavailable", err.Error())
 	return true
 }

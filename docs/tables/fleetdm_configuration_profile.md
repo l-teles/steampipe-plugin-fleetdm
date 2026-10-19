@@ -9,7 +9,7 @@ FleetDM delivers configuration profiles to Apple, Windows and Android hosts thro
 
 ## Table Usage Guide
 
-The `fleetdm_configuration_profile` table helps you review which OS settings each team enforces. Without a `team_id` filter it lists profiles for hosts with no team plus every team (one request per team); with `team_id` it lists only that team's profiles. MDM must be turned on in Fleet.
+The `fleetdm_configuration_profile` table helps you review which OS settings each team enforces. Without a `team_id` filter it lists profiles for hosts with no team plus every team (one request per team); with `team_id` it lists only that team's profiles. When MDM is not turned on in Fleet, the table returns no rows.
 
 ## Examples
 

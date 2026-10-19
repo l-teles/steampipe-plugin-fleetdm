@@ -22,7 +22,7 @@ func teamScopes(ctx context.Context, d *plugin.QueryData, client *FleetDMClient,
 	scopes := []*uint{nil}
 	teams, err := fetchAllTeams(ctx, d, client)
 	if err != nil {
-		if handlePremiumError(ctx, d, table, err) {
+		if handleUnavailableFeature(ctx, d, table, err) {
 			return scopes, nil
 		}
 		return nil, err
