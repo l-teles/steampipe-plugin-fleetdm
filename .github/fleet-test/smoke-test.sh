@@ -31,13 +31,15 @@ connection "${CONN}" {
 }
 EOF
 
-# A new connection's schema is imported asynchronously; wait for it.
+# Steampipe imports a new or rebuilt plugin's schema asynchronously; wait
+# until two consecutive listings agree so no table is skipped.
 tables=""
 for _ in $(seq 1 20); do
-  tables=$(steampipe query --output csv --header=false \
-    "select table_name from information_schema.tables where table_schema = '${CONN}' order by table_name")
-  [ -n "$tables" ] && break
   sleep 3
+  latest=$(steampipe query --output csv --header=false \
+    "select table_name from information_schema.tables where table_schema = '${CONN}' order by table_name")
+  [ -n "$latest" ] && [ "$latest" = "$tables" ] && break
+  tables="$latest"
 done
 if [ -z "$tables" ]; then
   echo "ERROR: plugin exposed no tables; it failed to load." >&2
@@ -72,9 +74,8 @@ for entry in $team_tables; do
   t="${entry%%:*}"
   value="${team_id}"
   [ "${entry#*:}" = "text" ] && value="'${team_id}'"
-  where="where team_id = ${value}"
-  [ -n "$(extra_where "$t")" ] && where="$(extra_where "$t") and team_id = ${value}"
-  run_check "$t (team_id)" "select count(*) from ${CONN}.${t} ${where}"
+  # No extra_where here: the team filter must reach each table's list call.
+  run_check "$t (team_id)" "select count(*) from ${CONN}.${t} where team_id = ${value}"
 done
 
 exit "$failed"
