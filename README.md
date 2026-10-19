@@ -241,6 +241,7 @@ Then, run queries against the available tables.
 * `fleetdm_activity`
 * `fleetdm_app_store_app`
 * `fleetdm_carve`
+* `fleetdm_configuration_profile`
 * `fleetdm_fleet_maintained_app`
 * `fleetdm_host`
 * `fleetdm_host_detail`
@@ -249,11 +250,13 @@ Then, run queries against the available tables.
 * `fleetdm_pack`
 * `fleetdm_policy`
 * `fleetdm_query`
+* `fleetdm_script`
 * `fleetdm_software_title`
 * `fleetdm_software_version`
 * `fleetdm_team`
 * `fleetdm_user`
 * `fleetdm_version`
+* `fleetdm_vulnerability`
 
 **Example Queries:**
 

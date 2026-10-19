@@ -161,3 +161,24 @@ func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 
 	return nil, nil
 }
+
+// fetchAllTeams returns every team (fleet) for tables that fan out per team.
+// It is a nested full fetch rather than a stream, so it pages until the first
+// empty page.
+func fetchAllTeams(ctx context.Context, d *plugin.QueryData, client *FleetDMClient) ([]Team, error) {
+	var all []Team
+	err := paginateCore(ctx, 100, func(ctx context.Context, page, perPage int) ([]Team, *ListMeta, error) {
+		params := url.Values{}
+		params.Add("page", strconv.Itoa(page))
+		params.Add("per_page", strconv.Itoa(perPage))
+		var response ListTeamsResponse
+		if err := client.GetCompat(ctx, d, famFleets, nil, params, &response); err != nil {
+			return nil, nil, err
+		}
+		return coalesceSlice(response.Fleets, response.Teams), nil, nil
+	}, func(team Team) bool {
+		all = append(all, team)
+		return true
+	})
+	return all, err
+}
