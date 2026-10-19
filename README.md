@@ -127,6 +127,17 @@ steampipe query
 > .inspect fleetdm
 ```
 
+Test against a throwaway local Fleet (needs Docker; CI runs the same smoke test on every PR against the pinned Fleet release, Fleet v4.81.0 from before the teams→fleets rename, and the latest release):
+
+```sh
+export FLEET_SERVER_PRIVATE_KEY="$(openssl rand -hex 32)"
+docker compose -f .github/fleet-test/docker-compose.yml up -d --wait
+.github/fleet-test/setup-fleet.sh > "$TMPDIR/fleet-env"
+set -a; . "$TMPDIR/fleet-env"; set +a
+.github/fleet-test/smoke-test.sh
+docker compose -f .github/fleet-test/docker-compose.yml down -v
+```
+
 Further reading:
 
 - [Writing plugins](https://steampipe.io/docs/develop/writing-plugins)

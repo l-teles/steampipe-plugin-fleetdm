@@ -33,14 +33,75 @@ jobs:
       - name: go test
         run: go test -race ./...
 
+  # Loads the built plugin into Steampipe and queries every table against a
+  # live Fleet. Unit tests cannot see SDK/cache regressions from a dependency
+  # bump; this can.
+  smoke:
+    name: Smoke (Fleet ${{ matrix.label }})
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: ${{ matrix.canary }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Empty tag = the pinned default in .github/fleet-test/docker-compose.yml.
+          - label: pinned
+            fleet_tag: ""
+            canary: false
+          # Last release before the teams→fleets / queries→reports rename;
+          # exercises the endpoint compat fallback.
+          - label: v4.81.0 (pre-rename)
+            fleet_tag: v4.81.0
+            canary: false
+          # Non-blocking: surfaces a breaking Fleet release early.
+          - label: latest (canary)
+            fleet_tag: latest
+            canary: true
+    env:
+      FLEET_IMAGE_TAG: ${{ matrix.fleet_tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      - uses: turbot/steampipe-action-setup@ea334bd03cc89b940db6b2daec94d0e0eab47dc0 # v1.7.0
+        with:
+          # renovate: datasource=github-releases depName=turbot/steampipe
+          steampipe-version: "2.4.7"
+      - name: Generate Fleet server key
+        run: |
+          key="$(openssl rand -hex 32)"
+          echo "::add-mask::${key}"
+          echo "FLEET_SERVER_PRIVATE_KEY=${key}" >> "$GITHUB_ENV"
+      - name: Start Fleet
+        run: docker compose -f .github/fleet-test/docker-compose.yml up -d --wait
+      - name: Set up Fleet and obtain API token
+        run: |
+          .github/fleet-test/setup-fleet.sh > "${RUNNER_TEMP}/fleet-env"
+          token="$(sed -n 's/^FLEETDM_API_TOKEN=//p' "${RUNNER_TEMP}/fleet-env")"
+          echo "::add-mask::${token}"
+          cat "${RUNNER_TEMP}/fleet-env" >> "$GITHUB_ENV"
+      - name: Smoke test every table
+        run: .github/fleet-test/smoke-test.sh
+      - name: Fleet logs
+        if: failure()
+        run: docker compose -f .github/fleet-test/docker-compose.yml logs fleet | tail -200
+      - name: Stop Fleet
+        if: always()
+        run: docker compose -f .github/fleet-test/docker-compose.yml down -v
+
   renovate-config:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
       - name: Validate renovate.json
         run: npx --yes --package=renovate -- renovate-config-validator renovate.json
