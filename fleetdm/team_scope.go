@@ -34,7 +34,11 @@ func teamScopes(ctx context.Context, d *plugin.QueryData, client *FleetDMClient,
 	return scopes, nil
 }
 
-// scopeParam renders a team scope for addFleetIDParam.
+// scopeParam renders a team scope for addFleetIDParam; nil ("no team") is 0,
+// which per-team endpoints accept for hosts with no team.
 func scopeParam(id *uint) string {
+	if id == nil {
+		return "0"
+	}
 	return strconv.FormatUint(uint64(*id), 10)
 }

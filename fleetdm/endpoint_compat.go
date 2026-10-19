@@ -22,6 +22,8 @@ const (
 	famFleets        endpointFamily = "fleets"         // fleets <- teams
 	famReports       endpointFamily = "reports"        // reports <- queries
 	famFleetPolicies endpointFamily = "fleet_policies" // fleets/%d/policies <- teams/%d/policies
+	famFleetSecrets  endpointFamily = "fleet_secrets"  // fleets/%d/secrets <- teams/%d/secrets
+	famABTokens      endpointFamily = "ab_tokens"      // ab_tokens <- abm_tokens
 )
 
 // endpointPaths maps a family to {newPathFormat, oldPathFormat}. The formats
@@ -30,6 +32,8 @@ var endpointPaths = map[endpointFamily][2]string{
 	famFleets:        {"fleets", "teams"},
 	famReports:       {"reports", "queries"},
 	famFleetPolicies: {"fleets/%d/policies", "teams/%d/policies"},
+	famFleetSecrets:  {"fleets/%d/secrets", "teams/%d/secrets"},
+	famABTokens:      {"ab_tokens", "abm_tokens"},
 }
 
 // is404 reports whether err is a *FleetAPIError with a 404 status.
@@ -172,6 +176,17 @@ func requireExposeSecrets(d *plugin.QueryData) error {
 		return nil
 	}
 	return errors.New("this table returns live secrets; set expose_secrets = true in the fleetdm connection config to query it")
+}
+
+// itemIfSecretsExposed returns the list item only when expose_secrets is set,
+// so columns that may carry credentials read NULL otherwise. No extra API call
+// is made.
+func itemIfSecretsExposed(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	config := GetConfig(d.Connection)
+	if config.ExposeSecrets == nil || !*config.ExposeSecrets {
+		return nil, nil
+	}
+	return h.Item, nil
 }
 
 // isPremiumError classifies err as a Fleet Premium licensing failure: a 402,

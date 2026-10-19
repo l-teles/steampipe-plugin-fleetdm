@@ -18,6 +18,8 @@ CONN="fleetdm_smoke"
 extra_where() {
   case "$1" in
     fleetdm_host_detail) echo "where id = 0" ;;
+    fleetdm_mdm_command) echo "where host_identifier = 'smoke-no-such-host'" ;;
+    fleetdm_mdm_command_result) echo "where command_uuid = 'smoke-no-such-command'" ;;
   esac
 }
 
@@ -28,6 +30,8 @@ go build -o "${plugin_dir}/steampipe-plugin-fleetdm.plugin" .
 cat > "${INSTALL_DIR}/config/${CONN}.spc" <<EOF
 connection "${CONN}" {
   plugin = "local/fleetdm"
+  # Throwaway test instance: exercise the tables and columns gated on secrets.
+  expose_secrets = true
 }
 EOF
 

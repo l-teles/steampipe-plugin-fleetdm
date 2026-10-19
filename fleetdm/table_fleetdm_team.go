@@ -90,8 +90,8 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 			{Name: "mdm", Type: proto.ColumnType_JSON, Transform: transform.FromField("MDM"), Description: "Team MDM settings (OS updates, disk encryption, setup experience, profiles)."},
 			{Name: "scripts", Type: proto.ColumnType_JSON, Description: "Scripts configured for the team via GitOps."},
 			{Name: "software", Type: proto.ColumnType_JSON, Description: "Software configured for the team (packages, App Store apps, Fleet-maintained apps)."},
-			{Name: "integrations", Type: proto.ColumnType_JSON, Hydrate: getTeamIfSecretsExposed, Transform: transform.FromField("Integrations"), Description: "Team integrations (Jira, Zendesk, Google Calendar, conditional access). NULL unless expose_secrets = true, as webhook URLs can embed credentials."},
-			{Name: "webhook_settings", Type: proto.ColumnType_JSON, Hydrate: getTeamIfSecretsExposed, Transform: transform.FromField("WebhookSettings"), Description: "Team webhook settings. NULL unless expose_secrets = true, as destination URLs can embed credentials."},
+			{Name: "integrations", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("Integrations"), Description: "Team integrations (Jira, Zendesk, Google Calendar, conditional access). NULL unless expose_secrets = true, as webhook URLs can embed credentials."},
+			{Name: "webhook_settings", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("WebhookSettings"), Description: "Team webhook settings. NULL unless expose_secrets = true, as destination URLs can embed credentials."},
 
 			// Query parameters that can be used for filtering (key columns)
 			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable field is team name. Set in WHERE clause."},
@@ -116,17 +116,6 @@ func getTeamSecrets(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		return nil, nil
 	}
 	return team.Secrets, nil
-}
-
-// getTeamIfSecretsExposed returns the list item only when expose_secrets is
-// set, so columns that may carry credentials read NULL otherwise. No extra API
-// call is made.
-func getTeamIfSecretsExposed(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	config := GetConfig(d.Connection)
-	if config.ExposeSecrets == nil || !*config.ExposeSecrets {
-		return nil, nil
-	}
-	return h.Item, nil
 }
 
 func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
