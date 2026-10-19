@@ -7,23 +7,66 @@
   "prConcurrentLimit": 0,
   "labels": ["dependencies"],
   "assignees": ["l-teles"],
+  "osvVulnerabilityAlerts": true,
+  "gomod": {
+    "description": "Tidy after every Go update so go.sum gets module-zip hashes and drops superseded entries; rewrite import paths on a major bump (e.g. steampipe-plugin-sdk/v5 -> /v6).",
+    "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"]
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Fleet version the CI smoke test pins. Each bump is a prompt to check the plugin against that Fleet release.",
+      "managerFilePatterns": ["/^\\.github/fleet-test/docker-compose\\.yml$/"],
+      "matchStrings": ["image: (?<depName>fleetdm/fleet):\\$\\{FLEET_IMAGE_TAG:-(?<currentValue>v[^}]+)\\}"],
+      "datasourceTemplate": "docker"
+    },
+    {
+      "customType": "regex",
+      "description": "Versions pinned in workflow inputs, marked with a '# renovate:' comment on the line above.",
+      "managerFilePatterns": ["/^\\.github/workflows/[^/]+\\.ya?ml$/"],
+      "matchStrings": ["# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+[\\w-]+:\\s*\"?(?<currentValue>[^\"\\s]+)\"?"],
+      "extractVersionTemplate": "^v?(?<version>.*)$"
+    }
+  ],
   "packageRules": [
     {
       "matchManagers": ["gomod"],
-      "matchDepTypes": ["require", "indirect"],
+      "matchFileNames": ["go.mod"],
+      "matchDepTypes": ["require"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "go-dependencies"
     },
     {
       "matchManagers": ["gomod"],
+      "matchFileNames": ["go.mod"],
+      "matchDepTypes": ["indirect"],
+      "enabled": false,
+      "description": "Deliberately left off (also the config:recommended default). Indirect modules are the steampipe-plugin-sdk's graph: bumping them past what the SDK pins compiled and passed unit tests but broke every query at runtime (eko/gocache). Security fixes still arrive through vulnerability-alert PRs, which bypass this rule."
+    },
+    {
+      "matchManagers": ["gomod"],
       "matchDepTypes": ["toolchain"],
       "separateMinorPatch": true,
-      "description": "Left ungrouped so a Go stdlib security patch merges as its own PR, independent of regular dependency bumps. Keeps the default 7-day minimumReleaseAge: GitHub's setup-go version manifest lags behind go.dev, and a brand-new patch can be unresolvable in CI until the manifest catches up. separateMinorPatch keeps a same-line patch bump (routine, low-risk) from being collapsed into a Go feature-release bump (1.26.x -> 1.27.0, needs deliberate review) into one PR."
+      "description": "Left ungrouped so a Go stdlib security patch merges as its own PR. separateMinorPatch keeps a routine same-line patch apart from a Go feature-release bump (1.26.x -> 1.27.0), which needs review: Turbot's shared lint/release pipeline must support that Go line first."
+    },
+    {
+      "matchManagers": ["gomod"],
+      "matchFileNames": [".github/security-tools/go.mod"],
+      "matchPackageNames": ["github.com/securego/gosec/v2", "golang.org/x/vuln"],
+      "enabled": true,
+      "groupName": "security-tools",
+      "description": "CI-only scanners, pinned instead of installed @latest. Go marks tool-only modules '// indirect', so they need enabling explicitly."
     },
     {
       "matchManagers": ["github-actions"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "github-actions"
+    },
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mysql"],
+      "allowedVersions": "<9",
+      "description": "Fleet's migrations use MySQL's MD5(), removed after the 8.x line; Fleet documents 9.x as incompatible."
     }
   ]
 }
