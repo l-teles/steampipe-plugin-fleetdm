@@ -241,8 +241,8 @@ func tableFleetdmHostDetail(ctx context.Context) *plugin.Table {
 			{Name: "gigs_disk_space_available", Type: proto.ColumnType_DOUBLE, Description: "Gigabytes of disk space available."},
 			{Name: "percent_disk_space_available", Type: proto.ColumnType_DOUBLE, Description: "Percentage of disk space available."},
 			{Name: "gigs_total_disk_space", Type: proto.ColumnType_DOUBLE, Description: "Total gigabytes of disk space."},
-			{Name: "public_ip", Type: proto.ColumnType_IPADDR, Description: "The public IP address of the host."},
-			{Name: "primary_ip", Type: proto.ColumnType_IPADDR, Description: "The primary IP address of the host."},
+			{Name: "public_ip", Type: proto.ColumnType_IPADDR, Transform: transform.FromField("PublicIP").Transform(ipAddrTransform), Description: "The public IP address of the host."},
+			{Name: "primary_ip", Type: proto.ColumnType_IPADDR, Transform: transform.FromField("PrimaryIP").Transform(ipAddrTransform), Description: "The primary IP address of the host."},
 			{Name: "primary_mac", Type: proto.ColumnType_STRING, Description: "The primary MAC address of the host."},
 			{Name: "distributed_interval", Type: proto.ColumnType_INT, Description: "The distributed query interval for the host."},
 			{Name: "config_tls_refresh", Type: proto.ColumnType_INT, Description: "The config TLS refresh interval."},
@@ -287,7 +287,7 @@ func listHostsForDetails(ctx context.Context, d *plugin.QueryData, h *plugin.Hyd
 		params.Add("order_direction", "asc")
 
 		if d.EqualsQuals["team_id"] != nil {
-			addFleetIDParam(params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			client.addFleetIDParam(ctx, d, params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
 		if d.EqualsQuals["status"] != nil {
 			params.Add("status", d.EqualsQuals["status"].GetStringValue())

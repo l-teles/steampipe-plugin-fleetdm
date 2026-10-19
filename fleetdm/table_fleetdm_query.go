@@ -116,7 +116,7 @@ func listQueries(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 			params.Add("query", d.EqualsQuals["query_text_filter"].GetStringValue())
 		}
 		if d.EqualsQuals["team_id"] != nil {
-			addFleetIDParam(params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			client.addFleetIDParam(ctx, d, params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
 		if d.EqualsQuals["platform_filter"] != nil {
 			params.Add("platform", d.EqualsQuals["platform_filter"].GetStringValue())

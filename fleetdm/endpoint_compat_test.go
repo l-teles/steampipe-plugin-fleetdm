@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"testing"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
@@ -205,16 +204,27 @@ func TestCoalesceSlice(t *testing.T) {
 	}
 }
 
-func TestAddFleetIDParam(t *testing.T) {
+func TestFleetIDParamForVersion(t *testing.T) {
 	t.Parallel()
 
-	params := url.Values{}
-	addFleetIDParam(params, "7")
-	if got := params["fleet_id"]; len(got) != 1 || got[0] != "7" {
-		t.Errorf("fleet_id = %v, want [7]", got)
+	tests := []struct {
+		version string
+		want    string
+	}{
+		{"4.93.0", "fleet_id"},
+		{"4.82.0", "fleet_id"},
+		{"4.82.1-rc.1", "fleet_id"},
+		{"5.0.0", "fleet_id"},
+		{"4.81.0", "team_id"},
+		{"4.9.1", "team_id"},
+		{"3.99.0", "team_id"},
+		{"", "team_id"},
+		{"dev", "team_id"},
 	}
-	if got := params["team_id"]; len(got) != 1 || got[0] != "7" {
-		t.Errorf("team_id = %v, want [7]", got)
+	for _, tc := range tests {
+		if got := fleetIDParamForVersion(tc.version); got != tc.want {
+			t.Errorf("fleetIDParamForVersion(%q) = %q, want %q", tc.version, got, tc.want)
+		}
 	}
 }
 

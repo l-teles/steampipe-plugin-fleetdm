@@ -248,9 +248,9 @@ func tableFleetdmHost(ctx context.Context) *plugin.Table {
 			{Name: "hardware_serial", Type: proto.ColumnType_STRING, Description: "Hardware serial number."},
 
 			// Network
-			{Name: "primary_ip", Type: proto.ColumnType_IPADDR, Description: "The primary IP address of the host."},
+			{Name: "primary_ip", Type: proto.ColumnType_IPADDR, Transform: transform.FromField("PrimaryIP").Transform(ipAddrTransform), Description: "The primary IP address of the host."},
 			{Name: "primary_mac", Type: proto.ColumnType_STRING, Description: "The primary MAC address of the host."},
-			{Name: "public_ip", Type: proto.ColumnType_IPADDR, Description: "The public IP address of the host."},
+			{Name: "public_ip", Type: proto.ColumnType_IPADDR, Transform: transform.FromField("PublicIP").Transform(ipAddrTransform), Description: "The public IP address of the host."},
 			// Fleet Configuration
 			{Name: "team_id", Type: proto.ColumnType_INT, Description: "The ID of the team the host belongs to, if any."},
 			{Name: "team_name", Type: proto.ColumnType_STRING, Description: "The name of the team the host belongs to, if any."},
@@ -313,7 +313,7 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 			params.Add("query", d.EqualsQuals["query"].GetStringValue())
 		}
 		if d.EqualsQuals["team_id"] != nil {
-			addFleetIDParam(params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			client.addFleetIDParam(ctx, d, params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
 		if d.EqualsQuals["status"] != nil {
 			params.Add("status", d.EqualsQuals["status"].GetStringValue())

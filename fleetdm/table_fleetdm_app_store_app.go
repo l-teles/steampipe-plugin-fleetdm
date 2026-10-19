@@ -129,7 +129,7 @@ func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 	// For each team, query the app store apps endpoint.
 	for _, team := range teamsToQuery {
 		params := url.Values{}
-		addFleetIDParam(params, strconv.FormatUint(uint64(team.ID), 10))
+		client.addFleetIDParam(ctx, d, params, strconv.FormatUint(uint64(team.ID), 10))
 
 		var response ListAppStoreAppsResponse
 		if err := client.Get(ctx, "software/app_store_apps", params, &response); err != nil {

@@ -45,15 +45,36 @@ if [ -z "$tables" ]; then
 fi
 
 failed=0
-for t in $tables; do
-  sql="select count(*) from ${CONN}.${t} $(extra_where "$t")"
-  # steampipe can exit 0 on a failed query, so also inspect the output.
-  if out=$(steampipe query --output csv --header=false "$sql" 2>&1) && ! grep -qE '^(Error|Warning)' <<<"$out"; then
-    printf '%-32s ok (%s rows)\n' "$t" "$out"
+# run_check LABEL SQL: steampipe can exit 0 on a failed query, so also
+# inspect the output.
+run_check() {
+  local out
+  if out=$(steampipe query --output csv --header=false "$2" 2>&1) && ! grep -qE '^(Error|Warning)' <<<"$out"; then
+    printf '%-48s ok (%s rows)\n' "$1" "$out"
   else
-    printf '%-32s FAILED: %s\n' "$t" "$out"
+    printf '%-48s FAILED: %s\n' "$1" "$out"
     failed=1
   fi
+}
+
+for t in $tables; do
+  run_check "$t" "select count(*) from ${CONN}.${t} $(extra_where "$t")"
+done
+
+# Team filters are renamed across Fleet versions (team_id -> fleet_id), so
+# exercise every table that takes one against a real team.
+team_id=$(curl -sf -X POST "${FLEETDM_URL}/api/v1/fleet/teams" \
+  -H "Authorization: Bearer ${FLEETDM_API_TOKEN}" -H "Content-Type: application/json" \
+  -d "{\"name\": \"smoke-$(date +%s)\"}" | jq -r '.team.id // .fleet.id')
+team_tables=$(steampipe query --output csv --header=false \
+  "select table_name || ':' || data_type from information_schema.columns where table_schema = '${CONN}' and column_name = 'team_id' order by table_name")
+for entry in $team_tables; do
+  t="${entry%%:*}"
+  value="${team_id}"
+  [ "${entry#*:}" = "text" ] && value="'${team_id}'"
+  where="where team_id = ${value}"
+  [ -n "$(extra_where "$t")" ] && where="$(extra_where "$t") and team_id = ${value}"
+  run_check "$t (team_id)" "select count(*) from ${CONN}.${t} ${where}"
 done
 
 exit "$failed"

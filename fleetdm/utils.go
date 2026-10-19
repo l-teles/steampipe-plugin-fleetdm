@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os" // Added for os.Getenv
@@ -71,6 +72,28 @@ func flexibleTimeTransform(_ context.Context, d *transform.TransformData) (inter
 	default:
 		return nil, fmt.Errorf("flexibleTimeTransform: unexpected type %T", d.Value)
 	}
+}
+
+// ipAddrTransform adapts host-reported addresses to IPADDR columns: empty
+// becomes NULL and an IPv6 zone ("fe80::1%en0", which inet cannot store) is
+// dropped. Anything else unparseable becomes NULL rather than failing the row.
+func ipAddrTransform(ctx context.Context, d *transform.TransformData) (interface{}, error) {
+	s, ok := d.Value.(string)
+	if !ok {
+		return nil, nil
+	}
+	s = strings.TrimSpace(s)
+	if i := strings.IndexByte(s, '%'); i >= 0 {
+		s = s[:i]
+	}
+	if s == "" {
+		return nil, nil
+	}
+	if net.ParseIP(s) == nil {
+		plugin.Logger(ctx).Warn("ipAddrTransform", "unparseable_ip", s, "column", d.ColumnName)
+		return nil, nil
+	}
+	return s, nil
 }
 
 // FleetDMClient is a client for the FleetDM API.
