@@ -9,7 +9,7 @@
   "assignees": ["l-teles"],
   "osvVulnerabilityAlerts": true,
   "gomod": {
-    "description": "Tidy after every Go update so go.sum gets module-zip hashes and drops superseded entries; rewrite import paths on a major bump (e.g. steampipe-plugin-sdk/v5 -> /v6).",
+    "description": "Tidy after every Go update so go.sum gets module-zip hashes and drops superseded entries; rewrite import paths on a major bump (e.g. steampipe-plugin-sdk/v5 -> /v6). Indirect modules are deliberately left to Renovate's default, which skips routine updates but still raises vulnerability fixes: they are the steampipe-plugin-sdk's graph, and bumping them past the SDK's pins broke every query at runtime (eko/gocache). Do not add an explicit enabled:false rule for them; it also blocks the vulnerability-fix PRs.",
     "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"]
   },
   "customManagers": [
@@ -39,16 +39,9 @@
     {
       "matchManagers": ["gomod"],
       "matchFileNames": ["go.mod"],
-      "matchDepTypes": ["indirect"],
-      "enabled": false,
-      "description": "Deliberately left off (also the config:recommended default). Indirect modules are the steampipe-plugin-sdk's graph: bumping them past what the SDK pins compiled and passed unit tests but broke every query at runtime (eko/gocache). Security fixes still arrive through vulnerability-alert PRs, which bypass this rule."
-    },
-    {
-      "matchManagers": ["gomod"],
-      "matchFileNames": ["go.mod"],
       "matchPackageNames": ["github.com/iancoleman/strcase", "github.com/turbot/go-kit"],
-      "enabled": false,
-      "description": "Imported only by columns_test.go to mirror the SDK's column-to-field mapping; must stay on the versions the SDK pins, like its indirect modules."
+      "dependencyDashboardApproval": true,
+      "description": "Imported only by columns_test.go to mirror the SDK's column-to-field mapping; should follow the SDK's versions. Routine updates wait for dashboard approval; vulnerability fixes override that and are still raised."
     },
     {
       "matchManagers": ["gomod"],
