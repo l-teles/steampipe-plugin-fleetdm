@@ -68,10 +68,22 @@ jobs:
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
-      - uses: turbot/steampipe-action-setup@ea334bd03cc89b940db6b2daec94d0e0eab47dc0 # v1.7.0
-        with:
+      # Direct release download rather than turbot/steampipe-action-setup:
+      # the action lists releases via the unauthenticated GitHub API and fails
+      # when the shared runner IP is rate limited.
+      - name: Install Steampipe
+        env:
           # renovate: datasource=github-releases depName=turbot/steampipe
-          steampipe-version: "2.4.7"
+          STEAMPIPE_VERSION: "2.4.7"
+        run: |
+          asset="steampipe_linux_$(dpkg --print-architecture).tar.gz"
+          base="https://github.com/turbot/steampipe/releases/download/v${STEAMPIPE_VERSION}"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO --retry 3 "${base}/${asset}"
+          curl -fsSL --retry 3 "${base}/checksums.txt" | grep " ${asset}\$" | sha256sum -c -
+          tar -xzf "$asset" steampipe
+          sudo install -m 0755 steampipe /usr/local/bin/steampipe
+          steampipe --version
       - name: Generate Fleet server key
         run: |
           key="$(openssl rand -hex 32)"
@@ -87,12 +99,14 @@ jobs:
           cat "${RUNNER_TEMP}/fleet-env" >> "$GITHUB_ENV"
       - name: Smoke test every table
         run: .github/fleet-test/smoke-test.sh
+      # The compose file requires the key; these steps don't start Fleet, so a
+      # placeholder lets them run even when an earlier step failed first.
       - name: Fleet logs
         if: failure()
-        run: docker compose -f .github/fleet-test/docker-compose.yml logs fleet | tail -200
+        run: FLEET_SERVER_PRIVATE_KEY="${FLEET_SERVER_PRIVATE_KEY:-unused}" docker compose -f .github/fleet-test/docker-compose.yml logs fleet | tail -200
       - name: Stop Fleet
         if: always()
-        run: docker compose -f .github/fleet-test/docker-compose.yml down -v
+        run: FLEET_SERVER_PRIVATE_KEY="${FLEET_SERVER_PRIVATE_KEY:-unused}" docker compose -f .github/fleet-test/docker-compose.yml down -v
 
   renovate-config:
     runs-on: ubuntu-latest
