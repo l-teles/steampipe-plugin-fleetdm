@@ -24,8 +24,14 @@ type Team struct {
 	Secrets      []TeamSecret     `json:"secrets"`       // Agent enrollment secrets
 	Users        []TeamUser       `json:"users"`         // Users in the team with their roles
 	AgentOptions *json.RawMessage `json:"agent_options"` // Agent options for this team (can be complex JSON)
-	// TODO: Add other fields like 'policies_count', 'mdm', etc. if they become available directly on the team object
-	// Or consider hydrating them if they require separate API calls.
+	// Per-team settings blocks returned by the list endpoint.
+	Features           *json.RawMessage `json:"features"`
+	HostExpirySettings *json.RawMessage `json:"host_expiry_settings"`
+	MDM                *json.RawMessage `json:"mdm"`
+	Scripts            *json.RawMessage `json:"scripts"`
+	Software           *json.RawMessage `json:"software"`
+	Integrations       *json.RawMessage `json:"integrations"`     // may hold webhook URLs; gated
+	WebhookSettings    *json.RawMessage `json:"webhook_settings"` // destination URLs; gated
 }
 
 // TeamSecret represents an enrollment secret for a team.
@@ -79,6 +85,13 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 			// Could be expanded into separate tables or hydrated further.
 			{Name: "secrets", Type: proto.ColumnType_JSON, Hydrate: getTeamSecrets, Transform: transform.FromValue(), Description: "Enrollment secrets associated with the team. NULL unless expose_secrets = true is set in the connection config, as these are live credentials that allow device enrollment."},
 			{Name: "users", Type: proto.ColumnType_JSON, Description: "Users belonging to this team and their roles. Fetched via GetTeam hydrate function."},
+			{Name: "features", Type: proto.ColumnType_JSON, Description: "Team feature toggles (host users, software inventory, historical data)."},
+			{Name: "host_expiry_settings", Type: proto.ColumnType_JSON, Description: "Host expiry settings for the team."},
+			{Name: "mdm", Type: proto.ColumnType_JSON, Transform: transform.FromField("MDM"), Description: "Team MDM settings (OS updates, disk encryption, setup experience, profiles)."},
+			{Name: "scripts", Type: proto.ColumnType_JSON, Description: "Scripts configured for the team via GitOps."},
+			{Name: "software", Type: proto.ColumnType_JSON, Description: "Software configured for the team (packages, App Store apps, Fleet-maintained apps)."},
+			{Name: "integrations", Type: proto.ColumnType_JSON, Hydrate: getTeamIfSecretsExposed, Transform: transform.FromField("Integrations"), Description: "Team integrations (Jira, Zendesk, Google Calendar, conditional access). NULL unless expose_secrets = true, as webhook URLs can embed credentials."},
+			{Name: "webhook_settings", Type: proto.ColumnType_JSON, Hydrate: getTeamIfSecretsExposed, Transform: transform.FromField("WebhookSettings"), Description: "Team webhook settings. NULL unless expose_secrets = true, as destination URLs can embed credentials."},
 
 			// Query parameters that can be used for filtering (key columns)
 			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable field is team name. Set in WHERE clause."},
@@ -103,6 +116,17 @@ func getTeamSecrets(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		return nil, nil
 	}
 	return team.Secrets, nil
+}
+
+// getTeamIfSecretsExposed returns the list item only when expose_secrets is
+// set, so columns that may carry credentials read NULL otherwise. No extra API
+// call is made.
+func getTeamIfSecretsExposed(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	config := GetConfig(d.Connection)
+	if config.ExposeSecrets == nil || !*config.ExposeSecrets {
+		return nil, nil
+	}
+	return h.Item, nil
 }
 
 func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {

@@ -238,3 +238,33 @@ group by
 order by
   host_count desc;
 ```
+
+### List macOS hosts without disk encryption
+
+Find laptops whose disks are not encrypted.
+
+```sql+postgres
+select
+  hostname,
+  hardware_marketing_name,
+  team_name,
+  disk_encryption_enabled
+from
+  fleetdm_host
+where
+  platform = 'darwin'
+  and not coalesce(disk_encryption_enabled, false);
+```
+
+```sql+sqlite
+select
+  hostname,
+  hardware_marketing_name,
+  team_name,
+  disk_encryption_enabled
+from
+  fleetdm_host
+where
+  platform = 'darwin'
+  and not coalesce(disk_encryption_enabled, false);
+```

@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 	"strconv"
 
@@ -13,18 +14,21 @@ import (
 // Label represents a FleetDM label.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#label-object
 type Label struct {
-	ID                  uint      `json:"id"`
-	CreatedAt           FleetTime `json:"created_at"`
-	UpdatedAt           FleetTime `json:"updated_at"`
-	Name                string    `json:"name"`
-	Description         string    `json:"description"`
-	Query               string    `json:"query"`                 // The SQL query for dynamic labeling
-	Platform            string    `json:"platform"`              // e.g., "darwin", "windows", "linux", "" for all
-	LabelType           string    `json:"label_type"`            // "regular" or "builtin"
-	LabelMembershipType string    `json:"label_membership_type"` // "dynamic" or "manual" (manual not via API yet for creation)
-	HostCount           int       `json:"host_count"`
-	DisplayText         string    `json:"display_text"` // Usually same as name
-	BuiltIn             bool      `json:"built_in"`     // Derived from label_type == "builtin"
+	ID                  uint             `json:"id"`
+	CreatedAt           FleetTime        `json:"created_at"`
+	UpdatedAt           FleetTime        `json:"updated_at"`
+	Name                string           `json:"name"`
+	Description         string           `json:"description"`
+	Query               string           `json:"query"`                 // The SQL query for dynamic labeling
+	Platform            string           `json:"platform"`              // e.g., "darwin", "windows", "linux", "" for all
+	LabelType           string           `json:"label_type"`            // "regular" or "builtin"
+	LabelMembershipType string           `json:"label_membership_type"` // "dynamic" or "manual" (manual not via API yet for creation)
+	HostCount           int              `json:"host_count"`
+	DisplayText         string           `json:"display_text"` // Usually same as name
+	AuthorID            *uint            `json:"author_id"`
+	TeamID              *uint            `json:"team_id"`
+	FleetID             *uint            `json:"fleet_id"` // team_id since Fleet 4.82
+	Criteria            *json.RawMessage `json:"criteria"` // Host vitals criteria (Fleet 4.90+)
 	// Hosts field is not typically included in list/get label, but on a separate endpoint like /labels/{id}/hosts
 }
 
@@ -61,7 +65,10 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 			{Name: "label_type", Type: proto.ColumnType_STRING, Description: "Type of the label, e.g., 'regular' or 'builtin'."},
 			{Name: "label_membership_type", Type: proto.ColumnType_STRING, Description: "Membership type, e.g., 'dynamic' or 'manual'."},
 			{Name: "host_count", Type: proto.ColumnType_INT, Description: "Number of hosts associated with this label."},
-			{Name: "built_in", Type: proto.ColumnType_BOOL, Description: "Indicates if the label is a built-in label."},
+			{Name: "built_in", Type: proto.ColumnType_BOOL, Transform: transform.FromField("LabelType").Transform(isBuiltinLabel), Description: "Indicates if the label is a built-in label."},
+			{Name: "author_id", Type: proto.ColumnType_INT, Description: "ID of the user who created the label."},
+			{Name: "fleet_id", Type: proto.ColumnType_INT, Transform: transform.FromField("FleetID", "TeamID"), Description: "ID of the team (fleet) the label belongs to. Null for global labels."},
+			{Name: "criteria", Type: proto.ColumnType_JSON, Description: "Host vitals criteria for labels based on host attributes (Fleet 4.90+)."},
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the label was created."},
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the label was last updated."},
 
@@ -69,6 +76,12 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 			{Name: "team_id", Type: proto.ColumnType_STRING, Transform: transform.FromQual("team_id"), Description: "Filter by team (Fleet Premium). Use 'global' for global-only labels. Set in WHERE clause."},
 		},
 	}
+}
+
+// isBuiltinLabel derives built_in from label_type; the API has no built_in field.
+func isBuiltinLabel(_ context.Context, d *transform.TransformData) (interface{}, error) {
+	t, _ := d.Value.(string)
+	return t == "builtin", nil
 }
 
 func listLabels(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {

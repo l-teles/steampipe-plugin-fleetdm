@@ -25,6 +25,9 @@ type QuerySaved struct {
 	AuthorEmail        string          `json:"author_email"`
 	ObserverCanRun     bool            `json:"observer_can_run"` // Whether observers can run this query
 	TeamID             *uint           `json:"team_id"`          // Null if global
+	FleetID            *uint           `json:"fleet_id"`         // team_id since Fleet 4.82; list responses carry only this
+	DiscardData        bool            `json:"discard_data"`     // Results are not stored for the report
+	LabelsIncludeAll   interface{}     `json:"labels_include_all"`
 	AutomationsEnabled bool            `json:"automations_enabled"`
 	Interval           *uint           `json:"interval"` // For scheduled queries, in seconds
 	Platform           *string         `json:"platform"` // Comma-separated list or empty for all
@@ -76,7 +79,8 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "Name of the saved query."},
 			{Name: "query_sql", Type: proto.ColumnType_STRING, Transform: transform.FromField("Query"), Description: "The SQL content of the saved query."},
 			{Name: "description", Type: proto.ColumnType_STRING, Description: "Description of the saved query."},
-			{Name: "team_id", Type: proto.ColumnType_INT, Description: "ID of the team the query belongs to. Null if it's a global query."},
+			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromField("FleetID", "TeamID"), Description: "ID of the team (fleet) the query belongs to. Null if it's a global query."},
+			{Name: "discard_data", Type: proto.ColumnType_BOOL, Description: "Whether query results are discarded instead of stored as a report."},
 			{Name: "author_id", Type: proto.ColumnType_INT, Description: "ID of the user who created the query."},
 			{Name: "author_name", Type: proto.ColumnType_STRING, Description: "Name of the user who created the query."},
 			{Name: "author_email", Type: proto.ColumnType_STRING, Description: "Email of the user who created the query."},
@@ -89,6 +93,7 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 			{Name: "stats", Type: proto.ColumnType_JSON, Description: "Performance statistics for the query execution."},
 			{Name: "packs", Type: proto.ColumnType_JSON, Description: "Packs this query belongs to (details available on GET)."},
 			{Name: "labels_include_any", Type: proto.ColumnType_JSON, Description: "Labels targeting the query; the query only runs on hosts with at least one of these labels (newer Fleet only)."},
+			{Name: "labels_include_all", Type: proto.ColumnType_JSON, Description: "Labels targeting the query; the query only runs on hosts with all of these labels (Fleet 4.86+)."},
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the query was created."},
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the query was last updated."},
 

@@ -13,17 +13,24 @@ import (
 // User represents a FleetDM user.
 // Refer to: https://fleetdm.com/docs/rest-api/rest-api#user-object
 type User struct {
-	ID                       uint       `json:"id"`
-	CreatedAt                FleetTime  `json:"created_at"`
-	UpdatedAt                FleetTime  `json:"updated_at"`
-	Name                     string     `json:"name"`
-	Email                    string     `json:"email"`
-	AdminForcedPasswordReset bool       `json:"admin_forced_password_reset"`
-	GravatarURL              string     `json:"gravatar_url"`
-	SSOEnabled               bool       `json:"sso_enabled"`
-	GlobalRole               *string    `json:"global_role"` // e.g., "admin", "maintainer", "observer"
-	Teams                    []UserTeam `json:"teams"`       // Teams the user belongs to and their role in each
-	APIOnly                  bool       `json:"api_only"`    // True if the user is an API-only user
+	ID                       uint        `json:"id"`
+	CreatedAt                FleetTime   `json:"created_at"`
+	UpdatedAt                FleetTime   `json:"updated_at"`
+	Name                     string      `json:"name"`
+	Email                    string      `json:"email"`
+	AdminForcedPasswordReset bool        `json:"force_password_reset"`
+	GravatarURL              string      `json:"gravatar_url"`
+	SSOEnabled               bool        `json:"sso_enabled"`
+	GlobalRole               *string     `json:"global_role"` // e.g., "admin", "maintainer", "observer"
+	Teams                    []UserTeam  `json:"teams"`       // Teams the user belongs to and their role in each
+	APIOnly                  bool        `json:"api_only"`    // True if the user is an API-only user
+	Fleets                   []UserTeam  `json:"fleets"`      // teams since Fleet 4.82
+	MFAEnabled               bool        `json:"mfa_enabled"`
+	LastLoginAt              *FleetTime  `json:"last_login_at"`    // Fleet 4.92+
+	LastActivityAt           *FleetTime  `json:"last_activity_at"` // Fleet 4.92+
+	Status                   string      `json:"status"`           // e.g. "active"
+	Position                 string      `json:"position"`
+	APIEndpoints             interface{} `json:"api_endpoints"` // Endpoints an API-only user is limited to (Fleet 4.84+)
 }
 
 // UserTeam represents a team a user belongs to and their role.
@@ -57,12 +64,18 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 			{Name: "email", Type: proto.ColumnType_STRING, Description: "Email address of the user."},
 			{Name: "global_role", Type: proto.ColumnType_STRING, Description: "Global role of the user (e.g., admin, maintainer, observer). Null if not a global role."},
 			{Name: "api_only", Type: proto.ColumnType_BOOL, Description: "Indicates if the user is an API-only user."},
-			{Name: "sso_enabled", Type: proto.ColumnType_BOOL, Description: "Indicates if Single Sign-On is enabled for the user."},
+			{Name: "sso_enabled", Type: proto.ColumnType_BOOL, Transform: transform.FromField("SSOEnabled"), Description: "Indicates if Single Sign-On is enabled for the user."},
 			{Name: "admin_forced_password_reset", Type: proto.ColumnType_BOOL, Description: "Indicates if an admin has forced a password reset for the user."},
 			{Name: "gravatar_url", Type: proto.ColumnType_STRING, Description: "URL for the user's Gravatar image."},
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the user was created."},
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the user was last updated."},
-			{Name: "teams", Type: proto.ColumnType_JSON, Description: "Teams the user belongs to, including their role in each team.", Transform: transform.FromField("Teams")},
+			{Name: "teams", Type: proto.ColumnType_JSON, Description: "Teams (fleets) the user belongs to, including their role in each team.", Transform: transform.FromField("Fleets", "Teams")},
+			{Name: "mfa_enabled", Type: proto.ColumnType_BOOL, Transform: transform.FromField("MFAEnabled"), Description: "Indicates if multi-factor authentication is enabled for the user."},
+			{Name: "last_login_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LastLoginAt").Transform(flexibleTimeTransform), Description: "Timestamp of the user's last login (Fleet 4.92+)."},
+			{Name: "last_activity_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LastActivityAt").Transform(flexibleTimeTransform), Description: "Timestamp of the user's last activity (Fleet 4.92+)."},
+			{Name: "status", Type: proto.ColumnType_STRING, Description: "Account status of the user (e.g., 'active')."},
+			{Name: "position", Type: proto.ColumnType_STRING, Description: "Job position of the user."},
+			{Name: "api_endpoints", Type: proto.ColumnType_JSON, Description: "API endpoints an API-only user is restricted to (Fleet 4.84+). Null when unrestricted."},
 
 			// Query parameters that can be used for filtering (key columns)
 			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable fields include name and email. Set in WHERE clause."},

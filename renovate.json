@@ -45,6 +45,13 @@
     },
     {
       "matchManagers": ["gomod"],
+      "matchFileNames": ["go.mod"],
+      "matchPackageNames": ["github.com/iancoleman/strcase", "github.com/turbot/go-kit"],
+      "enabled": false,
+      "description": "Imported only by columns_test.go to mirror the SDK's column-to-field mapping; must stay on the versions the SDK pins, like its indirect modules."
+    },
+    {
+      "matchManagers": ["gomod"],
       "matchDepTypes": ["toolchain"],
       "separateMinorPatch": true,
       "description": "Left ungrouped so a Go stdlib security patch merges as its own PR. separateMinorPatch keeps a routine same-line patch apart from a Go feature-release bump (1.26.x -> 1.27.0), which needs review: Turbot's shared lint/release pipeline must support that Go line first."

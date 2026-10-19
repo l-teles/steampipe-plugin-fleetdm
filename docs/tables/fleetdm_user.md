@@ -191,3 +191,33 @@ group by
 order by
   user_count desc;
 ```
+
+### Find users who have not logged in for 90 days
+
+Spot stale accounts that may need to be disabled (Fleet 4.92+).
+
+```sql+postgres
+select
+  name,
+  email,
+  global_role,
+  last_login_at
+from
+  fleetdm_user
+where
+  not api_only
+  and (last_login_at is null or last_login_at < now() - interval '90 days');
+```
+
+```sql+sqlite
+select
+  name,
+  email,
+  global_role,
+  last_login_at
+from
+  fleetdm_user
+where
+  not api_only
+  and (last_login_at is null or last_login_at < datetime('now', '-90 days'));
+```
