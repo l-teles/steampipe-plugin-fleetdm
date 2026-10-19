@@ -9,7 +9,7 @@ FleetDM can run saved scripts on hosts, on demand or as policy automations. This
 
 ## Table Usage Guide
 
-The `fleetdm_script` table gives an inventory of the scripts available to run on hosts. Without a `team_id` filter it lists scripts for hosts with no team plus every team (one request per team); with `team_id` it lists only that team's scripts.
+The `fleetdm_script` table gives an inventory of the scripts available to run on hosts. Without a `team_id` filter it lists scripts for hosts with no team plus every team (one request per team); with `team_id` it lists only that team's scripts. Rows for hosts with no team have a null `team_id`; select them with `team_id is null`.
 
 ## Examples
 
