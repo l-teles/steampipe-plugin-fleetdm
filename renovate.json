@@ -9,7 +9,7 @@
   "assignees": ["l-teles"],
   "osvVulnerabilityAlerts": true,
   "gomod": {
-    "description": "Tidy after every Go update so go.sum gets module-zip hashes and drops superseded entries; rewrite import paths on a major bump (e.g. steampipe-plugin-sdk/v5 -> /v6).",
+    "description": "Tidy after every Go update so go.sum gets module-zip hashes and drops superseded entries; rewrite import paths on a major bump (e.g. steampipe-plugin-sdk/v5 -> /v6). Indirect modules are deliberately left to Renovate's default, which skips routine updates but still raises vulnerability fixes: they are the steampipe-plugin-sdk's graph, and bumping them past the SDK's pins broke every query at runtime (eko/gocache). Do not add an explicit enabled:false rule for them; it also blocks the vulnerability-fix PRs.",
     "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"]
   },
   "customManagers": [
@@ -35,13 +35,6 @@
       "matchDepTypes": ["require"],
       "matchUpdateTypes": ["minor", "patch"],
       "groupName": "go-dependencies"
-    },
-    {
-      "matchManagers": ["gomod"],
-      "matchFileNames": ["go.mod"],
-      "matchDepTypes": ["indirect"],
-      "enabled": false,
-      "description": "Deliberately left off (also the config:recommended default). Indirect modules are the steampipe-plugin-sdk's graph: bumping them past what the SDK pins compiled and passed unit tests but broke every query at runtime (eko/gocache). Security fixes still arrive through vulnerability-alert PRs, which bypass this rule."
     },
     {
       "matchManagers": ["gomod"],

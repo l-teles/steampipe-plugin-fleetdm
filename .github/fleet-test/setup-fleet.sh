@@ -58,7 +58,7 @@ for attempt in $(seq 1 12); do
       },
       \"org_info\": {\"org_name\": \"${ORG_NAME}\"},
       \"server_url\": \"${FLEET_URL}\"
-    }")
+    }") || setup_http="000" # connection failure: retry like a 5xx
 
   if [ "$setup_http" = "200" ]; then
     echo "Fleet setup complete (HTTP ${setup_http})." >&2

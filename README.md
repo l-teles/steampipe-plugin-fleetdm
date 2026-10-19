@@ -132,8 +132,10 @@ Test against a throwaway local Fleet (needs Docker; CI runs the same smoke test 
 ```sh
 export FLEET_SERVER_PRIVATE_KEY="$(openssl rand -hex 32)"
 docker compose -f .github/fleet-test/docker-compose.yml up -d --wait
-.github/fleet-test/setup-fleet.sh > "$TMPDIR/fleet-env"
-set -a; . "$TMPDIR/fleet-env"; set +a
+fleet_env="$(mktemp)"
+.github/fleet-test/setup-fleet.sh > "$fleet_env"
+set -a; . "$fleet_env"; set +a
+rm -f "$fleet_env"
 .github/fleet-test/smoke-test.sh
 docker compose -f .github/fleet-test/docker-compose.yml down -v
 ```

@@ -31,6 +31,14 @@ connection "${CONN}" {
 }
 EOF
 
+# Each standalone `steampipe query` shuts its database down when it ends,
+# which can abort the background load of a new connection (seen on Linux:
+# "RefreshConnections failed ... closed pool"). Keep a service up instead.
+if steampipe service status 2>&1 | grep -q 'Service is not running'; then
+  steampipe service start >/dev/null
+  trap 'steampipe service stop >/dev/null 2>&1 || true' EXIT
+fi
+
 # A new connection's schema is imported asynchronously; wait for it.
 tables=""
 for _ in $(seq 1 20); do

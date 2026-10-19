@@ -6,10 +6,11 @@
 # Usage:
 #   export FLEET_SERVER_PRIVATE_KEY="$(openssl rand -hex 32)"
 #   docker compose -f .github/fleet-test/docker-compose.yml up -d --wait
-#   .github/fleet-test/setup-fleet.sh > "$TMPDIR/fleet-env"   # FLEETDM_URL / FLEETDM_API_TOKEN
+#   fleet_env="$(mktemp)"
+#   .github/fleet-test/setup-fleet.sh > "$fleet_env"   # FLEETDM_URL / FLEETDM_API_TOKEN
 #   docker compose -f .github/fleet-test/docker-compose.yml restart fleet
-#   .github/fleet-test/setup-fleet.sh > "$TMPDIR/fleet-env"   # login tokens die on restart
-#   set -a; . "$TMPDIR/fleet-env"; set +a
+#   .github/fleet-test/setup-fleet.sh > "$fleet_env"   # login tokens die on restart
+#   set -a; . "$fleet_env"; set +a; rm -f "$fleet_env"
 #   .github/fleet-test/smoke-test.sh
 #   docker compose -f .github/fleet-test/docker-compose.yml down -v   # key var must still be set
 
@@ -25,7 +26,9 @@ services:
       MYSQL_DATABASE: fleet
       MYSQL_USER: fleet
       MYSQL_PASSWORD: insecure
-    command: --max_allowed_packet=536870912
+    # Host networking: listen on loopback only, so the fixed test credentials
+    # are never reachable from the local network.
+    command: --max_allowed_packet=536870912 --bind-address=127.0.0.1 --mysqlx=OFF
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "fleet", "-pinsecure"]
       interval: 5s
@@ -36,6 +39,7 @@ services:
   redis:
     image: redis:8
     network_mode: "host"
+    command: redis-server --bind 127.0.0.1
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -54,7 +58,8 @@ services:
     image: rustfs/rustfs:1.0.1@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
     network_mode: "host"
     environment:
-      RUSTFS_ADDRESS: 0.0.0.0:9000
+      RUSTFS_ADDRESS: 127.0.0.1:9000
+      RUSTFS_CONSOLE_ENABLE: "false"
       RUSTFS_ACCESS_KEY: locals3
       RUSTFS_SECRET_KEY: locals3
     healthcheck:
@@ -139,7 +144,7 @@ services:
       FLEET_MYSQL_PASSWORD: insecure
       FLEET_MYSQL_DATABASE: fleet
       FLEET_REDIS_ADDRESS: 127.0.0.1:6379
-      FLEET_SERVER_ADDRESS: 0.0.0.0:8080
+      FLEET_SERVER_ADDRESS: 127.0.0.1:8080
       # Override --dev's forced TLS so tests can connect over plain HTTP.
       FLEET_SERVER_TLS: "false"
       FLEET_LOGGING_JSON: "true"
