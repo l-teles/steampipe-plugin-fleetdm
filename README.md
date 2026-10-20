@@ -222,6 +222,9 @@ connection "fleetdm" {
   # secrets) in query results. Default: false. Secrets will land in Steampipe
   # query caches, exports, and dashboards — leave unset unless you need it.
   # expose_secrets = false
+
+  # Optional: cap FleetDM API requests per second. Default: no limit.
+  # max_requests_per_second = 20
 }
 ```
 

@@ -18,4 +18,8 @@ connection "fleetdm" {
 
   # Per-request timeout in seconds. Default: 30.
   # request_timeout = 30
+
+  # Cap FleetDM API requests per second for this connection, including paging
+  # and per-host requests. Default: no limit.
+  # max_requests_per_second = 20
 }

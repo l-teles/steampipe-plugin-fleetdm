@@ -17,6 +17,7 @@ import (
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/transform"
+	"golang.org/x/time/rate"
 )
 
 // FleetTime is a custom time type that handles empty strings in JSON unmarshalling.
@@ -102,6 +103,10 @@ type FleetDMClient struct {
 	BaseURL    string
 	APIToken   string
 	HTTPClient *http.Client
+	// limiter paces every request when max_requests_per_second is set; it
+	// covers requests made inside list calls (paging, per-host fan-out) that
+	// Steampipe's hydrate-level limiters do not see.
+	limiter *rate.Limiter
 }
 
 // defaultRequestTimeout is used when request_timeout is not set in the config.
@@ -210,12 +215,22 @@ func NewFleetDMClient(ctx context.Context, connection *plugin.Connection) (*Flee
 		timeout = time.Duration(*config.RequestTimeout) * time.Second
 	}
 
+	var limiter *rate.Limiter
+	if config.MaxRequestsPerSecond != nil {
+		rps := *config.MaxRequestsPerSecond
+		if rps <= 0 {
+			return nil, fmt.Errorf("max_requests_per_second must be a positive number, got %d", rps)
+		}
+		limiter = rate.NewLimiter(rate.Limit(rps), rps)
+	}
+
 	return &FleetDMClient{
 		BaseURL:  baseURL,
 		APIToken: apiToken,
 		HTTPClient: &http.Client{
 			Timeout: timeout,
 		},
+		limiter: limiter,
 	}, nil
 }
 
@@ -334,6 +349,12 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 	}
 
 	plugin.Logger(ctx).Debug("FleetDMClient.Get", "url", fullURL.String())
+
+	if c.limiter != nil {
+		if err := c.limiter.Wait(ctx); err != nil {
+			return err
+		}
+	}
 
 	// Create the request
 	req, err := http.NewRequestWithContext(ctx, "GET", fullURL.String(), nil)

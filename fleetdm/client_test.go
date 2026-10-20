@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
 )
 
 // newTestClient builds a FleetDMClient pointed at the given test server.
@@ -225,4 +227,58 @@ func TestGetNoContentLeavesTargetUntouched(t *testing.T) {
 	if target.Vulnerability != nil {
 		t.Errorf("target.Vulnerability = %+v, want nil", target.Vulnerability)
 	}
+}
+
+func TestMaxRequestsPerSecond(t *testing.T) {
+	t.Parallel()
+
+	newConn := func(rps *int) *plugin.Connection {
+		conn := &plugin.Connection{Name: "test"}
+		conn.SetConfig(fleetdmConfig{ServerURL: ptr("https://fleet.example.com"), APIToken: ptr("t"), MaxRequestsPerSecond: rps})
+		return conn
+	}
+
+	t.Run("non-positive rejected", func(t *testing.T) {
+		t.Parallel()
+		for _, v := range []int{0, -5} {
+			if _, err := NewFleetDMClient(testCtx(t), newConn(ptr(v))); err == nil {
+				t.Errorf("max_requests_per_second = %d accepted, want error", v)
+			}
+		}
+	})
+
+	t.Run("unset means no limiter", func(t *testing.T) {
+		t.Parallel()
+		c, err := NewFleetDMClient(testCtx(t), newConn(nil))
+		if err != nil {
+			t.Fatalf("NewFleetDMClient: %v", err)
+		}
+		if c.limiter != nil {
+			t.Error("limiter set without max_requests_per_second")
+		}
+	})
+
+	t.Run("requests are paced", func(t *testing.T) {
+		t.Parallel()
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		defer srv.Close()
+		c, err := NewFleetDMClient(testCtx(t), newConn(ptr(20)))
+		if err != nil {
+			t.Fatalf("NewFleetDMClient: %v", err)
+		}
+		c.BaseURL, c.HTTPClient = srv.URL+"/api/v1/fleet/", srv.Client()
+
+		// A burst of 20 is free; the next 10 need about half a second at 20/s.
+		start := time.Now()
+		for range 30 {
+			if err := c.Get(testCtx(t), "version", nil, nil); err != nil {
+				t.Fatalf("Get: %v", err)
+			}
+		}
+		if elapsed := time.Since(start); elapsed < 400*time.Millisecond {
+			t.Errorf("30 requests at 20/s took %v, want at least ~500ms", elapsed)
+		}
+	})
 }

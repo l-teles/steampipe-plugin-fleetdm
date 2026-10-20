@@ -78,12 +78,16 @@ connection "fleetdm" {
 
   # Optional: per-request timeout in seconds. Default: 30.
   # request_timeout = 30
+
+  # Optional: cap FleetDM API requests per second. Default: no limit.
+  # max_requests_per_second = 20
 }
 ```
 
 - `server_url` - Your FleetDM server URL. Must use `https` (`http` is only allowed for localhost). The plugin will attempt to append `/api/v1/` if it's not present.
 - `api_token` - Your FleetDM API token, which can be generated from your FleetDM instance (User Menu -> My account -> Get API token)
-- `expose_secrets` - Optional, default `false`. When `true`, columns containing live secret material (e.g. `fleetdm_team.secrets`, which holds agent enrollment secrets) are populated. Leave unset unless you need it: exposed secrets will land in Steampipe query caches, exports, and dashboards.
+- `expose_secrets` - Optional, default `false`. When `true`, data that can hold credentials is returned: enroll secrets (`fleetdm_enroll_secret`, `fleetdm_team.secrets`), webhook, integration and logging settings (`fleetdm_config`, `fleetdm_team`), MDM command payloads and results, and script and software install contents and outputs. When `false` those columns are NULL and `fleetdm_enroll_secret` returns an error. Leave unset unless you need it: exposed secrets will land in Steampipe query caches, exports, and dashboards.
+- `max_requests_per_second` - Optional, no limit by default. Caps the number of FleetDM API requests per second for this connection, across all tables and including paging and per-host requests.
 - `request_timeout` - Optional, default `30`. Per-request timeout in seconds for FleetDM API calls.
 
 ### Credentials via environment variables
