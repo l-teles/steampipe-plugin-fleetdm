@@ -33,7 +33,7 @@ type GetQueryReportResponse struct {
 func tableFleetdmQueryReport(ctx context.Context) *plugin.Table {
 	return &plugin.Table{
 		Name:        "fleetdm_query_report",
-		Description: "Results stored for saved queries (reports), one row per host result row. Without a query_id filter every saved query, global and per team, is read.",
+		Description: "Results stored for saved queries (reports), one row per host result row; the result itself needs expose_secrets = true. Without a query_id filter every saved query, global and per team, is read.",
 		List: &plugin.ListConfig{
 			Hydrate: listQueryReports,
 			KeyColumns: []*plugin.KeyColumn{
@@ -45,7 +45,7 @@ func tableFleetdmQueryReport(ctx context.Context) *plugin.Table {
 			{Name: "host_id", Type: proto.ColumnType_INT, Description: "ID of the host that returned the row."},
 			{Name: "host_name", Type: proto.ColumnType_STRING, Description: "Display name of the host."},
 			{Name: "last_fetched", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("LastFetched").Transform(flexibleTimeTransform), Description: "When the host last sent results for this query."},
-			{Name: "columns", Type: proto.ColumnType_JSON, Description: "The result row: column name to value."},
+			{Name: "columns", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("Columns"), Description: "The result row: column name to value. NULL unless expose_secrets = true, as osquery results can hold credentials or personal data."},
 			{Name: "report_clipped", Type: proto.ColumnType_BOOL, Description: "Whether Fleet stopped storing results because the report reached its row limit."},
 		},
 	}

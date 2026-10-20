@@ -9,7 +9,7 @@ Fleet stores the latest results of scheduled saved queries (reports) from each h
 
 ## Table Usage Guide
 
-The `fleetdm_query_report` table returns one row per stored result row, with the result in the `columns` JSON. Without a `query_id` filter every saved query is read, global and per team (one request per team to find them, then one per query).
+The `fleetdm_query_report` table returns one row per stored result row, with the result in the `columns` JSON. Query results can hold anything a query reads (environment variables, file contents, user names), so `columns` is NULL unless `expose_secrets = true` is set in the connection config. Without a `query_id` filter every saved query is read, global and per team (one request per team to find them, then one per query).
 
 ## Examples
 
