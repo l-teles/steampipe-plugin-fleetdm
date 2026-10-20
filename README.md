@@ -266,6 +266,7 @@ Then, run queries against the available tables.
 * `fleetdm_invite`
 * `fleetdm_label`
 * `fleetdm_mdm_command`
+* `fleetdm_mdm_command_result`
 * `fleetdm_mdm_summary`
 * `fleetdm_os_version`
 * `fleetdm_pack`
