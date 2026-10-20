@@ -60,6 +60,9 @@ func listScriptResult(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		return nil, err
 	}
 	id := d.EqualsQuals["execution_id"].GetStringValue()
+	if !uuidPattern.MatchString(id) {
+		return nil, nil
+	}
 	var result ScriptResult
 	if err := client.Get(ctx, fmt.Sprintf("scripts/results/%s", url.PathEscape(id)), nil, &result); err != nil {
 		plugin.Logger(ctx).Error("fleetdm_script_result.listScriptResult", "api_error", err)

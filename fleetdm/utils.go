@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os" // Added for os.Getenv
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
@@ -450,6 +451,10 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 
 	return nil
 }
+
+// uuidPattern matches the UUIDs Fleet uses for script executions and software
+// installs; any other value cannot match a row and is never put in a path.
+var uuidPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 // ListMeta mirrors FleetDM's pagination meta object. Response envelopes embed
 // it as a *pointer* so "meta absent from the response" (nil) is

@@ -19,10 +19,12 @@ type SoftwareInstallResult struct {
 	SoftwareTitle           string     `json:"software_title"`
 	SoftwareTitleID         *uint      `json:"software_title_id"`
 	SoftwarePackage         string     `json:"software_package"`
+	HashSHA256              *string    `json:"hash_sha256"`
 	Source                  *string    `json:"source"`
 	Status                  string     `json:"status"`
 	SelfService             bool       `json:"self_service"`
 	PolicyID                *uint      `json:"policy_id"`
+	AttemptNumber           *int       `json:"attempt_number"`
 	CreatedAt               FleetTime  `json:"created_at"`
 	UpdatedAt               *FleetTime `json:"updated_at"`
 	Output                  *string    `json:"output"`
@@ -51,10 +53,12 @@ func tableFleetdmSoftwareInstallResult(ctx context.Context) *plugin.Table {
 			{Name: "software_title", Type: proto.ColumnType_STRING, Description: "Name of the software title."},
 			{Name: "software_title_id", Type: proto.ColumnType_INT, Description: "ID of the software title."},
 			{Name: "software_package", Type: proto.ColumnType_STRING, Description: "Installer package file name."},
+			{Name: "hash_sha256", Type: proto.ColumnType_STRING, Transform: transform.FromField("HashSHA256"), Description: "SHA-256 hash of the installer package."},
 			{Name: "source", Type: proto.ColumnType_STRING, Description: "Source of the software."},
 			{Name: "status", Type: proto.ColumnType_STRING, Description: "Install status, e.g. 'pending_install', 'installed', 'failed_install'."},
 			{Name: "self_service", Type: proto.ColumnType_BOOL, Description: "Whether the end user started the install from Fleet Desktop."},
 			{Name: "policy_id", Type: proto.ColumnType_INT, Description: "Policy whose automation triggered the install, if any."},
+			{Name: "attempt_number", Type: proto.ColumnType_INT, Description: "Which attempt this result is, when Fleet retried the install."},
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "When the install was requested."},
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "When the install status last changed."},
 			{Name: "output", Type: proto.ColumnType_STRING, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("Output"), Description: "Install script output. NULL unless expose_secrets = true."},
@@ -71,6 +75,9 @@ func listSoftwareInstallResult(ctx context.Context, d *plugin.QueryData, h *plug
 		return nil, err
 	}
 	id := d.EqualsQuals["install_uuid"].GetStringValue()
+	if !uuidPattern.MatchString(id) {
+		return nil, nil
+	}
 	var response GetSoftwareInstallResultResponse
 	if err := client.Get(ctx, fmt.Sprintf("software/install/%s/results", url.PathEscape(id)), nil, &response); err != nil {
 		// Software installers are a Fleet Premium feature.

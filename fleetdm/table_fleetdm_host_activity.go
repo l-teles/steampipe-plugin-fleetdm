@@ -32,7 +32,7 @@ func hostActivityColumns() []*plugin.Column {
 	return []*plugin.Column{
 		{Name: "host_id", Type: proto.ColumnType_INT, Description: "ID of the host."},
 		{Name: "hostname", Type: proto.ColumnType_STRING, Description: "Hostname of the host. Empty when filtering by host_id."},
-		{Name: "id", Type: proto.ColumnType_INT, Description: "ID of the activity (past activities)."},
+		{Name: "id", Type: proto.ColumnType_INT, Transform: transform.FromField("ID").NullIfZero(), Description: "ID of the activity (past activities); null for upcoming activities."},
 		{Name: "uuid", Type: proto.ColumnType_STRING, Transform: transform.FromField("UUID"), Description: "UUID of the activity (upcoming activities)."},
 		{Name: "type", Type: proto.ColumnType_STRING, Description: "Type of activity, e.g. 'ran_script', 'installed_software', 'locked_host'."},
 		{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "When the activity was created."},
