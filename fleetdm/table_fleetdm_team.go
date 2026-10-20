@@ -145,6 +145,10 @@ func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		return coalesceSlice(response.Fleets, response.Teams), nil, nil
 	})
 	if err != nil {
+		// Teams are a Fleet Premium feature.
+		if handleUnavailableFeature(ctx, d, "fleetdm_team", err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
