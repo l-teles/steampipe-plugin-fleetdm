@@ -5,7 +5,9 @@
 #
 # Requires steampipe on PATH and FLEETDM_URL / FLEETDM_API_TOKEN in the
 # environment (from setup-fleet.sh). The connection config holds no
-# credentials: the plugin reads them from the environment.
+# credentials: the plugin reads them from the environment. It refuses a
+# non-local Fleet unless SMOKE_ALLOW_REMOTE=1, and removes the plugin and
+# connection it installs on exit.
 
 set -euo pipefail
 
@@ -14,6 +16,16 @@ CONN="fleetdm_smoke"
 : "${FLEETDM_URL:?FLEETDM_URL must be set}"
 : "${FLEETDM_API_TOKEN:?FLEETDM_API_TOKEN must be set}"
 
+case "$FLEETDM_URL" in
+  http://localhost:* | http://127.0.0.1:* | http://localhost | http://127.0.0.1) ;;
+  *)
+    if [ "${SMOKE_ALLOW_REMOTE:-}" != "1" ]; then
+      echo "ERROR: FLEETDM_URL=${FLEETDM_URL} is not a local test Fleet; set SMOKE_ALLOW_REMOTE=1 to query it anyway." >&2
+      exit 1
+    fi
+    ;;
+esac
+
 # Tables with required key columns get a qual; a missing row is not an error.
 extra_where() {
   case "$1" in
@@ -21,13 +33,29 @@ extra_where() {
   esac
 }
 
-plugin_dir="${INSTALL_DIR}/plugins/local/fleetdm"
-mkdir -p "$plugin_dir" "${INSTALL_DIR}/config"
-go build -o "${plugin_dir}/steampipe-plugin-fleetdm.plugin" .
+plugin_dir="${INSTALL_DIR}/plugins/local/fleetdmsmoke"   # never a developer's own local/fleetdm
+spc="${INSTALL_DIR}/config/${CONN}.spc"
+if [ -e "$plugin_dir" ]; then
+  echo "ERROR: ${plugin_dir} already exists; this script would replace and then delete it." >&2
+  exit 1
+fi
+stop_service=0
+# shellcheck disable=SC2329 # invoked by the EXIT trap
+cleanup() {
+  rm -f "$spc"
+  rm -rf "$plugin_dir"
+  if [ "$stop_service" = 1 ]; then
+    steampipe service stop >/dev/null 2>&1 || true
+  fi
+}
+trap cleanup EXIT
 
-cat > "${INSTALL_DIR}/config/${CONN}.spc" <<EOF
+mkdir -p "$plugin_dir" "${INSTALL_DIR}/config"
+go build -o "${plugin_dir}/fleetdmsmoke.plugin" .
+
+cat > "$spc" <<EOF
 connection "${CONN}" {
-  plugin = "local/fleetdm"
+  plugin = "local/fleetdmsmoke"
 }
 EOF
 
@@ -41,16 +69,37 @@ if ! steampipe service status 2>&1 | grep -q 'Steampipe service is running'; the
     echo "ERROR: could not start the Steampipe service: $out" >&2
     exit 1
   fi
-  trap 'steampipe service stop >/dev/null 2>&1 || true' EXIT
+  stop_service=1
 fi
 
-# Steampipe imports a new or rebuilt plugin's schema asynchronously; wait
-# until every table registered in plugin.go is visible, so none is skipped.
+# A new connection loads asynchronously; wait until it is ready (a schema
+# left over from an earlier run can exist before then).
+state=""
+for _ in $(seq 1 20); do
+  state=$(steampipe query --output csv --header=false \
+    "select state from steampipe_connection where name = '${CONN}'" 2>/dev/null) || state=""
+  case "$state" in
+    ready) break ;;
+    error)
+      echo "ERROR: connection ${CONN} failed to load:" >&2
+      steampipe query --output csv --header=false "select error from steampipe_connection where name = '${CONN}'" >&2 || true
+      exit 1
+      ;;
+  esac
+  sleep 3
+done
+if [ "$state" != "ready" ]; then
+  echo "ERROR: connection ${CONN} did not become ready (state: ${state:-unknown})." >&2
+  exit 1
+fi
+
+# The schema import can lag; wait until every table registered in plugin.go
+# is visible, so none is skipped.
 expected=$(grep -cE '^[[:space:]]+"fleetdm_[a-z_]+":[[:space:]]+tableFleetdm' fleetdm/plugin.go)
 tables=""
 for _ in $(seq 1 40); do
   tables=$(steampipe query --output csv --header=false \
-    "select table_name from information_schema.tables where table_schema = '${CONN}' order by table_name")
+    "select table_name from information_schema.tables where table_schema = '${CONN}' order by table_name" 2>/dev/null) || tables=""
   [ "$(grep -c . <<<"$tables")" -eq "$expected" ] && break
   sleep 3
 done

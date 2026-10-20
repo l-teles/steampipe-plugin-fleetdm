@@ -133,7 +133,9 @@ Test against a throwaway local Fleet (needs Docker; CI runs the same smoke test 
 export FLEET_SERVER_PRIVATE_KEY="$(openssl rand -hex 32)"
 docker compose -f .github/fleet-test/docker-compose.yml up -d --wait
 fleet_env="$(mktemp)"
-.github/fleet-test/setup-fleet.sh > "$fleet_env"
+.github/fleet-test/setup-fleet.sh > /dev/null
+docker compose -f .github/fleet-test/docker-compose.yml restart fleet   # turns on Apple MDM
+.github/fleet-test/setup-fleet.sh > "$fleet_env"                       # login tokens die on restart
 set -a; . "$fleet_env"; set +a
 rm -f "$fleet_env"
 .github/fleet-test/smoke-test.sh
