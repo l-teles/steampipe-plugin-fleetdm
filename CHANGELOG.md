@@ -13,7 +13,7 @@ _What's new?_
 - Lookups by ID (`where id = ...`) on 12 tables now make a single request instead of listing everything; other filters in the same query still apply.
 - `fleetdm_host` only asks Fleet for policies, users, labels, device mapping and end users when those columns are selected.
 - New `max_requests_per_second` connection option that spaces out every API request the connection makes, including paging and per-host requests.
-- More data is gated behind `expose_secrets`: enroll secrets, webhook/integration/logging settings, URLs that can embed credentials (team software, the GitOps repository, installer packages), MDM command payloads, and script/install outputs.
+- More data is gated behind `expose_secrets`: enroll secrets, webhook/integration/logging settings, URLs that can embed credentials (team software, the GitOps repository, installer packages), MDM command payloads, script/install outputs, and stored query results.
 - Listing tables that cover every team now work with an API token scoped to some teams, and skip a team deleted while the query runs.
 - Transient network errors (timeouts, reset connections) are retried like rate limits and server errors.
 
