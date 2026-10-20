@@ -65,6 +65,9 @@ func listSelfServiceCategories(ctx context.Context, d *plugin.QueryData, h *plug
 			if handleUnavailableFeature(ctx, d, "fleetdm_software_self_service_category", err) {
 				return nil, nil
 			}
+			if skipScope(ctx, d, "fleetdm_software_self_service_category", scope, err) {
+				continue
+			}
 			plugin.Logger(ctx).Error("fleetdm_software_self_service_category.listSelfServiceCategories", "api_error", err)
 			return nil, err
 		}

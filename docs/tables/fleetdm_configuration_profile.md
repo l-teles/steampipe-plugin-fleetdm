@@ -15,7 +15,7 @@ The `fleetdm_configuration_profile` table helps you review which OS settings eac
 
 ### List profiles by team and platform
 
-
+Show every profile with the name of its team; profiles for hosts with no team have no team name.
 
 ```sql+postgres
 select

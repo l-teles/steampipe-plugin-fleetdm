@@ -216,9 +216,11 @@ func TestFleetIDParamForVersion(t *testing.T) {
 		want    string
 	}{
 		{"4.93.0", "fleet_id"},
-		{"4.82.0", "fleet_id"},
-		{"4.82.1-rc.1", "fleet_id"},
+		{"4.83.0", "fleet_id"},
+		{"4.83.1-rc.1", "fleet_id"},
 		{"5.0.0", "fleet_id"},
+		{"4.82.2", "team_id"}, // its user list ignores fleet_id
+		{"4.82.0", "team_id"},
 		{"4.81.0", "team_id"},
 		{"4.9.1", "team_id"},
 		{"3.99.0", "team_id"},
@@ -355,7 +357,9 @@ func TestAddFleetIDParamUsesServerVersion(t *testing.T) {
 	}{
 		{name: "renamed fleet", status: http.StatusOK, version: "4.93.0", wantParam: "fleet_id", wantLookups: 1},
 		{name: "pre-rename fleet", status: http.StatusOK, version: "4.81.0", wantParam: "team_id", wantLookups: 1},
-		{name: "version lookup fails", status: http.StatusInternalServerError, wantParam: "team_id", wantLookups: 2},
+		{name: "users ignore fleet_id", status: http.StatusOK, version: "4.82.2", wantParam: "team_id", wantLookups: 1},
+		// team_id works everywhere, so the fallback is cached too.
+		{name: "version lookup fails", status: http.StatusInternalServerError, wantParam: "team_id", wantLookups: 1},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

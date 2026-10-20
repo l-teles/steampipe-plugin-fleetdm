@@ -56,7 +56,7 @@ func tableFleetdmHostSoftware(ctx context.Context) *plugin.Table {
 			{Name: "bundle_identifier", Type: proto.ColumnType_STRING, Description: "Bundle identifier (macOS)."},
 			{Name: "status", Type: proto.ColumnType_STRING, Description: "Install status of a Fleet-managed installer, e.g. 'installed', 'pending_install', 'failed_install'."},
 			{Name: "installed_versions", Type: proto.ColumnType_JSON, Description: "Installed versions with paths, signatures, last opened time and vulnerabilities."},
-			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Fleet-managed installer package details, if any."},
+			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Fleet-managed installer package details, if any. package_url is null unless expose_secrets = true, as it can embed credentials."},
 			{Name: "app_store_app", Type: proto.ColumnType_JSON, Description: "App Store (VPP) app details, if any."},
 			{Name: "icon_url", Type: proto.ColumnType_STRING, Transform: transform.FromField("IconURL"), Description: "URL of the software icon."},
 		},
@@ -69,6 +69,7 @@ func listHostSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		plugin.Logger(ctx).Error("fleetdm_host_software.listHostSoftware", "connection_error", err)
 		return nil, err
 	}
+	exposed := secretsExposed(d)
 	err = streamPerHost(ctx, d, client, func(ctx context.Context, host hostRef) ([]HostSoftwareItem, error) {
 		var rows []HostSoftwareItem
 		err := paginateCore(ctx, 100, func(ctx context.Context, page, perPage int) ([]HostSoftwareItem, *ListMeta, error) {
@@ -82,6 +83,9 @@ func listHostSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 			return response.Software, response.Meta, nil
 		}, func(s HostSoftwareItem) bool {
 			s.HostID, s.Hostname = host.ID, host.Hostname
+			if !exposed {
+				s.SoftwarePackage = nullURLKeys(s.SoftwarePackage, "package_url")
+			}
 			rows = append(rows, s)
 			return true
 		})

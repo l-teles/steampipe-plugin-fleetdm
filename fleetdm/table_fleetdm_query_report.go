@@ -33,7 +33,7 @@ type GetQueryReportResponse struct {
 func tableFleetdmQueryReport(ctx context.Context) *plugin.Table {
 	return &plugin.Table{
 		Name:        "fleetdm_query_report",
-		Description: "Results stored for saved queries (reports), one row per host result row. Without a query_id filter every saved query is read.",
+		Description: "Results stored for saved queries (reports), one row per host result row. Without a query_id filter every saved query, global and per team, is read.",
 		List: &plugin.ListConfig{
 			Hydrate: listQueryReports,
 			KeyColumns: []*plugin.KeyColumn{
@@ -65,25 +65,51 @@ func listQueryReports(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		}
 		ids = []uint{uint(v)}
 	} else {
-		err := paginateCore(ctx, 100, func(ctx context.Context, page, perPage int) ([]QuerySaved, *ListMeta, error) {
-			params := url.Values{"page": {strconv.Itoa(page)}, "per_page": {strconv.Itoa(perPage)}}
-			var response ListQueriesResponse
-			if err := client.GetCompat(ctx, d, famReports, nil, params, &response); err != nil {
-				return nil, nil, err
-			}
-			return coalesceSlice(response.Reports, response.Queries), nil, nil
-		}, func(q QuerySaved) bool {
-			ids = append(ids, q.ID)
-			return true
-		})
+		// /reports without a team returns only global queries, so list every
+		// team too.
+		scopes, err := teamScopes(ctx, d, client, "fleetdm_query_report")
 		if err != nil {
-			plugin.Logger(ctx).Error("fleetdm_query_report.listQueryReports", "api_error", err)
 			return nil, err
+		}
+		seen := map[uint]bool{}
+		for _, scope := range scopes {
+			err := paginateCore(ctx, 100, func(ctx context.Context, page, perPage int) ([]QuerySaved, *ListMeta, error) {
+				params := url.Values{"page": {strconv.Itoa(page)}, "per_page": {strconv.Itoa(perPage)}}
+				if scope != nil {
+					client.addFleetIDParam(ctx, d, params, scopeParam(scope))
+				}
+				var response ListQueriesResponse
+				err := retryTransient(ctx, func() error {
+					return client.GetCompat(ctx, d, famReports, nil, params, &response)
+				})
+				if err != nil {
+					return nil, nil, err
+				}
+				return coalesceSlice(response.Reports, response.Queries), nil, nil
+			}, func(q QuerySaved) bool {
+				if !seen[q.ID] {
+					seen[q.ID] = true
+					ids = append(ids, q.ID)
+				}
+				return true
+			})
+			if err != nil {
+				if skipScope(ctx, d, "fleetdm_query_report", scope, err) {
+					continue
+				}
+				plugin.Logger(ctx).Error("fleetdm_query_report.listQueryReports", "api_error", err)
+				return nil, err
+			}
 		}
 	}
 	for _, id := range ids {
 		var response GetQueryReportResponse
-		if err := client.GetCompat(ctx, d, famReportResults, []any{id}, nil, &response); err != nil {
+		// Rows from earlier reports may have streamed, so retry here rather
+		// than fail the whole query on a transient error.
+		err := retryTransient(ctx, func() error {
+			return client.GetCompat(ctx, d, famReportResults, []any{id}, nil, &response)
+		})
+		if err != nil {
 			if is404(err) {
 				continue
 			}

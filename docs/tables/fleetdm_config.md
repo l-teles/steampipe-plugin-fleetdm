@@ -9,7 +9,7 @@ FleetDM's global configuration covers organization info, server settings, MDM, f
 
 ## Table Usage Guide
 
-The `fleetdm_config` table lets you audit global settings with SQL. Fleet masks the SMTP password itself. `integrations`, `webhook_settings` and `logging` are NULL unless `expose_secrets = true` is set in the connection config, because their URLs can embed credentials.
+The `fleetdm_config` table lets you audit global settings with SQL. Fleet masks the SMTP password itself. `integrations`, `webhook_settings` and `logging` are NULL, and `gitops.repository_url` is null, unless `expose_secrets = true` is set in the connection config, because their URLs can embed credentials.
 
 ## Examples
 
