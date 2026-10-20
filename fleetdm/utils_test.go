@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -413,5 +414,68 @@ func TestNewFleetDMClientRequestTimeout(t *testing.T) {
 				t.Errorf("HTTPClient.Timeout = %v, want %v", client.HTTPClient.Timeout, tc.want)
 			}
 		})
+	}
+}
+
+// Not parallel: it shortens the package-level retry backoff.
+func TestRetryTransient(t *testing.T) {
+	oldBase := transientRetryBase
+	transientRetryBase = time.Millisecond
+	t.Cleanup(func() { transientRetryBase = oldBase })
+
+	transient := &FleetAPIError{StatusCode: http.StatusTooManyRequests}
+	permanent := &FleetAPIError{StatusCode: http.StatusBadRequest}
+
+	tests := []struct {
+		name      string
+		errs      []error // returned by successive calls; nil after the list ends
+		wantCalls int
+		wantErr   error
+	}{
+		{name: "success first try", errs: nil, wantCalls: 1},
+		{name: "transient then success", errs: []error{transient, &FleetAPIError{StatusCode: 503}}, wantCalls: 3},
+		{name: "transient until attempts run out", errs: []error{transient, transient, transient, transient, transient}, wantCalls: 4, wantErr: transient},
+		{name: "permanent error not retried", errs: []error{permanent}, wantCalls: 1, wantErr: permanent},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			err := retryTransient(context.Background(), func() error {
+				calls++
+				if calls <= len(tc.errs) {
+					return tc.errs[calls-1]
+				}
+				return nil
+			})
+			if calls != tc.wantCalls {
+				t.Errorf("calls = %d, want %d", calls, tc.wantCalls)
+			}
+			if !errors.Is(err, tc.wantErr) {
+				t.Errorf("err = %v, want %v", err, tc.wantErr)
+			}
+		})
+	}
+
+	t.Run("cancelled context stops retrying", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		calls := 0
+		err := retryTransient(ctx, func() error { calls++; return transient })
+		if calls != 1 || !errors.Is(err, context.Canceled) {
+			t.Errorf("calls = %d, err = %v; want 1 call and context.Canceled", calls, err)
+		}
+	})
+}
+
+func TestIsUnsupportedPlatformError(t *testing.T) {
+	t.Parallel()
+	if !isUnsupportedPlatformError(&FleetAPIError{StatusCode: http.StatusBadRequest, Snippet: `platform "foo" unsupported`}) {
+		t.Error("400 mentioning platform = false, want true")
+	}
+	if isUnsupportedPlatformError(&FleetAPIError{StatusCode: http.StatusBadRequest, Snippet: "Param team_id is required"}) {
+		t.Error("unrelated 400 = true, want false")
+	}
+	if isUnsupportedPlatformError(&FleetAPIError{StatusCode: http.StatusInternalServerError, Snippet: "platform"}) {
+		t.Error("500 = true, want false")
 	}
 }

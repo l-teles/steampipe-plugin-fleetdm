@@ -58,7 +58,14 @@ func streamPerHost[T any](ctx context.Context, d *plugin.QueryData, client *Flee
 		return err
 	}
 	return fanOut(ctx, hosts, perHostConcurrency, func(ctx context.Context, h hostRef) ([]T, error) {
-		rows, err := fetch(ctx, h)
+		// Rows from other hosts may already have streamed, so a transient
+		// failure is retried here rather than failing the whole query.
+		var rows []T
+		err := retryTransient(ctx, func() error {
+			var err error
+			rows, err = fetch(ctx, h)
+			return err
+		})
 		if is404(err) {
 			return nil, nil
 		}

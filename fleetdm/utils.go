@@ -266,14 +266,45 @@ func parseRetryAfter(v string) time.Duration {
 // in-line before handing the error to the SDK retry machinery.
 const maxRetryAfterSleep = 10 * time.Second
 
-// shouldRetryError tells the SDK retry machinery to retry rate limits and
-// transient server errors.
-func shouldRetryError(_ context.Context, _ *plugin.QueryData, _ *plugin.HydrateData, err error) bool {
+// isTransient reports whether err is a rate limit or transient server error
+// worth retrying.
+func isTransient(err error) bool {
 	var apiErr *FleetAPIError
 	if errors.As(err, &apiErr) {
 		return apiErr.StatusCode == http.StatusTooManyRequests || apiErr.StatusCode >= 500
 	}
 	return false
+}
+
+// shouldRetryError tells the SDK retry machinery to retry rate limits and
+// transient server errors.
+func shouldRetryError(_ context.Context, _ *plugin.QueryData, _ *plugin.HydrateData, err error) bool {
+	return isTransient(err)
+}
+
+// Retry policy for requests made inside a list call after rows may already
+// have streamed, where the SDK will no longer retry the whole hydrate.
+var (
+	transientRetryAttempts = 4
+	transientRetryBase     = 500 * time.Millisecond
+)
+
+// retryTransient runs fn, retrying transient errors with exponential backoff.
+// Other errors and context cancellation return immediately.
+func retryTransient(ctx context.Context, fn func() error) error {
+	delay := transientRetryBase
+	for attempt := 1; ; attempt++ {
+		err := fn()
+		if err == nil || !isTransient(err) || attempt >= transientRetryAttempts {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+		delay *= 2
+	}
 }
 
 // shouldIgnoreError maps 404s to "no rows" instead of a query error, so
