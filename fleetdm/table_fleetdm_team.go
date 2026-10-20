@@ -166,6 +166,10 @@ func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 	// A lookup by id alone is one request; with other filters, list so
 	// they still apply.
 	if d.EqualsQuals["id"] != nil && onlyQuals(d, "id") {
+		// Fleet answers id 0 with a synthetic "No team" the list never has.
+		if d.EqualsQuals["id"].GetInt64Value() <= 0 {
+			return nil, nil
+		}
 		return streamByID(ctx, d, "fleetdm_team", getTeam)
 	}
 	client, err := getClient(ctx, d)

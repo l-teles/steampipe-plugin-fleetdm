@@ -200,7 +200,9 @@ func getPolicy(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		plugin.Logger(ctx).Error("fleetdm_policy.getPolicy", "api_error", err)
 		return nil, err
 	}
-	if response.Policy != nil {
+	// global/policies/{id} also returns team policies, which the list
+	// without team_id does not, so drop them to keep both paths in step.
+	if response.Policy != nil && response.Policy.TeamID == nil && response.Policy.FleetID == nil {
 		return *response.Policy, nil
 	}
 	return nil, nil

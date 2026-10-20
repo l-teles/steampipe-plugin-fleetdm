@@ -12,6 +12,7 @@ import (
 	"os" // Added for os.Getenv
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
@@ -291,14 +292,22 @@ func parseRetryAfter(v string) time.Duration {
 // in-line before handing the error to the SDK retry machinery.
 const maxRetryAfterSleep = 10 * time.Second
 
-// isTransient reports whether err is a rate limit or transient server error
-// worth retrying.
+// isTransient reports whether err is a rate limit, transient server error or
+// network failure (timeout, reset connection, truncated response) worth
+// retrying. A cancelled query is not.
 func isTransient(err error) bool {
 	var apiErr *FleetAPIError
 	if errors.As(err, &apiErr) {
 		return apiErr.StatusCode == http.StatusTooManyRequests || apiErr.StatusCode >= 500
 	}
-	return false
+	if err == nil || errors.Is(err, context.Canceled) {
+		return false
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	return errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET)
 }
 
 // shouldRetryError tells the SDK retry machinery to retry rate limits and
