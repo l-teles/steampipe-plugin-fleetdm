@@ -212,9 +212,11 @@ func TestFleetIDParamForVersion(t *testing.T) {
 		want    string
 	}{
 		{"4.93.0", "fleet_id"},
-		{"4.82.0", "fleet_id"},
-		{"4.82.1-rc.1", "fleet_id"},
+		{"4.83.0", "fleet_id"},
+		{"4.83.1-rc.1", "fleet_id"},
 		{"5.0.0", "fleet_id"},
+		{"4.82.2", "team_id"}, // its user list ignores fleet_id
+		{"4.82.0", "team_id"},
 		{"4.81.0", "team_id"},
 		{"4.9.1", "team_id"},
 		{"3.99.0", "team_id"},

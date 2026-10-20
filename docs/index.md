@@ -83,7 +83,7 @@ connection "fleetdm" {
 
 - `server_url` - Your FleetDM server URL. Must use `https` (`http` is only allowed for localhost). The plugin will attempt to append `/api/v1/` if it's not present.
 - `api_token` - Your FleetDM API token, which can be generated from your FleetDM instance (User Menu -> My account -> Get API token)
-- `expose_secrets` - Optional, default `false`. When `true`, columns containing live secret material (e.g. `fleetdm_team.secrets`, which holds agent enrollment secrets) are populated. Leave unset unless you need it: exposed secrets will land in Steampipe query caches, exports, and dashboards.
+- `expose_secrets` - Optional, default `false`. When `true`, columns containing live secret material (e.g. `fleetdm_team.secrets`, which holds agent enrollment secrets) and URLs that can embed credentials are populated, and `fleetdm_enroll_secret` can be queried. Leave unset unless you need it: exposed secrets will land in Steampipe query caches, exports, and dashboards.
 - `request_timeout` - Optional, default `30`. Per-request timeout in seconds for FleetDM API calls.
 
 ### Credentials via environment variables

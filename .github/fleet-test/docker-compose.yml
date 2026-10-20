@@ -19,7 +19,7 @@ services:
   # compute checksums with MySQL's MD5(), which MySQL removed in the 26.x
   # line — every schema migration fails there. Renovate caps it to <9.
   mysql:
-    image: mysql:8.4
+    image: mysql:8.4@sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364
     network_mode: "host"
     environment:
       MYSQL_ROOT_PASSWORD: toor
@@ -37,7 +37,7 @@ services:
       start_period: 10s
 
   redis:
-    image: redis:8
+    image: redis:8@sha256:2c2dff791878316e3b083188be0d578423b24813cdda5de0e80ea4f7b3e6bfd6
     network_mode: "host"
     command: redis-server --bind 127.0.0.1
     healthcheck:
@@ -115,7 +115,7 @@ services:
       - mdm-certs:/certs
 
   fleet-migrate:
-    image: fleetdm/fleet:${FLEET_IMAGE_TAG:-v4.93.0}
+    image: ${FLEET_IMAGE:-fleetdm/fleet:v4.93.0@sha256:fc2e73a94563fe64325ceaffba04e6ca4e0557e2dfb606100d3a8d77e0a2a80f}
     network_mode: "host"
     command: fleet prepare db
     environment:
@@ -133,7 +133,7 @@ services:
     # Exits 0 on success; compose treats it as a one-shot service.
 
   fleet:
-    image: fleetdm/fleet:${FLEET_IMAGE_TAG:-v4.93.0}
+    image: ${FLEET_IMAGE:-fleetdm/fleet:v4.93.0@sha256:fc2e73a94563fe64325ceaffba04e6ca4e0557e2dfb606100d3a8d77e0a2a80f}
     network_mode: "host"
     # --dev    : sets Fleet development defaults (logging, TLS cert, etc.)
     # --dev_license: enables Fleet Premium via the built-in development license

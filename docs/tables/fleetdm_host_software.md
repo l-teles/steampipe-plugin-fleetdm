@@ -9,7 +9,7 @@ Fleet inventories the software on each host, with installed versions, paths, cod
 
 ## Table Usage Guide
 
-The `fleetdm_host_software` table lists software per host. Without a `host_id` filter the table queries every host (up to 10 requests at a time), which can take a while on a large fleet; filter by `host_id` for a single host. For fleet-wide counts, `fleetdm_software_title` is much cheaper.
+The `fleetdm_host_software` table lists software per host. Without a `host_id` filter the table queries every host (up to 10 requests at a time), which can take a while on a large fleet; filter by `host_id` for a single host. For fleet-wide counts, `fleetdm_software_title` is much cheaper. `software_package.package_url` is null unless `expose_secrets = true`, as installer URLs can embed credentials.
 
 ## Examples
 

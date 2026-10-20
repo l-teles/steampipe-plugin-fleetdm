@@ -44,27 +44,25 @@ done
 # ---------------------------------------------------------------------------
 echo "Running Fleet first-time setup..." >&2
 setup_resp_file=$(mktemp)
+setup_body=$(jq -n --arg e "$ADMIN_EMAIL" --arg n "$ADMIN_NAME" --arg p "$ADMIN_PASSWORD" \
+  --arg o "$ORG_NAME" --arg u "$FLEET_URL" \
+  '{admin: {email: $e, name: $n, password: $p}, org_info: {org_name: $o}, server_url: $u}')
 for attempt in $(seq 1 12); do
   setup_http=$(curl -s \
     -o "$setup_resp_file" \
     -w "%{http_code}" \
     -X POST "${FLEET_URL}/api/v1/setup" \
     -H "Content-Type: application/json" \
-    -d "{
-      \"admin\": {
-        \"email\": \"${ADMIN_EMAIL}\",
-        \"name\": \"${ADMIN_NAME}\",
-        \"password\": \"${ADMIN_PASSWORD}\"
-      },
-      \"org_info\": {\"org_name\": \"${ORG_NAME}\"},
-      \"server_url\": \"${FLEET_URL}\"
-    }") || setup_http="000" # connection failure: retry like a 5xx
+    -d "$setup_body") || setup_http="000" # connection failure: retry like a 5xx
 
   if [ "$setup_http" = "200" ]; then
     echo "Fleet setup complete (HTTP ${setup_http})." >&2
     break
   elif [[ "$setup_http" =~ ^4 ]]; then
-    echo "Fleet setup returned HTTP ${setup_http}; assuming already configured." >&2
+    # Shown so a real rejection (e.g. password policy) is visible when login then fails.
+    echo "Fleet setup returned HTTP ${setup_http}; assuming already configured:" >&2
+    cat "$setup_resp_file" >&2 || true
+    echo >&2
     break
   else
     echo "Fleet setup returned HTTP ${setup_http} (attempt ${attempt}/12); retrying in 5 s..." >&2
@@ -83,9 +81,12 @@ rm -f "$setup_resp_file"
 # 3. Login and obtain an API token
 # ---------------------------------------------------------------------------
 echo "Logging in to Fleet..." >&2
-login_resp=$(curl -sf -X POST "${FLEET_URL}/api/v1/fleet/login" \
+login_resp=$(curl -sS --fail-with-body -X POST "${FLEET_URL}/api/v1/fleet/login" \
   -H "Content-Type: application/json" \
-  -d "{\"email\": \"${ADMIN_EMAIL}\", \"password\": \"${ADMIN_PASSWORD}\"}")
+  -d "$(jq -n --arg e "$ADMIN_EMAIL" --arg p "$ADMIN_PASSWORD" '{email: $e, password: $p}')") || {
+  echo "ERROR: Fleet login failed: ${login_resp:-}" >&2
+  exit 1
+}
 
 # '.token // empty' yields "" instead of "null" when the field is absent
 token=$(echo "$login_resp" | jq -r '.token // empty')

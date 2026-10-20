@@ -3,6 +3,7 @@ package fleetdm
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -11,8 +12,8 @@ import (
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/transform"
 )
 
-// mdmCommandMaxPage is the last page Fleet serves for /commands; beyond it
-// the API requires cursor paging.
+// mdmCommandMaxPage is the last page Fleet 4.86+ serves for /commands (pages
+// count from 0); beyond it the API requires cursor paging.
 const mdmCommandMaxPage = 100
 
 // MDMCommand is an MDM command sent to a host.
@@ -67,9 +68,10 @@ func listMDMCommands(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrate
 		return nil, err
 	}
 	err = paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]MDMCommand, *ListMeta, error) {
-		if page >= mdmCommandMaxPage {
-			plugin.Logger(ctx).Warn("fleetdm_mdm_command.listMDMCommands", "page_limit_reached", mdmCommandMaxPage)
-			return nil, nil, nil
+		// Only reached when the last servable page reported more results, so
+		// fail rather than return a silently truncated audit.
+		if page > mdmCommandMaxPage {
+			return nil, nil, fmt.Errorf("more than %d MDM commands match; narrow the query with request_type or command_status", (mdmCommandMaxPage+1)*perPage)
 		}
 		params := url.Values{}
 		params.Add("page", strconv.Itoa(page))

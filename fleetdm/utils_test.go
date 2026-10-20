@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
@@ -496,5 +497,49 @@ func TestAddHostPopulationParams(t *testing.T) {
 	addHostPopulationParams(none, func(string) bool { return false })
 	if len(none) != 0 {
 		t.Errorf("params with no optional columns = %q, want none", none.Encode())
+	}
+}
+
+func TestIsTransientNetworkErrors(t *testing.T) {
+	dropped := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, _, err := w.(http.Hijacker).Hijack()
+		if err == nil {
+			_ = conn.Close()
+		}
+	}))
+	defer dropped.Close()
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(2 * time.Second):
+		}
+	}))
+	defer slow.Close()
+
+	get := func(ctx context.Context, srv *httptest.Server, timeout time.Duration) error {
+		c := &FleetDMClient{BaseURL: srv.URL + "/", APIToken: "x", HTTPClient: &http.Client{Timeout: timeout}}
+		return c.Get(ctx, "x", nil, &struct{}{})
+	}
+	cancelled, cancel := context.WithCancel(testCtx(t))
+	cancel()
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"dropped connection", get(testCtx(t), dropped, time.Second), true},
+		{"client timeout", get(testCtx(t), slow, 50*time.Millisecond), true},
+		{"cancelled query", get(cancelled, slow, time.Second), false},
+		{"plain error", errors.New("boom"), false},
+	}
+	for _, tc := range tests {
+		if tc.err == nil {
+			t.Errorf("%s: want an error", tc.name)
+			continue
+		}
+		if got := isTransient(tc.err); got != tc.want {
+			t.Errorf("%s: isTransient(%v) = %v, want %v", tc.name, tc.err, got, tc.want)
+		}
 	}
 }
