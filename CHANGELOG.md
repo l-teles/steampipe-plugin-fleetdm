@@ -2,7 +2,7 @@
 
 _What's new?_
 
-- Supports FleetDM up to v4.93.0, including servers before and after the teams→fleets and queries→reports rename (tested on 4.81 and 4.93, Premium and Free).
+- Supports FleetDM up to v4.93.0, including servers before and after the teams→fleets and queries→reports rename (tested on Fleet Premium 4.81 and 4.93, and Fleet Free 4.93).
 - 36 new tables, covering the rest of Fleet's read API:
   - Inventory and configuration: `fleetdm_config`, `fleetdm_enroll_secret`, `fleetdm_invite`, `fleetdm_custom_variable`, `fleetdm_custom_host_vital`, `fleetdm_certificate_authority`, `fleetdm_certificate_template`, `fleetdm_ab_token`, `fleetdm_vpp_token`, `fleetdm_apple_mdm`, `fleetdm_android_enterprise`, `fleetdm_bootstrap_package`, `fleetdm_setup_experience_software`, `fleetdm_software_self_service_category`, `fleetdm_rest_api_endpoint`, `fleetdm_scim_status`
   - Software, scripts and profiles: `fleetdm_vulnerability`, `fleetdm_script`, `fleetdm_configuration_profile`, `fleetdm_query_report`, `fleetdm_label_host`
@@ -10,7 +10,7 @@ _What's new?_
   - Per host: `fleetdm_host_software`, `fleetdm_host_script`, `fleetdm_host_configuration_profile`, `fleetdm_host_certificate`, `fleetdm_host_macadmins`, `fleetdm_host_activity`, `fleetdm_host_upcoming_activity`
   - Results: `fleetdm_mdm_command`, `fleetdm_mdm_command_result`, `fleetdm_script_result`, `fleetdm_software_install_result`
 - New columns on existing tables for fields Fleet added up to 4.93 (host time zone, disk encryption and end users; policy type, conditional access and label scoping; user last login and MFA; team settings; and more).
-- Lookups by ID (`where id = ...`) on 13 tables now make a single request instead of listing everything.
+- Lookups by ID (`where id = ...`) on 12 tables now make a single request instead of listing everything; other filters in the same query still apply.
 - `fleetdm_host` only asks Fleet for policies, users, labels, device mapping and end users when those columns are selected.
 - New `max_requests_per_second` connection option to cap API requests.
 - More data is gated behind `expose_secrets`: enroll secrets, webhook/integration/logging settings, MDM command payloads, and script/install outputs.
