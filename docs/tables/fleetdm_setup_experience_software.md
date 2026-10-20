@@ -9,7 +9,7 @@ Setup experience software is installed on new devices while they enroll. Uses th
 
 ## Table Usage Guide
 
-Without a `team_id` filter the `fleetdm_setup_experience_software` table lists software for hosts with no team (`team_id = 0`) plus every team, one request per team.
+Without a `team_id` filter the `fleetdm_setup_experience_software` table lists software for hosts with no team (`team_id = 0`) plus every team. Each team is queried once per platform (macOS, iOS, iPadOS, Windows, Linux, Android), and `platform` records which one; filter on `platform` to query just one.
 
 ## Examples
 
@@ -18,6 +18,7 @@ Without a `team_id` filter the `fleetdm_setup_experience_software` table lists s
 ```sql+postgres
 select
   team_id,
+  platform,
   name,
   source
 from
@@ -26,12 +27,14 @@ where
   install_during_setup
 order by
   team_id,
+  platform,
   name;
 ```
 
 ```sql+sqlite
 select
   team_id,
+  platform,
   name,
   source
 from
@@ -40,5 +43,6 @@ where
   install_during_setup
 order by
   team_id,
+  platform,
   name;
 ```
