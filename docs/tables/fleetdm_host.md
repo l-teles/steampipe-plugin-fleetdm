@@ -241,7 +241,7 @@ order by
 
 ### List macOS hosts without disk encryption
 
-Find laptops whose disks are not encrypted.
+Find laptops whose disks are not encrypted. Hosts that have not reported their encryption status yet have a null `disk_encryption_enabled` and are not included; select them with `disk_encryption_enabled is null`.
 
 ```sql+postgres
 select
@@ -253,7 +253,7 @@ from
   fleetdm_host
 where
   platform = 'darwin'
-  and not coalesce(disk_encryption_enabled, false);
+  and disk_encryption_enabled = false;
 ```
 
 ```sql+sqlite
@@ -266,5 +266,5 @@ from
   fleetdm_host
 where
   platform = 'darwin'
-  and not coalesce(disk_encryption_enabled, false);
+  and disk_encryption_enabled = false;
 ```

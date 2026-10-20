@@ -45,17 +45,17 @@ if ! steampipe service status 2>&1 | grep -q 'Steampipe service is running'; the
 fi
 
 # Steampipe imports a new or rebuilt plugin's schema asynchronously; wait
-# until two consecutive listings agree so no table is skipped.
+# until every table registered in plugin.go is visible, so none is skipped.
+expected=$(grep -cE '^[[:space:]]+"fleetdm_[a-z_]+":[[:space:]]+tableFleetdm' fleetdm/plugin.go)
 tables=""
-for _ in $(seq 1 20); do
-  sleep 3
-  latest=$(steampipe query --output csv --header=false \
+for _ in $(seq 1 40); do
+  tables=$(steampipe query --output csv --header=false \
     "select table_name from information_schema.tables where table_schema = '${CONN}' order by table_name")
-  [ -n "$latest" ] && [ "$latest" = "$tables" ] && break
-  tables="$latest"
+  [ "$(grep -c . <<<"$tables")" -eq "$expected" ] && break
+  sleep 3
 done
-if [ -z "$tables" ]; then
-  echo "ERROR: plugin exposed no tables; it failed to load." >&2
+if [ "$(grep -c . <<<"$tables")" -ne "$expected" ]; then
+  echo "ERROR: expected ${expected} tables, Steampipe exposes $(grep -c . <<<"$tables"); the plugin failed to load." >&2
   exit 1
 fi
 
@@ -81,6 +81,10 @@ done
 team_id=$(curl -sf -X POST "${FLEETDM_URL}/api/v1/fleet/teams" \
   -H "Authorization: Bearer ${FLEETDM_API_TOKEN}" -H "Content-Type: application/json" \
   -d "{\"name\": \"smoke-$(date +%s)\"}" | jq -r '.team.id // .fleet.id')
+if ! [[ "$team_id" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: could not create a smoke-test team (got '${team_id}')." >&2
+  exit 1
+fi
 team_tables=$(steampipe query --output csv --header=false \
   "select table_name || ':' || data_type from information_schema.columns where table_schema = '${CONN}' and column_name = 'team_id' order by table_name")
 for entry in $team_tables; do
