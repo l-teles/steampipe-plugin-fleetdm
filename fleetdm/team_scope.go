@@ -2,6 +2,8 @@ package fleetdm
 
 import (
 	"context"
+	"errors"
+	"net/http"
 	"strconv"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
@@ -37,4 +39,23 @@ func teamScopes(ctx context.Context, d *plugin.QueryData, client *FleetDMClient,
 // scopeParam renders a team scope for addFleetIDParam.
 func scopeParam(id *uint) string {
 	return strconv.FormatUint(uint64(*id), 10)
+}
+
+// skipScope reports whether a per-team request error only means this scope is
+// out of reach for an implicit all-teams listing: a team-scoped token gets 403
+// on "no team", and a team deleted mid-listing gets 404. With an explicit
+// team_id filter every error surfaces.
+func skipScope(ctx context.Context, d *plugin.QueryData, table string, scope *uint, err error) bool {
+	if d.EqualsQuals["team_id"] != nil {
+		return false
+	}
+	var apiErr *FleetAPIError
+	if !errors.As(err, &apiErr) {
+		return false
+	}
+	if (scope == nil && apiErr.StatusCode == http.StatusForbidden) || (scope != nil && apiErr.StatusCode == http.StatusNotFound) {
+		plugin.Logger(ctx).Warn("skipScope", "table", table, "no_team", scope == nil, "status", apiErr.StatusCode)
+		return true
+	}
+	return false
 }

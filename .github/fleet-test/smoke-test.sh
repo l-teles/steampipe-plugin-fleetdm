@@ -42,6 +42,10 @@ fi
 stop_service=0
 # shellcheck disable=SC2329 # invoked by the EXIT trap
 cleanup() {
+  if [ -n "${team_id:-}" ]; then
+    curl -s -o /dev/null -X DELETE -H "Authorization: Bearer ${FLEETDM_API_TOKEN}" \
+      "${FLEETDM_URL}/api/v1/fleet/teams/${team_id}" || true
+  fi
   rm -f "$spc"
   rm -rf "$plugin_dir"
   if [ "$stop_service" = 1 ]; then
@@ -109,11 +113,16 @@ if [ "$(grep -c . <<<"$tables")" -ne "$expected" ]; then
 fi
 
 failed=0
-# run_check LABEL SQL: steampipe can exit 0 on a failed query, so also
-# inspect the output.
+# run_check LABEL SQL [WANT]: steampipe can exit 0 on a failed query, so also
+# inspect the output. With WANT, the count must equal it.
 run_check() {
   local out
   if out=$(steampipe query --output csv --header=false "$2" 2>&1) && ! grep -qE '^(Error|Warning)' <<<"$out"; then
+    if [ -n "${3:-}" ] && [ "$out" != "$3" ]; then
+      printf '%-48s FAILED: %s rows, want %s\n' "$1" "$out" "$3"
+      failed=1
+      return
+    fi
     printf '%-48s ok (%s rows)\n' "$1" "$out"
   else
     printf '%-48s FAILED: %s\n' "$1" "$out"
@@ -126,7 +135,17 @@ for t in $tables; do
 done
 
 # Team filters are renamed across Fleet versions (team_id -> fleet_id), so
-# exercise every table that takes one against a real team.
+# exercise every table that takes one against a new, empty team. A filter the
+# server ignores returns rows, so each must count 0, except tables whose team
+# view also holds global rows.
+team_filter_returns_rows() {
+  case "$1" in
+    fleetdm_fleet_maintained_app) return 0 ;; # catalog of what a team could install
+    fleetdm_label) return 0 ;;                # global labels plus the team's
+  esac
+  return 1
+}
+team_id=""
 team_id=$(curl -sf -X POST "${FLEETDM_URL}/api/v1/fleet/teams" \
   -H "Authorization: Bearer ${FLEETDM_API_TOKEN}" -H "Content-Type: application/json" \
   -d "{\"name\": \"smoke-$(date +%s)\"}" | jq -r '.team.id // .fleet.id')
@@ -141,7 +160,12 @@ for entry in $team_tables; do
   value="${team_id}"
   [ "${entry#*:}" = "text" ] && value="'${team_id}'"
   # No extra_where here: the team filter must reach each table's list call.
-  run_check "$t (team_id)" "select count(*) from ${CONN}.${t} where team_id = ${value}"
+  sql="select count(*) from ${CONN}.${t} where team_id = ${value}"
+  if team_filter_returns_rows "$t"; then
+    run_check "$t (team_id)" "$sql"
+  else
+    run_check "$t (team_id)" "$sql" 0
+  fi
 done
 
 exit "$failed"

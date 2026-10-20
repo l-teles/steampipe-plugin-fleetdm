@@ -127,7 +127,7 @@ steampipe query
 > .inspect fleetdm
 ```
 
-Test against a throwaway local Fleet (needs Docker; CI runs the same smoke test on every PR against the pinned Fleet release, Fleet v4.81.0 from before the teams→fleets rename, and the latest release):
+Test against a throwaway local Fleet (needs Docker; CI runs the same smoke test on every PR against the pinned Fleet release, Fleet v4.81.0 from before the teams→fleets rename, v4.82.2 where the team filter changed name, and the latest release):
 
 ```sh
 export FLEET_SERVER_PRIVATE_KEY="$(openssl rand -hex 32)"

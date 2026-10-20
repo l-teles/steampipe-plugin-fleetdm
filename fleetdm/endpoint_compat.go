@@ -127,14 +127,15 @@ func coalesceSlice[T any](newer, older []T) []T {
 
 // fleetIDParamForVersion returns the query parameter that filters by fleet
 // (formerly team) for a server version. Fleet 4.82 renamed team_id to fleet_id
-// and rejects requests carrying both; team_id stays accepted on every 4.x, so
-// it is the fallback for older or unparseable versions.
+// and rejects requests carrying both, but its user list still reads only
+// team_id; every endpoint takes fleet_id from 4.83. team_id stays accepted on
+// every 4.x, so it is the fallback for older or unparseable versions.
 func fleetIDParamForVersion(version string) string {
 	var major, minor int
 	if _, err := fmt.Sscanf(version, "%d.%d", &major, &minor); err != nil {
 		return "team_id"
 	}
-	if major > 4 || (major == 4 && minor >= 82) {
+	if major > 4 || (major == 4 && minor >= 83) {
 		return "fleet_id"
 	}
 	return "team_id"
@@ -151,10 +152,9 @@ func (c *FleetDMClient) addFleetIDParam(ctx context.Context, d *plugin.QueryData
 	if name == "" {
 		var info VersionInfo
 		if err := c.Get(ctx, "version", nil, &info); err != nil {
-			// Not cached, so the next query retries the lookup.
+			// team_id works on every 4.x, so cache it rather than retrying
+			// the lookup on every page.
 			plugin.Logger(ctx).Warn("addFleetIDParam", "version_lookup_error", err)
-			params.Set("team_id", id)
-			return
 		}
 		name = fleetIDParamForVersion(info.Version)
 		if err := d.ConnectionCache.Set(ctx, cacheKey, name); err != nil {
@@ -164,11 +164,17 @@ func (c *FleetDMClient) addFleetIDParam(ctx context.Context, d *plugin.QueryData
 	params.Set(name, id)
 }
 
+// secretsExposed reports whether the connection opted in to secret material
+// with expose_secrets = true; unset means no.
+func secretsExposed(d *plugin.QueryData) bool {
+	config := GetConfig(d.Connection)
+	return config.ExposeSecrets != nil && *config.ExposeSecrets
+}
+
 // requireExposeSecrets gates tables that return live secret material behind
 // the expose_secrets connection config flag.
 func requireExposeSecrets(d *plugin.QueryData) error {
-	config := GetConfig(d.Connection)
-	if config.ExposeSecrets != nil && *config.ExposeSecrets {
+	if secretsExposed(d) {
 		return nil
 	}
 	return errors.New("this table returns live secrets; set expose_secrets = true in the fleetdm connection config to query it")

@@ -93,6 +93,9 @@ func listConfigurationProfiles(ctx context.Context, d *plugin.QueryData, h *plug
 			if handleUnavailableFeature(ctx, d, "fleetdm_configuration_profile", err) {
 				return nil, nil
 			}
+			if skipScope(ctx, d, "fleetdm_configuration_profile", scope, err) {
+				continue
+			}
 			return nil, err
 		}
 		if d.RowsRemaining(ctx) == 0 {
