@@ -66,12 +66,9 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listTeams,
 			KeyColumns: []*plugin.KeyColumn{
+				{Name: "id", Require: plugin.Optional},    // Alone (or with team_id where noted), fetched directly
 				{Name: "query", Require: plugin.Optional}, // Search by team name
 			},
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getTeam,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the team."},
@@ -167,6 +164,11 @@ func getTeamUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 }
 
 func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	// A lookup by id alone is one request; with other filters, list so
+	// they still apply.
+	if d.EqualsQuals["id"] != nil && onlyQuals(d, "id") {
+		return streamByID(ctx, d, "fleetdm_team", getTeam)
+	}
 	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_team.listTeams", "connection_error", err)
@@ -224,7 +226,7 @@ func fetchAllTeams(ctx context.Context, d *plugin.QueryData, client *FleetDMClie
 	return all, err
 }
 
-// getTeam fetches one team by id, instead of listing and filtering.
+// getTeam fetches one team by id, when it is the only filter.
 func getTeam(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	client, err := getClient(ctx, d)
 	if err != nil {

@@ -55,6 +55,7 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listSoftwareTitles,
 			KeyColumns: []*plugin.KeyColumn{
+				{Name: "id", Require: plugin.Optional},                            // Alone or with team_id, fetched directly
 				{Name: "vulnerable_only", Require: plugin.Optional},               // Filter for vulnerable software
 				{Name: "team_id", Require: plugin.Optional},                       // Filter by team ID (Fleet Premium)
 				{Name: "available_for_install", Require: plugin.Optional},         // Filter for installable software
@@ -67,10 +68,6 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 				{Name: "platform", Require: plugin.Optional},                      // Filter by platform (requires team_id)
 				{Name: "exclude_fleet_maintained_apps", Require: plugin.Optional}, // Exclude Fleet-maintained apps
 			},
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getSoftwareTitle,
 		},
 		Columns: []*plugin.Column{
 			// Core software title information
@@ -109,6 +106,11 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 }
 
 func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	// A lookup by id (optionally per team) is one request; with other
+	// filters, list so they still apply.
+	if d.EqualsQuals["id"] != nil && onlyQuals(d, "id", "team_id") {
+		return streamByID(ctx, d, "fleetdm_software_title", getSoftwareTitle)
+	}
 	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_software_title.listSoftwareTitles", "connection_error", err)
@@ -179,7 +181,7 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 	return nil, nil
 }
 
-// getSoftwareTitle fetches one software title by id, instead of listing and filtering.
+// getSoftwareTitle fetches one software title by id, when it is the only filter (with team_id, for that team's counts).
 func getSoftwareTitle(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	client, err := getClient(ctx, d)
 	if err != nil {
@@ -188,7 +190,11 @@ func getSoftwareTitle(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 	var response struct {
 		SoftwareTitle *SoftwareTitle `json:"software_title"`
 	}
-	if err := client.Get(ctx, fmt.Sprintf("software/titles/%d", d.EqualsQuals["id"].GetInt64Value()), nil, &response); err != nil {
+	params := url.Values{}
+	if q := d.EqualsQuals["team_id"]; q != nil {
+		client.addFleetIDParam(ctx, d, params, strconv.FormatInt(q.GetInt64Value(), 10))
+	}
+	if err := client.Get(ctx, fmt.Sprintf("software/titles/%d", d.EqualsQuals["id"].GetInt64Value()), params, &response); err != nil {
 		plugin.Logger(ctx).Error("fleetdm_software_title.getSoftwareTitle", "api_error", err)
 		return nil, err
 	}

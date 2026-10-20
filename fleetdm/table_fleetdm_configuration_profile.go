@@ -116,6 +116,10 @@ func getConfigurationProfile(ctx context.Context, d *plugin.QueryData, h *plugin
 	}
 	var row ConfigurationProfile
 	if err := client.Get(ctx, fmt.Sprintf("configuration_profiles/%s", d.EqualsQuals["profile_uuid"].GetStringValue()), nil, &row); err != nil {
+		// MDM turned off: no profiles, rather than a failed query.
+		if handleUnavailableFeature(ctx, d, "fleetdm_configuration_profile", err) {
+			return nil, nil
+		}
 		plugin.Logger(ctx).Error("fleetdm_configuration_profile.getConfigurationProfile", "api_error", err)
 		return nil, err
 	}
