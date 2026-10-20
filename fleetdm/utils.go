@@ -1,6 +1,7 @@
 package fleetdm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -392,6 +393,12 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 		if err != nil {
 			plugin.Logger(ctx).Error("FleetDMClient.Get", "read_body_for_decode_error", err, "url", fullURL.String())
 			return fmt.Errorf("error reading response body from %s: %w", fullURL.String(), err)
+		}
+
+		// 204 No Content (e.g. an unknown CVE) has nothing to decode; target
+		// keeps its zero value.
+		if resp.StatusCode == http.StatusNoContent || len(bytes.TrimSpace(bodyBytes)) == 0 {
+			return nil
 		}
 
 		if err := json.Unmarshal(bodyBytes, target); err != nil {

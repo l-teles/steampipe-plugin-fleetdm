@@ -20,6 +20,8 @@ extra_where() {
     fleetdm_host_detail) echo "where id = 0" ;;
     fleetdm_mdm_command) echo "where host_identifier = 'smoke-no-such-host'" ;;
     fleetdm_mdm_command_result) echo "where command_uuid = 'smoke-no-such-command'" ;;
+    fleetdm_script_result) echo "where execution_id = 'smoke-no-such-execution'" ;;
+    fleetdm_software_install_result) echo "where install_uuid = 'smoke-no-such-install'" ;;
   esac
 }
 
