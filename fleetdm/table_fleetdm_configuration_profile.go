@@ -53,7 +53,7 @@ func tableFleetdmConfigurationProfile(ctx context.Context) *plugin.Table {
 			{Name: "identifier", Type: proto.ColumnType_STRING, Description: "Payload identifier (Apple profiles only)."},
 			{Name: "scope", Type: proto.ColumnType_STRING, Description: "Payload scope, 'System' or 'User' (Apple profiles only)."},
 			{Name: "checksum", Type: proto.ColumnType_STRING, Description: "Checksum of the profile contents (base64)."},
-			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromField("FleetID", "TeamID"), Description: "ID of the team (fleet) the profile belongs to. Null for profiles with no team."},
+			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromField("FleetID", "TeamID"), Description: "ID of the team (fleet) the profile belongs to; 0 for profiles for hosts with no team."},
 			{Name: "labels_include_all", Type: proto.ColumnType_JSON, Description: "Profile only applies to hosts with all of these labels."},
 			{Name: "labels_include_any", Type: proto.ColumnType_JSON, Description: "Profile only applies to hosts with any of these labels."},
 			{Name: "labels_exclude_any", Type: proto.ColumnType_JSON, Description: "Profile does not apply to hosts with any of these labels."},
