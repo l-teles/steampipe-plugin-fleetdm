@@ -3,10 +3,13 @@ package fleetdm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -232,8 +235,10 @@ func TestGetNoContentLeavesTargetUntouched(t *testing.T) {
 func TestMaxRequestsPerSecond(t *testing.T) {
 	t.Parallel()
 
+	// Limiters are shared per connection name, so each test uses its own.
+	var connSeq atomic.Int32
 	newConn := func(rps *int) *plugin.Connection {
-		conn := &plugin.Connection{Name: "test"}
+		conn := &plugin.Connection{Name: fmt.Sprintf("test-%d", connSeq.Add(1))}
 		conn.SetConfig(fleetdmConfig{ServerURL: ptr("https://fleet.example.com"), APIToken: ptr("t"), MaxRequestsPerSecond: rps})
 		return conn
 	}
@@ -270,15 +275,45 @@ func TestMaxRequestsPerSecond(t *testing.T) {
 		}
 		c.BaseURL, c.HTTPClient = srv.URL+"/api/v1/fleet/", srv.Client()
 
-		// A burst of 20 is free; the next 10 need about half a second at 20/s.
+		// Requests are spaced 50ms apart at 20/s, with no free burst.
 		start := time.Now()
-		for range 30 {
+		for range 11 {
 			if err := c.Get(testCtx(t), "version", nil, nil); err != nil {
 				t.Fatalf("Get: %v", err)
 			}
 		}
-		if elapsed := time.Since(start); elapsed < 400*time.Millisecond {
-			t.Errorf("30 requests at 20/s took %v, want at least ~500ms", elapsed)
+		if elapsed := time.Since(start); elapsed < 450*time.Millisecond {
+			t.Errorf("11 requests at 20/s took %v, want at least ~500ms", elapsed)
+		}
+	})
+
+	t.Run("clients of one connection share a limiter", func(t *testing.T) {
+		t.Parallel()
+		conn := newConn(ptr(5))
+		var wg sync.WaitGroup
+		clients := make([]*FleetDMClient, 50)
+		for i := range clients {
+			wg.Go(func() {
+				c, err := NewFleetDMClient(testCtx(t), conn)
+				if err != nil {
+					t.Errorf("NewFleetDMClient: %v", err)
+					return
+				}
+				clients[i] = c
+			})
+		}
+		wg.Wait()
+		for _, c := range clients {
+			if c == nil || c.limiter != clients[0].limiter {
+				t.Fatal("concurrent clients for one connection got different limiters")
+			}
+		}
+		other, err := NewFleetDMClient(testCtx(t), newConn(ptr(5)))
+		if err != nil {
+			t.Fatalf("NewFleetDMClient: %v", err)
+		}
+		if other.limiter == clients[0].limiter {
+			t.Error("two connections share a limiter")
 		}
 	})
 }

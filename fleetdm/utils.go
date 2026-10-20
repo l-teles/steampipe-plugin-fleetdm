@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -223,7 +224,7 @@ func NewFleetDMClient(ctx context.Context, connection *plugin.Connection) (*Flee
 		if rps <= 0 {
 			return nil, fmt.Errorf("max_requests_per_second must be a positive number, got %d", rps)
 		}
-		limiter = rate.NewLimiter(rate.Limit(rps), rps)
+		limiter = limiterFor(connection.Name, rps)
 	}
 
 	return &FleetDMClient{
@@ -259,6 +260,19 @@ func readBody(r io.Reader, limit int64) ([]byte, error) {
 		return nil, fmt.Errorf("response body exceeds %d bytes", limit)
 	}
 	return b, nil
+}
+
+// connectionLimiters holds one limiter per connection and rate, so every
+// client built for a connection (concurrent first queries, rebuilds after the
+// connection cache expires) shares one budget. A new rate gets a new limiter.
+var connectionLimiters sync.Map // "<connection>/<rps>" -> *rate.Limiter
+
+// limiterFor returns the connection's limiter. A burst of 1 spaces requests
+// evenly, so no one-second window sees more than about rps requests.
+func limiterFor(connectionName string, rps int) *rate.Limiter {
+	key := connectionName + "/" + strconv.Itoa(rps)
+	l, _ := connectionLimiters.LoadOrStore(key, rate.NewLimiter(rate.Limit(rps), 1))
+	return l.(*rate.Limiter)
 }
 
 // truncateBody returns at most n bytes of a response body as a string, for use
@@ -387,7 +401,7 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 
 	if c.limiter != nil {
 		if err := c.limiter.Wait(ctx); err != nil {
-			return err
+			return fmt.Errorf("waiting for max_requests_per_second: %w", err)
 		}
 	}
 

@@ -4,13 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"sync/atomic"
 	"testing"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
-	"net/http/httptest"
-	"net/url"
-	"sync/atomic"
 )
 
 // apiErr builds a *FleetAPIError with the given status code and snippet.
