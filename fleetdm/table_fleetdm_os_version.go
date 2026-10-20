@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -57,6 +58,10 @@ func tableFleetdmOSVersion(ctx context.Context) *plugin.Table {
 				{Name: "os_name", Require: plugin.Optional},
 				{Name: "os_version_filter", Require: plugin.Optional},
 			},
+		},
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("os_version_id"),
+			Hydrate:    getOSVersion,
 		},
 		Columns: []*plugin.Column{
 			// Core OS version information
@@ -117,5 +122,24 @@ func listOSVersions(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getOSVersion fetches one os version by os_version_id, instead of listing and filtering.
+func getOSVersion(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		OSVersion *OSVersion `json:"os_version"`
+	}
+	if err := client.Get(ctx, fmt.Sprintf("os_versions/%d", d.EqualsQuals["os_version_id"].GetInt64Value()), nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_os_version.getOSVersion", "api_error", err)
+		return nil, err
+	}
+	if response.OSVersion != nil {
+		return *response.OSVersion, nil
+	}
 	return nil, nil
 }

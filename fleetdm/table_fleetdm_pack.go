@@ -3,6 +3,7 @@ package fleetdm
 import (
 	"context"
 	"encoding/json" // For json.RawMessage
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -68,6 +69,10 @@ func tableFleetdmPack(ctx context.Context) *plugin.Table {
 			Hydrate: listPacks,
 			// KeyColumns: plugin.KeyColumnEquals("team_id"), // If API supports filtering by team_id
 		},
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("id"),
+			Hydrate:    getPack,
+		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the pack."},
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "Name of the pack."},
@@ -122,5 +127,24 @@ func listPacks(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getPack fetches one pack by id, instead of listing and filtering.
+func getPack(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Pack *Pack `json:"pack"`
+	}
+	if err := client.Get(ctx, fmt.Sprintf("packs/%d", d.EqualsQuals["id"].GetInt64Value()), nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_pack.getPack", "api_error", err)
+		return nil, err
+	}
+	if response.Pack != nil {
+		return *response.Pack, nil
+	}
 	return nil, nil
 }

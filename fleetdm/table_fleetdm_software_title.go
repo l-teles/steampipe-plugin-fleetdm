@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -66,6 +67,10 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 				{Name: "platform", Require: plugin.Optional},                      // Filter by platform (requires team_id)
 				{Name: "exclude_fleet_maintained_apps", Require: plugin.Optional}, // Exclude Fleet-maintained apps
 			},
+		},
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("id"),
+			Hydrate:    getSoftwareTitle,
 		},
 		Columns: []*plugin.Column{
 			// Core software title information
@@ -171,5 +176,24 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getSoftwareTitle fetches one software title by id, instead of listing and filtering.
+func getSoftwareTitle(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		SoftwareTitle *SoftwareTitle `json:"software_title"`
+	}
+	if err := client.Get(ctx, fmt.Sprintf("software/titles/%d", d.EqualsQuals["id"].GetInt64Value()), nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_software_title.getSoftwareTitle", "api_error", err)
+		return nil, err
+	}
+	if response.SoftwareTitle != nil {
+		return *response.SoftwareTitle, nil
+	}
 	return nil, nil
 }

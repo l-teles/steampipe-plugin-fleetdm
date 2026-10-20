@@ -3,6 +3,7 @@ package fleetdm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -54,6 +55,10 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 			KeyColumns: []*plugin.KeyColumn{
 				{Name: "team_id", Require: plugin.Optional}, // Filter by team (Fleet Premium). Use 'global' for global-only labels.
 			},
+		},
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("id"),
+			Hydrate:    getLabel,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the label."},
@@ -112,5 +117,24 @@ func listLabels(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData)
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getLabel fetches one label by id, instead of listing and filtering.
+func getLabel(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Label *Label `json:"label"`
+	}
+	if err := client.Get(ctx, fmt.Sprintf("labels/%d", d.EqualsQuals["id"].GetInt64Value()), nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_label.getLabel", "api_error", err)
+		return nil, err
+	}
+	if response.Label != nil {
+		return *response.Label, nil
+	}
 	return nil, nil
 }

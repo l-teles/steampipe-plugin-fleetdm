@@ -78,6 +78,10 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 				{Name: "merge_inherited", Require: plugin.Optional},     // Include global policies with team results (Fleet Premium)
 			},
 		},
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("id"),
+			Hydrate:    getPolicy,
+		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the policy."},
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "Name of the policy."},
@@ -177,5 +181,25 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getPolicy fetches one policy by id, instead of listing and filtering.
+// Global and team policies alike.
+func getPolicy(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Policy *Policy `json:"policy"`
+	}
+	if err := client.Get(ctx, fmt.Sprintf("global/policies/%d", d.EqualsQuals["id"].GetInt64Value()), nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_policy.getPolicy", "api_error", err)
+		return nil, err
+	}
+	if response.Policy != nil {
+		return *response.Policy, nil
+	}
 	return nil, nil
 }

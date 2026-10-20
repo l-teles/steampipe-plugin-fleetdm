@@ -279,10 +279,10 @@ func tableFleetdmHost(ctx context.Context) *plugin.Table {
 			// Issues, MDM, Users, Policies, Labels
 			{Name: "issues", Type: proto.ColumnType_JSON, Transform: transform.FromField("Issues").Transform(arrayOrObjectToJSONString), Description: "Host issues summary (failing policies, vulnerabilities)."},
 			{Name: "mdm", Type: proto.ColumnType_JSON, Transform: transform.FromField("MDM").Transform(mdmToJSONString), Description: "Mobile Device Management (MDM) information for the host."},
-			{Name: "users", Type: proto.ColumnType_JSON, Transform: transform.FromField("Users").Transform(arrayOrObjectToJSONString), Description: "Users on this host (requires populate_users=true)."},
-			{Name: "policies", Type: proto.ColumnType_JSON, Transform: transform.FromField("Policies").Transform(arrayOrObjectToJSONString), Description: "Policy compliance status for this host (requires populate_policies=true)."},
-			{Name: "labels", Type: proto.ColumnType_JSON, Transform: transform.FromField("Labels").Transform(arrayOrObjectToJSONString), Description: "Labels applied to this host (requires populate_labels=true)."},
-			{Name: "device_mapping", Type: proto.ColumnType_JSON, Transform: transform.FromField("DeviceMapping").Transform(arrayOrObjectToJSONString), Description: "Device mapping information (requires device_mapping=true)."},
+			{Name: "users", Type: proto.ColumnType_JSON, Transform: transform.FromField("Users").Transform(arrayOrObjectToJSONString), Description: "Users on this host. Only fetched when this column is selected."},
+			{Name: "policies", Type: proto.ColumnType_JSON, Transform: transform.FromField("Policies").Transform(arrayOrObjectToJSONString), Description: "Policy compliance status for this host. Only fetched when this column is selected."},
+			{Name: "labels", Type: proto.ColumnType_JSON, Transform: transform.FromField("Labels").Transform(arrayOrObjectToJSONString), Description: "Labels applied to this host. Only fetched when this column is selected."},
+			{Name: "device_mapping", Type: proto.ColumnType_JSON, Transform: transform.FromField("DeviceMapping").Transform(arrayOrObjectToJSONString), Description: "Device mapping (end user emails and their source). Only fetched when this column is selected."},
 			{Name: "end_users", Type: proto.ColumnType_JSON, Transform: transform.FromField("EndUsers").Transform(arrayOrObjectToJSONString), Description: "End users associated with the host via IdP or other mappings. Only fetched when this column is selected (Fleet 4.93+)."},
 
 			// Query parameters that can be used for filtering (key columns)
@@ -299,11 +299,25 @@ func tableFleetdmHost(ctx context.Context) *plugin.Table {
 	}
 }
 
-func addHostPopulationParams(params url.Values) {
-	params.Add("device_mapping", "true")
-	params.Add("populate_policies", "true")
-	params.Add("populate_users", "true")
-	params.Add("populate_labels", "true")
+// hostPopulationParams maps the host columns that Fleet only fills on request
+// to the query parameter that requests them. Each costs Fleet extra work per
+// host, so it is only sent when the column is wanted.
+var hostPopulationParams = []struct{ column, param string }{
+	{"device_mapping", "device_mapping"},
+	{"policies", "populate_policies"},
+	{"users", "populate_users"},
+	{"labels", "populate_labels"},
+	{"end_users", "populate_end_users"},
+}
+
+// addHostPopulationParams requests the optional host data for each column
+// wanted reports true.
+func addHostPopulationParams(params url.Values, wanted func(column string) bool) {
+	for _, p := range hostPopulationParams {
+		if wanted(p.column) {
+			params.Add(p.param, "true")
+		}
+	}
 }
 
 // listHosts fetches a list of hosts from the FleetDM API.
@@ -321,11 +335,9 @@ func listHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		params.Add("order_key", "id")
 		params.Add("order_direction", "asc") // Ascending ID keeps offset paging stable while iterating
 
-		addHostPopulationParams(params)
-		// End users are costly to resolve server-side; only ask when selected.
-		if slices.Contains(d.QueryContext.Columns, "end_users") {
-			params.Add("populate_end_users", "true")
-		}
+		addHostPopulationParams(params, func(column string) bool {
+			return slices.Contains(d.QueryContext.Columns, column)
+		})
 
 		// Apply key column filters
 		if d.EqualsQuals["query"] != nil {

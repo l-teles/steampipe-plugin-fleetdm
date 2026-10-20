@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -477,5 +478,23 @@ func TestIsUnsupportedPlatformError(t *testing.T) {
 	}
 	if isUnsupportedPlatformError(&FleetAPIError{StatusCode: http.StatusInternalServerError, Snippet: "platform"}) {
 		t.Error("500 = true, want false")
+	}
+}
+
+func TestAddHostPopulationParams(t *testing.T) {
+	t.Parallel()
+
+	selected := map[string]bool{"hostname": true, "policies": true, "end_users": true}
+	params := url.Values{}
+	addHostPopulationParams(params, func(c string) bool { return selected[c] })
+	want := url.Values{"populate_policies": {"true"}, "populate_end_users": {"true"}}
+	if params.Encode() != want.Encode() {
+		t.Errorf("params = %q, want %q", params.Encode(), want.Encode())
+	}
+
+	none := url.Values{}
+	addHostPopulationParams(none, func(string) bool { return false })
+	if len(none) != 0 {
+		t.Errorf("params with no optional columns = %q, want none", none.Encode())
 	}
 }

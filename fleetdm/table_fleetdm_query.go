@@ -74,6 +74,10 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 				{Name: "merge_inherited", Require: plugin.Optional},   // Include global queries with team queries (Fleet Premium)
 			},
 		},
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("id"),
+			Hydrate:    getQuery,
+		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the saved query."},
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "Name of the saved query."},
@@ -145,5 +149,28 @@ func listQueries(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getQuery fetches one query by id, instead of listing and filtering.
+func getQuery(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Report *QuerySaved `json:"report"`
+		Query  *QuerySaved `json:"query"`
+	}
+	if err := client.GetCompat(ctx, d, famReport, []any{d.EqualsQuals["id"].GetInt64Value()}, nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_query.getQuery", "api_error", err)
+		return nil, err
+	}
+	if response.Report != nil {
+		return *response.Report, nil
+	}
+	if response.Query != nil {
+		return *response.Query, nil
+	}
 	return nil, nil
 }

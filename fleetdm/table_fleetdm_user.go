@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -57,6 +58,10 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 				{Name: "query", Require: plugin.Optional},   // Search by name or email
 				{Name: "team_id", Require: plugin.Optional}, // Filter by team (Fleet Premium)
 			},
+		},
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("id"),
+			Hydrate:    getUser,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the user."},
@@ -115,5 +120,24 @@ func listUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getUser fetches one user by id, instead of listing and filtering.
+func getUser(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		User *User `json:"user"`
+	}
+	if err := client.Get(ctx, fmt.Sprintf("users/%d", d.EqualsQuals["id"].GetInt64Value()), nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_user.getUser", "api_error", err)
+		return nil, err
+	}
+	if response.User != nil {
+		return *response.User, nil
+	}
 	return nil, nil
 }

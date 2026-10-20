@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -44,6 +45,10 @@ func tableFleetdmCarve(ctx context.Context) *plugin.Table {
 			// },
 		},
 		// No GetConfig as individual carves are not typically fetched by ID via a dedicated endpoint.
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("id"),
+			Hydrate:    getCarve,
+		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the carve session."},
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "The name of the carve session, typically including hostname and timestamp."},
@@ -89,5 +94,24 @@ func listCarves(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData)
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getCarve fetches one carve by id, instead of listing and filtering.
+func getCarve(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Carve *Carve `json:"carve"`
+	}
+	if err := client.Get(ctx, fmt.Sprintf("carves/%d", d.EqualsQuals["id"].GetInt64Value()), nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_carve.getCarve", "api_error", err)
+		return nil, err
+	}
+	if response.Carve != nil {
+		return *response.Carve, nil
+	}
 	return nil, nil
 }

@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -98,6 +99,10 @@ func tableFleetdmSoftwareVersion(ctx context.Context) *plugin.Table {
 				{Name: "exploit", Require: plugin.Optional},         // Filter for CISA known exploits (Fleet Premium)
 			},
 		},
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("id"),
+			Hydrate:    getSoftwareVersion,
+		},
 		Columns: []*plugin.Column{
 			// Core software information
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the software item."},
@@ -185,5 +190,24 @@ func listSoftwareVersions(ctx context.Context, d *plugin.QueryData, h *plugin.Hy
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getSoftwareVersion fetches one software version by id, instead of listing and filtering.
+func getSoftwareVersion(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Software *Software `json:"software"`
+	}
+	if err := client.Get(ctx, fmt.Sprintf("software/versions/%d", d.EqualsQuals["id"].GetInt64Value()), nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_software_version.getSoftwareVersion", "api_error", err)
+		return nil, err
+	}
+	if response.Software != nil {
+		return *response.Software, nil
+	}
 	return nil, nil
 }

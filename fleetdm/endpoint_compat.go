@@ -23,6 +23,9 @@ const (
 	famReports       endpointFamily = "reports"        // reports <- queries
 	famFleetPolicies endpointFamily = "fleet_policies" // fleets/%d/policies <- teams/%d/policies
 	famFleetSecrets  endpointFamily = "fleet_secrets"  // fleets/%d/secrets <- teams/%d/secrets
+	famFleetUsers    endpointFamily = "fleet_users"    // fleets/%d/users <- teams/%d/users
+	famFleet         endpointFamily = "fleet"          // fleets/%d <- teams/%d
+	famReport        endpointFamily = "report"         // reports/%d <- queries/%d
 	famABTokens      endpointFamily = "ab_tokens"      // ab_tokens <- abm_tokens
 )
 
@@ -33,6 +36,9 @@ var endpointPaths = map[endpointFamily][2]string{
 	famReports:       {"reports", "queries"},
 	famFleetPolicies: {"fleets/%d/policies", "teams/%d/policies"},
 	famFleetSecrets:  {"fleets/%d/secrets", "teams/%d/secrets"},
+	famFleetUsers:    {"fleets/%d/users", "teams/%d/users"},
+	famFleet:         {"fleets/%d", "teams/%d"},
+	famReport:        {"reports/%d", "queries/%d"},
 	famABTokens:      {"ab_tokens", "abm_tokens"},
 }
 

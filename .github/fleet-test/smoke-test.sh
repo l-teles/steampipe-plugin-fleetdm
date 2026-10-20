@@ -89,8 +89,25 @@ run_check() {
   fi
 }
 
+# select * on a few rows also runs every column's hydrate and transform,
+# which count(*) skips.
+run_select_all() {
+  local out
+  if out=$(steampipe query --output csv "$2" 2>&1) && ! grep -qE '^(Error|Warning)' <<<"$out"; then
+    printf '%-48s ok (%s rows, all columns)\n' "$1" "$(($(grep -c . <<<"$out") - 1))"
+  else
+    printf '%-48s FAILED: %s\n' "$1" "$out"
+    failed=1
+  fi
+}
+
 for t in $tables; do
   run_check "$t" "select count(*) from ${CONN}.${t} $(extra_where "$t")"
+  # host_detail's id = 0 qual would skip the per-host detail fetch; the
+  # enrolled smoke host gives it a real row instead.
+  where="$(extra_where "$t")"
+  [ "$t" = "fleetdm_host_detail" ] && where=""
+  run_select_all "$t (select *)" "select * from ${CONN}.${t} ${where} limit 5"
 done
 
 # Team filters are renamed across Fleet versions (team_id -> fleet_id), so
