@@ -94,6 +94,7 @@ func listSetupExperienceSoftware(ctx context.Context, d *plugin.QueryData, h *pl
 	if q := d.EqualsQuals["platform"]; q != nil {
 		platforms = []string{q.GetStringValue()}
 	}
+scopeLoop:
 	for _, scope := range scopes {
 		teamID := uint(0)
 		if scope != nil {
@@ -126,6 +127,9 @@ func listSetupExperienceSoftware(ctx context.Context, d *plugin.QueryData, h *pl
 				if isUnsupportedPlatformError(err) {
 					plugin.Logger(ctx).Warn("fleetdm_setup_experience_software.listSetupExperienceSoftware", "skipping_platform", platform, "api_error", err)
 					continue
+				}
+				if skipScope(ctx, d, "fleetdm_setup_experience_software", scope, err) {
+					continue scopeLoop
 				}
 				return nil, err
 			}
