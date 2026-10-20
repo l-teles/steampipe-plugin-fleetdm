@@ -68,15 +68,12 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listQueries,
 			KeyColumns: []*plugin.KeyColumn{
+				{Name: "id", Require: plugin.Optional},                // Alone (or with team_id where noted), fetched directly
 				{Name: "query_text_filter", Require: plugin.Optional}, // Maps to 'query' API parameter for search
 				{Name: "team_id", Require: plugin.Optional},           // Filter by team (Fleet Premium)
 				{Name: "platform_filter", Require: plugin.Optional},   // Filter by scheduled platform
 				{Name: "merge_inherited", Require: plugin.Optional},   // Include global queries with team queries (Fleet Premium)
 			},
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getQuery,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the saved query."},
@@ -110,6 +107,11 @@ func tableFleetdmQuery(ctx context.Context) *plugin.Table {
 }
 
 func listQueries(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	// A lookup by id alone is one request; with other filters, list so
+	// they still apply.
+	if d.EqualsQuals["id"] != nil && onlyQuals(d, "id") {
+		return streamByID(ctx, d, "fleetdm_query", getQuery)
+	}
 	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_query.listQueries", "connection_error", err)
@@ -152,7 +154,7 @@ func listQueries(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 	return nil, nil
 }
 
-// getQuery fetches one query by id, instead of listing and filtering.
+// getQuery fetches one query by id, when it is the only filter.
 func getQuery(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	client, err := getClient(ctx, d)
 	if err != nil {

@@ -72,15 +72,12 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 			// - With team_id:    GET /teams/:id/policies, renamed upstream to
 			//   /fleets/:id/policies (supports query, merge_inherited, page, per_page)
 			KeyColumns: []*plugin.KeyColumn{
+				{Name: "id", Require: plugin.Optional},                  // Alone (or with team_id where noted), fetched directly
 				{Name: "filter_search_query", Require: plugin.Optional}, // Maps to API 'query' param (team policies only)
 				{Name: "team_id", Require: plugin.Optional},             // Switches to team policies endpoint
 				{Name: "fleet_id", Require: plugin.Optional},            // Alias of team_id (newer Fleet naming)
 				{Name: "merge_inherited", Require: plugin.Optional},     // Include global policies with team results (Fleet Premium)
 			},
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getPolicy,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the policy."},
@@ -122,6 +119,11 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 }
 
 func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	// A lookup by id alone is one request; with other filters, list so
+	// they still apply.
+	if d.EqualsQuals["id"] != nil && onlyQuals(d, "id") {
+		return streamByID(ctx, d, "fleetdm_policy", getPolicy)
+	}
 	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_policy.listPolicies", "connection_error", err)
@@ -184,7 +186,7 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 	return nil, nil
 }
 
-// getPolicy fetches one policy by id, instead of listing and filtering.
+// getPolicy fetches one policy by id, when it is the only filter.
 // Global and team policies alike.
 func getPolicy(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	client, err := getClient(ctx, d)

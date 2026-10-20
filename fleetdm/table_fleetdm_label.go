@@ -53,12 +53,9 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listLabels,
 			KeyColumns: []*plugin.KeyColumn{
+				{Name: "id", Require: plugin.Optional},      // Alone (or with team_id where noted), fetched directly
 				{Name: "team_id", Require: plugin.Optional}, // Filter by team (Fleet Premium). Use 'global' for global-only labels.
 			},
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getLabel,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the label."},
@@ -90,6 +87,11 @@ func isBuiltinLabel(_ context.Context, d *transform.TransformData) (interface{},
 }
 
 func listLabels(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	// A lookup by id alone is one request; with other filters, list so
+	// they still apply.
+	if d.EqualsQuals["id"] != nil && onlyQuals(d, "id") {
+		return streamByID(ctx, d, "fleetdm_label", getLabel)
+	}
 	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_label.listLabels", "connection_error", err)
@@ -120,7 +122,7 @@ func listLabels(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData)
 	return nil, nil
 }
 
-// getLabel fetches one label by id, instead of listing and filtering.
+// getLabel fetches one label by id, when it is the only filter.
 func getLabel(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	client, err := getClient(ctx, d)
 	if err != nil {

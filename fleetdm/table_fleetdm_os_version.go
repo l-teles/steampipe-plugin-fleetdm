@@ -53,15 +53,12 @@ func tableFleetdmOSVersion(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listOSVersions,
 			KeyColumns: []*plugin.KeyColumn{
+				{Name: "os_version_id", Require: plugin.Optional}, // Alone or with team_id, fetched directly
 				{Name: "team_id", Require: plugin.Optional},
 				{Name: "platform", Require: plugin.Optional},
 				{Name: "os_name", Require: plugin.Optional},
 				{Name: "os_version_filter", Require: plugin.Optional},
 			},
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("os_version_id"),
-			Hydrate:    getOSVersion,
 		},
 		Columns: []*plugin.Column{
 			// Core OS version information
@@ -84,6 +81,11 @@ func tableFleetdmOSVersion(ctx context.Context) *plugin.Table {
 }
 
 func listOSVersions(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	// A lookup by os_version_id (optionally per team) is one request; with other
+	// filters, list so they still apply.
+	if d.EqualsQuals["os_version_id"] != nil && onlyQuals(d, "os_version_id", "team_id") {
+		return streamByID(ctx, d, "fleetdm_os_version", getOSVersion)
+	}
 	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_os_version.listOSVersions", "connection_error", err)
@@ -125,7 +127,7 @@ func listOSVersions(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 	return nil, nil
 }
 
-// getOSVersion fetches one os version by os_version_id, instead of listing and filtering.
+// getOSVersion fetches one os version by os_version_id, when it is the only filter (with team_id, for that team's counts).
 func getOSVersion(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	client, err := getClient(ctx, d)
 	if err != nil {
@@ -134,7 +136,11 @@ func getOSVersion(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 	var response struct {
 		OSVersion *OSVersion `json:"os_version"`
 	}
-	if err := client.Get(ctx, fmt.Sprintf("os_versions/%d", d.EqualsQuals["os_version_id"].GetInt64Value()), nil, &response); err != nil {
+	params := url.Values{}
+	if q := d.EqualsQuals["team_id"]; q != nil {
+		client.addFleetIDParam(ctx, d, params, strconv.FormatInt(q.GetInt64Value(), 10))
+	}
+	if err := client.Get(ctx, fmt.Sprintf("os_versions/%d", d.EqualsQuals["os_version_id"].GetInt64Value()), params, &response); err != nil {
 		plugin.Logger(ctx).Error("fleetdm_os_version.getOSVersion", "api_error", err)
 		return nil, err
 	}

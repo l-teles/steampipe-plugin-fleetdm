@@ -76,6 +76,16 @@ curl -sf -o /dev/null -X POST "${FLEETDM_URL}/api/osquery/enroll" -H "Content-Ty
         \"system_info\": {\"hostname\": \"smoke-host\", \"uuid\": \"00000000-0000-0000-0000-00000000a0a0\"},
         \"os_version\": {\"platform\": \"darwin\", \"name\": \"macOS\", \"version\": \"15.0\"}}}"
 
+# Seed objects that a fresh Fleet lacks, so lookups by ID have something to
+# find. These endpoints exist on every supported version.
+auth=(-H "Authorization: Bearer ${FLEETDM_API_TOKEN}" -H "Content-Type: application/json")
+curl -sf -o /dev/null "${auth[@]}" -X POST "${FLEETDM_URL}/api/v1/fleet/queries" \
+  -d "{\"name\": \"smoke-query-$(date +%s)\", \"query\": \"SELECT 1;\"}"
+curl -sf -o /dev/null "${auth[@]}" -X POST "${FLEETDM_URL}/api/v1/fleet/global/policies" \
+  -d "{\"name\": \"smoke-policy-$(date +%s)\", \"query\": \"SELECT 1;\"}"
+curl -sf -o /dev/null "${auth[@]}" -X POST "${FLEETDM_URL}/api/v1/fleet/packs" \
+  -d "{\"name\": \"smoke-pack-$(date +%s)\"}"
+
 failed=0
 # run_check LABEL SQL: steampipe can exit 0 on a failed query, so also
 # inspect the output.
@@ -108,6 +118,38 @@ for t in $tables; do
   where="$(extra_where "$t")"
   [ "$t" = "fleetdm_host_detail" ] && where=""
   run_select_all "$t (select *)" "select * from ${CONN}.${t} ${where} limit 5"
+done
+
+# Lookup by ID takes a separate code path (a direct request); check it returns
+# exactly the row the list has.
+id_column() {
+  case "$1" in
+    fleetdm_policy | fleetdm_query | fleetdm_label | fleetdm_team | fleetdm_user | fleetdm_script | fleetdm_software_title | fleetdm_pack | fleetdm_carve) echo "id" ;;
+    fleetdm_os_version) echo "os_version_id" ;;
+    fleetdm_vulnerability) echo "cve" ;;
+    fleetdm_configuration_profile) echo "profile_uuid" ;;
+  esac
+}
+for t in $tables; do
+  col=$(id_column "$t")
+  [ -n "$col" ] || continue
+  id=$(steampipe query --output csv --header=false "select ${col} from ${CONN}.${t} order by ${col} limit 1" 2>&1)
+  if grep -qE '^(Error|Warning)' <<<"$id"; then
+    printf '%-48s FAILED: %s\n' "$t (by ${col})" "$id"
+    failed=1
+    continue
+  fi
+  if [ -z "$id" ]; then
+    printf '%-48s skipped (no rows to look up)\n' "$t (by ${col})"
+    continue
+  fi
+  out=$(steampipe query --output csv --header=false "select ${col} from ${CONN}.${t} where ${col} = '${id}'" 2>&1)
+  if [ "$out" = "$id" ]; then
+    printf '%-48s ok (1 rows)\n' "$t (by ${col})"
+  else
+    printf '%-48s FAILED: want one row %s, got: %s\n' "$t (by ${col})" "$id" "$out"
+    failed=1
+  fi
 done
 
 # Team filters are renamed across Fleet versions (team_id -> fleet_id), so

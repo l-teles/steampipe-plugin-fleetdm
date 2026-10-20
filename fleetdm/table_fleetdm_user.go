@@ -55,13 +55,10 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listUsers,
 			KeyColumns: []*plugin.KeyColumn{
+				{Name: "id", Require: plugin.Optional},      // Alone (or with team_id where noted), fetched directly
 				{Name: "query", Require: plugin.Optional},   // Search by name or email
 				{Name: "team_id", Require: plugin.Optional}, // Filter by team (Fleet Premium)
 			},
-		},
-		Get: &plugin.GetConfig{
-			KeyColumns: plugin.SingleColumn("id"),
-			Hydrate:    getUser,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the user."},
@@ -90,6 +87,11 @@ func tableFleetdmUser(ctx context.Context) *plugin.Table {
 }
 
 func listUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	// A lookup by id alone is one request; with other filters, list so
+	// they still apply.
+	if d.EqualsQuals["id"] != nil && onlyQuals(d, "id") {
+		return streamByID(ctx, d, "fleetdm_user", getUser)
+	}
 	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_user.listUsers", "connection_error", err)
@@ -123,7 +125,7 @@ func listUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 	return nil, nil
 }
 
-// getUser fetches one user by id, instead of listing and filtering.
+// getUser fetches one user by id, when it is the only filter.
 func getUser(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
 	client, err := getClient(ctx, d)
 	if err != nil {
