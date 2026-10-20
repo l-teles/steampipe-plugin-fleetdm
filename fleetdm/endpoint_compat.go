@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
@@ -243,4 +244,32 @@ func handleUnavailableFeature(ctx context.Context, d *plugin.QueryData, table st
 	}
 	plugin.Logger(ctx).Warn("handleUnavailableFeature", "table", table, "feature_unavailable", err.Error())
 	return true
+}
+
+// onlyQuals reports whether every key-column qual in the query is one of
+// allowed, so a direct lookup cannot skip a filter the list would apply.
+func onlyQuals(d *plugin.QueryData, allowed ...string) bool {
+	for column := range d.Quals {
+		if !slices.Contains(allowed, column) {
+			return false
+		}
+	}
+	return true
+}
+
+// streamByID streams the single row fetch returns, from a list call. A 404
+// yields no rows (via the ignore config), as does a feature that is not
+// available on this server.
+func streamByID(ctx context.Context, d *plugin.QueryData, table string, fetch plugin.HydrateFunc) (interface{}, error) {
+	row, err := fetch(ctx, d, nil)
+	if err != nil {
+		if handleUnavailableFeature(ctx, d, table, err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if row != nil {
+		d.StreamListItem(ctx, row)
+	}
+	return nil, nil
 }
