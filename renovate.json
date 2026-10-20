@@ -17,7 +17,7 @@
       "customType": "regex",
       "description": "Fleet version the CI smoke test pins. Each bump is a prompt to check the plugin against that Fleet release.",
       "managerFilePatterns": ["/^\\.github/fleet-test/docker-compose\\.yml$/"],
-      "matchStrings": ["image: (?<depName>fleetdm/fleet):\\$\\{FLEET_IMAGE_TAG:-(?<currentValue>v[^}]+)\\}"],
+      "matchStrings": ["image: \\$\\{FLEET_IMAGE:-(?<depName>fleetdm/fleet):(?<currentValue>v[^@}]+)@(?<currentDigest>sha256:[a-f0-9]+)\\}"],
       "datasourceTemplate": "docker"
     },
     {
