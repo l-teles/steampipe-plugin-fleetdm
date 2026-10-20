@@ -20,6 +20,7 @@ var gatedColumns = map[string]plugin.HydrateFunc{
 	"fleetdm_team.secrets":                                       getTeamSecrets,
 	"fleetdm_mdm_command_result.payload":                         itemIfSecretsExposed,
 	"fleetdm_mdm_command_result.result":                          itemIfSecretsExposed,
+	"fleetdm_query_report.columns":                               itemIfSecretsExposed,
 	"fleetdm_script_result.script_contents":                      itemIfSecretsExposed,
 	"fleetdm_script_result.output":                               itemIfSecretsExposed,
 	"fleetdm_software_install_result.output":                     itemIfSecretsExposed,
