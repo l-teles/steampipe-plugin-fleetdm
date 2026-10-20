@@ -87,6 +87,9 @@ func listCertificateTemplates(ctx context.Context, d *plugin.QueryData, h *plugi
 			if handleUnavailableFeature(ctx, d, "fleetdm_certificate_template", err) {
 				return nil, nil
 			}
+			if skipScope(ctx, d, "fleetdm_certificate_template", scope, err) {
+				continue
+			}
 			return nil, err
 		}
 		if d.RowsRemaining(ctx) == 0 {
