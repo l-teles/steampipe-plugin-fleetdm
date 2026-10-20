@@ -63,6 +63,19 @@ if [ -z "$tables" ]; then
   exit 1
 fi
 
+# Enroll one fake host (as an agent would) so the per-host tables exercise
+# their fetch path. Reuses the existing global enroll secret.
+secret=$(curl -sf "${FLEETDM_URL}/api/v1/fleet/spec/enroll_secret" \
+  -H "Authorization: Bearer ${FLEETDM_API_TOKEN}" | jq -r '.spec.secrets[0].secret // empty')
+if [ -z "$secret" ]; then
+  echo "ERROR: no global enroll secret to enroll the smoke-test host with." >&2
+  exit 1
+fi
+curl -sf -o /dev/null -X POST "${FLEETDM_URL}/api/osquery/enroll" -H "Content-Type: application/json" \
+  -d "{\"enroll_secret\": \"${secret}\", \"host_identifier\": \"smoke-host\", \"host_details\": {
+        \"system_info\": {\"hostname\": \"smoke-host\", \"uuid\": \"00000000-0000-0000-0000-00000000a0a0\"},
+        \"os_version\": {\"platform\": \"darwin\", \"name\": \"macOS\", \"version\": \"15.0\"}}}"
+
 failed=0
 # run_check LABEL SQL: steampipe can exit 0 on a failed query, so also
 # inspect the output.
