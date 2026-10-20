@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -199,6 +200,35 @@ func itemIfSecretsExposed(ctx context.Context, d *plugin.QueryData, h *plugin.Hy
 		return nil, nil
 	}
 	return h.Item, nil
+}
+
+// nullURLKeys sets the named keys of a JSON object to null, for URL fields
+// that can embed credentials (user:token@host, ?token=) when expose_secrets
+// is off. Anything that is not an object is returned unchanged.
+func nullURLKeys(v any, keys ...string) any {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return v
+	}
+	for _, k := range keys {
+		if _, ok := m[k]; ok {
+			m[k] = nil
+		}
+	}
+	return m
+}
+
+// nullURLKeysRaw is nullURLKeys for a raw JSON object.
+func nullURLKeysRaw(raw json.RawMessage, keys ...string) json.RawMessage {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil || m == nil {
+		return raw
+	}
+	out, err := json.Marshal(nullURLKeys(m, keys...))
+	if err != nil {
+		return raw
+	}
+	return out
 }
 
 // isPremiumError classifies err as a Fleet Premium licensing failure: a 402,

@@ -41,7 +41,8 @@ func tableFleetdmEnrollSecret(ctx context.Context) *plugin.Table {
 			},
 		},
 		Columns: []*plugin.Column{
-			{Name: "secret", Type: proto.ColumnType_STRING, Description: "The enroll secret."},
+			{Name: "secret", Type: proto.ColumnType_STRING, Transform: transform.FromField("Secret").Transform(unmaskedSecret), Description: "The enroll secret. Null when Fleet masked it because the API user may not see it (see masked)."},
+			{Name: "masked", Type: proto.ColumnType_BOOL, Transform: transform.FromField("Secret").Transform(isMaskedSecret), Description: "True when Fleet returned the secret masked, as it does for API users without permission to read it."},
 			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromField("FleetID", "TeamID"), Description: "ID of the team (fleet) hosts enroll into. Null for global secrets."},
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "When the secret was created."},
 		},
@@ -66,6 +67,9 @@ func listEnrollSecrets(ctx context.Context, d *plugin.QueryData, h *plugin.Hydra
 		if scope == nil {
 			var response GetGlobalEnrollSecretsResponse
 			if err := client.Get(ctx, "spec/enroll_secret", nil, &response); err != nil {
+				if skipScope(ctx, d, "fleetdm_enroll_secret", scope, err) {
+					continue
+				}
 				plugin.Logger(ctx).Error("fleetdm_enroll_secret.listEnrollSecrets", "api_error", err)
 				return nil, err
 			}
@@ -73,6 +77,9 @@ func listEnrollSecrets(ctx context.Context, d *plugin.QueryData, h *plugin.Hydra
 		} else {
 			var response ListTeamEnrollSecretsResponse
 			if err := client.GetCompat(ctx, d, famFleetSecrets, []any{*scope}, nil, &response); err != nil {
+				if skipScope(ctx, d, "fleetdm_enroll_secret", scope, err) {
+					continue
+				}
 				plugin.Logger(ctx).Error("fleetdm_enroll_secret.listEnrollSecrets", "api_error", err, "team_id", *scope)
 				return nil, err
 			}
@@ -86,4 +93,20 @@ func listEnrollSecrets(ctx context.Context, d *plugin.QueryData, h *plugin.Hydra
 		}
 	}
 	return nil, nil
+}
+
+// maskedSecret is what Fleet returns in place of a secret the API user may
+// not read (fleet.MaskedPassword).
+const maskedSecret = "********"
+
+func unmaskedSecret(_ context.Context, d *transform.TransformData) (interface{}, error) {
+	if v, _ := d.Value.(string); v != maskedSecret {
+		return d.Value, nil
+	}
+	return nil, nil
+}
+
+func isMaskedSecret(_ context.Context, d *transform.TransformData) (interface{}, error) {
+	v, _ := d.Value.(string)
+	return v == maskedSecret, nil
 }

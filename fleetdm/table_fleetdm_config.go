@@ -53,7 +53,7 @@ func tableFleetdmConfig(ctx context.Context) *plugin.Table {
 			{Name: "mdm", Type: proto.ColumnType_JSON, Transform: transform.FromField("MDM"), Description: "Global MDM settings: OS updates, disk encryption, setup experience, Apple/Windows/Android state."},
 			{Name: "scripts", Type: proto.ColumnType_JSON, Description: "Scripts configured globally via GitOps."},
 			{Name: "fleet_desktop", Type: proto.ColumnType_JSON, Description: "Fleet Desktop settings."},
-			{Name: "gitops", Type: proto.ColumnType_JSON, Transform: transform.FromField("GitOps"), Description: "GitOps mode settings."},
+			{Name: "gitops", Type: proto.ColumnType_JSON, Transform: transform.FromField("GitOps"), Description: "GitOps mode settings. repository_url is null unless expose_secrets = true, as it can embed credentials."},
 			{Name: "conditional_access", Type: proto.ColumnType_JSON, Description: "Conditional access (Microsoft Entra, Okta) settings."},
 			{Name: "license", Type: proto.ColumnType_JSON, Description: "License tier, organization, device count and expiration."},
 			{Name: "update_interval", Type: proto.ColumnType_JSON, Description: "Agent refresh intervals."},
@@ -78,6 +78,9 @@ func listConfig(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData)
 	if err := client.Get(ctx, "config", nil, &config); err != nil {
 		plugin.Logger(ctx).Error("fleetdm_config.listConfig", "api_error", err)
 		return nil, err
+	}
+	if !secretsExposed(d) {
+		config.GitOps = nullURLKeysRaw(config.GitOps, "repository_url")
 	}
 	d.StreamListItem(ctx, config)
 	return nil, nil

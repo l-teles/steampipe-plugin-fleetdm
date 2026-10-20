@@ -9,7 +9,7 @@ Enroll secrets let an agent enroll a host into Fleet, globally or into a team. U
 
 ## Table Usage Guide
 
-Enroll secrets are live credentials. The `fleetdm_enroll_secret` table returns an error unless `expose_secrets = true` is set in the connection config, so they never land in query caches or exports by accident. Global secrets have a null `team_id`.
+Enroll secrets are live credentials. The `fleetdm_enroll_secret` table returns an error unless `expose_secrets = true` is set in the connection config, so they never land in query caches or exports by accident. Global secrets have a null `team_id`. When the API user may not read a secret, Fleet masks it: `secret` is then null and `masked` is true.
 
 ## Examples
 
