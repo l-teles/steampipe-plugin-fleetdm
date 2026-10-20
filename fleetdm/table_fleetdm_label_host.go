@@ -93,7 +93,12 @@ func listLabelHosts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 		err := paginatedList(ctx, d, 500, func(ctx context.Context, page, perPage int) ([]LabelHost, *ListMeta, error) {
 			params := url.Values{"page": {strconv.Itoa(page)}, "per_page": {strconv.Itoa(perPage)}, "order_key": {"id"}}
 			var response ListLabelHostsResponse
-			if err := client.Get(ctx, fmt.Sprintf("labels/%d/hosts", label.ID), params, &response); err != nil {
+			// Rows from earlier labels may have streamed, so retry here
+			// rather than fail the whole query on a transient error.
+			err := retryTransient(ctx, func() error {
+				return client.Get(ctx, fmt.Sprintf("labels/%d/hosts", label.ID), params, &response)
+			})
+			if err != nil {
 				return nil, nil, err
 			}
 			for i := range response.Hosts {

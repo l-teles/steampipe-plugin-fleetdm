@@ -65,13 +65,21 @@ func listBootstrapPackages(ctx context.Context, d *plugin.QueryData, h *plugin.H
 	}
 	for _, scope := range scopes {
 		var pkg BootstrapPackage
-		if err := client.Get(ctx, fmt.Sprintf("bootstrap/%s/metadata", scopeParam(scope)), nil, &pkg); err != nil {
+		// Packages for earlier teams may have streamed, so retry here rather
+		// than fail the whole query on a transient error.
+		err := retryTransient(ctx, func() error {
+			return client.Get(ctx, fmt.Sprintf("bootstrap/%s/metadata", scopeParam(scope)), nil, &pkg)
+		})
+		if err != nil {
 			// 404: this team has no bootstrap package.
 			if is404(err) {
 				continue
 			}
 			if handleUnavailableFeature(ctx, d, "fleetdm_bootstrap_package", err) {
 				return nil, nil
+			}
+			if skipScope(ctx, d, "fleetdm_bootstrap_package", scope, err) {
+				continue
 			}
 			plugin.Logger(ctx).Error("fleetdm_bootstrap_package.listBootstrapPackages", "api_error", err)
 			return nil, err
