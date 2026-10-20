@@ -214,8 +214,33 @@ func NewFleetDMClient(ctx context.Context, connection *plugin.Connection) (*Flee
 		APIToken: apiToken,
 		HTTPClient: &http.Client{
 			Timeout: timeout,
+			// Never follow redirects: Go re-sends the bearer token on a
+			// same-host redirect even to plain http, or to a path the plugin
+			// did not ask for. Get reports the 3xx and its target instead.
+			CheckRedirect: func(*http.Request, []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
 		},
 	}, nil
+}
+
+// Response body caps. Error bodies only feed logs and snippets; success
+// bodies are bounded generously so a misbehaving server cannot exhaust memory.
+const (
+	maxErrorBodyBytes   = 64 << 10
+	maxSuccessBodyBytes = 256 << 20
+)
+
+// readBody reads at most limit bytes of r, failing if the body is larger.
+func readBody(r io.Reader, limit int64) ([]byte, error) {
+	b, err := io.ReadAll(io.LimitReader(r, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > limit {
+		return nil, fmt.Errorf("response body exceeds %d bytes", limit)
+	}
+	return b, nil
 }
 
 // truncateBody returns at most n bytes of a response body as a string, for use
@@ -366,7 +391,12 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 			URL:        fullURL.String(),
 			RetryAfter: parseRetryAfter(resp.Header.Get("Retry-After")),
 		}
-		bodyBytes, readErr := io.ReadAll(resp.Body)
+		if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+			apiErr.Snippet = fmt.Sprintf("the server redirected to %q, which the plugin does not follow; set server_url to the final Fleet address", resp.Header.Get("Location"))
+			plugin.Logger(ctx).Error("FleetDMClient.Get", "redirect_refused", resp.Header.Get("Location"), "url", fullURL.String(), "status_code", resp.StatusCode)
+			return apiErr
+		}
+		bodyBytes, readErr := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
 		if readErr != nil {
 			plugin.Logger(ctx).Error("FleetDMClient.Get", "read_error_body_failed", readErr, "url", fullURL.String(), "status_code", resp.StatusCode)
 		} else {
@@ -388,15 +418,17 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 
 	// Decode the JSON response
 	if target != nil {
-		bodyBytes, err := io.ReadAll(resp.Body)
+		bodyBytes, err := readBody(resp.Body, maxSuccessBodyBytes)
 		if err != nil {
 			plugin.Logger(ctx).Error("FleetDMClient.Get", "read_body_for_decode_error", err, "url", fullURL.String())
 			return fmt.Errorf("error reading response body from %s: %w", fullURL.String(), err)
 		}
 
+		// The body is left out of the error and log: successful responses
+		// can carry secrets that expose_secrets would otherwise hide.
 		if err := json.Unmarshal(bodyBytes, target); err != nil {
-			plugin.Logger(ctx).Error("FleetDMClient.Get", "json_decode_error", err, "url", fullURL.String(), "response_body_snippet", truncateBody(bodyBytes, 500))
-			return fmt.Errorf("error decoding JSON response from %s: %w. Response body: %s", fullURL.String(), err, truncateBody(bodyBytes, 200))
+			plugin.Logger(ctx).Error("FleetDMClient.Get", "json_decode_error", err, "url", fullURL.String(), "response_body_bytes", len(bodyBytes))
+			return fmt.Errorf("error decoding JSON response from %s: %w", fullURL.String(), err)
 		}
 	}
 

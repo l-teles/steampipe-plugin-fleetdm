@@ -75,7 +75,7 @@ func tableFleetdmLabel(ctx context.Context) *plugin.Table {
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the label was last updated."},
 
 			// Query parameters that can be used for filtering (key columns)
-			{Name: "team_id", Type: proto.ColumnType_STRING, Transform: transform.FromQual("team_id"), Description: "Filter by team (Fleet Premium). Use 'global' for global-only labels. Set in WHERE clause."},
+			{Name: "team_id", Type: proto.ColumnType_STRING, Transform: transform.FromQual("team_id"), Description: "Filter by team (Fleet Premium). Use 'global' for global-only labels. Set in WHERE clause; to join fleetdm_team, use fleet_id."},
 		},
 	}
 }

@@ -80,6 +80,9 @@ func listScripts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 			return response.Scripts, response.Meta, nil
 		})
 		if err != nil {
+			if skipScope(ctx, d, "fleetdm_script", scope, err) {
+				continue
+			}
 			return nil, err
 		}
 		if d.RowsRemaining(ctx) == 0 {

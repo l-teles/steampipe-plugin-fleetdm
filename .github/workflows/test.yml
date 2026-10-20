@@ -46,21 +46,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Empty tag = the pinned default in .github/fleet-test/docker-compose.yml.
+          # Empty image = the digest-pinned default in .github/fleet-test/docker-compose.yml.
           - label: pinned
-            fleet_tag: ""
+            fleet_image: ""
             canary: false
           # Last release before the teams→fleets / queries→reports rename;
           # exercises the endpoint compat fallback.
           - label: v4.81.0 (pre-rename)
-            fleet_tag: v4.81.0
+            fleet_image: fleetdm/fleet:v4.81.0@sha256:e9a7a80e0cf9c638bbe9936c2807dbf25d068cfa70bf8b6d3c334f2f1509888b
             canary: false
-          # Non-blocking: surfaces a breaking Fleet release early.
+          # First release with fleet_id, whose user list still reads only team_id.
+          - label: v4.82.2 (fleet_id boundary)
+            fleet_image: fleetdm/fleet:v4.82.2@sha256:ae433ce0b9760f538fb657d6801628fd0377a57977197d21d8fd469800f54fae
+            canary: false
+          # Non-blocking and deliberately unpinned: surfaces a breaking Fleet release early.
           - label: latest (canary)
-            fleet_tag: latest
+            fleet_image: fleetdm/fleet:latest
             canary: true
     env:
-      FLEET_IMAGE_TAG: ${{ matrix.fleet_tag }}
+      FLEET_IMAGE: ${{ matrix.fleet_image }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -91,8 +95,12 @@ jobs:
           echo "FLEET_SERVER_PRIVATE_KEY=${key}" >> "$GITHUB_ENV"
       - name: Start Fleet
         run: docker compose -f .github/fleet-test/docker-compose.yml up -d --wait
+      # Apple MDM only turns on after a restart that follows first-time setup,
+      # and the restart invalidates the first login token, so log in again.
       - name: Set up Fleet and obtain API token
         run: |
+          .github/fleet-test/setup-fleet.sh > /dev/null
+          docker compose -f .github/fleet-test/docker-compose.yml restart fleet
           .github/fleet-test/setup-fleet.sh > "${RUNNER_TEMP}/fleet-env"
           token="$(sed -n 's/^FLEETDM_API_TOKEN=//p' "${RUNNER_TEMP}/fleet-env")"
           echo "::add-mask::${token}"

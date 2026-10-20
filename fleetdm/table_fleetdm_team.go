@@ -85,7 +85,7 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 			{Name: "host_expiry_settings", Type: proto.ColumnType_JSON, Description: "Host expiry settings for the team."},
 			{Name: "mdm", Type: proto.ColumnType_JSON, Transform: transform.FromField("MDM"), Description: "Team MDM settings (OS updates, disk encryption, setup experience, profiles)."},
 			{Name: "scripts", Type: proto.ColumnType_JSON, Description: "Scripts configured for the team via GitOps."},
-			{Name: "software", Type: proto.ColumnType_JSON, Description: "Software configured for the team (packages, App Store apps, Fleet-maintained apps)."},
+			{Name: "software", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("Software"), Description: "Software configured for the team (packages, App Store apps, Fleet-maintained apps). NULL unless expose_secrets = true, as package URLs can embed credentials."},
 			{Name: "integrations", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("Integrations"), Description: "Team integrations (Jira, Zendesk, Google Calendar, conditional access). NULL unless expose_secrets = true, as webhook URLs can embed credentials."},
 			{Name: "webhook_settings", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("WebhookSettings"), Description: "Team webhook settings. NULL unless expose_secrets = true, as destination URLs can embed credentials."},
 
@@ -100,8 +100,7 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 // not land in Steampipe query caches, exports, or dashboards. This is a pure
 // gate over the already-fetched list item — no extra API call is made.
 func getTeamSecrets(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	config := GetConfig(d.Connection)
-	if config.ExposeSecrets == nil || !*config.ExposeSecrets {
+	if !secretsExposed(d) {
 		return nil, nil
 	}
 	team, ok := h.Item.(Team)
