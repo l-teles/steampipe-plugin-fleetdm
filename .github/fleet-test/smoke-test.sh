@@ -219,8 +219,8 @@ id_column() {
 for t in $tables; do
   col=$(id_column "$t")
   [ -n "$col" ] || continue
-  id=$(steampipe query --output csv --header=false "select ${col} from ${CONN}.${t} order by ${col} limit 1" 2>&1)
-  if grep -qE '^(Error|Warning)' <<<"$id"; then
+  id=$(steampipe query --output csv --header=false "select ${col} from ${CONN}.${t} order by ${col} limit 1" 2>&1) && rc=0 || rc=$?
+  if [ "$rc" != 0 ] || grep -qE '^(Error|Warning)' <<<"$id"; then
     printf '%-48s FAILED: %s\n' "$t (by ${col})" "$id"
     failed=1
     continue
@@ -229,7 +229,7 @@ for t in $tables; do
     printf '%-48s skipped (no rows to look up)\n' "$t (by ${col})"
     continue
   fi
-  out=$(steampipe query --output csv --header=false "select ${col} from ${CONN}.${t} where ${col} = '${id}'" 2>&1)
+  out=$(steampipe query --output csv --header=false "select ${col} from ${CONN}.${t} where ${col} = '${id}'" 2>&1) || true # a mismatch is reported below
   if [ "$out" = "$id" ]; then
     printf '%-48s ok (1 rows)\n' "$t (by ${col})"
   else
