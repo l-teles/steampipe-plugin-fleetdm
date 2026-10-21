@@ -9,7 +9,7 @@ Setup experience software is installed on new devices while they enroll. Uses th
 
 ## Table Usage Guide
 
-Without a `team_id` filter the `fleetdm_setup_experience_software` table lists software for hosts with no team (`team_id = 0`) plus every team. Each team is queried once per platform (macOS, iOS, iPadOS, Windows, Linux, Android), and `platform` records which one; filter on `platform` to query just one. Installer URLs in `software_package` are null unless `expose_secrets = true`, as they can embed credentials.
+Without a `team_id` filter the `fleetdm_setup_experience_software` table lists software for hosts with no team (`team_id = 0`) plus every team. Each team is queried once per platform (macOS, iOS, iPadOS, Windows, Linux, Android), and `platform` records which one; filter on `platform` to query just one. Fleet before 4.74 only has the macOS list, so only `macos` rows are returned there. Installer URLs in `software_package` are null unless `expose_secrets = true`, as they can embed credentials.
 
 ## Examples
 
