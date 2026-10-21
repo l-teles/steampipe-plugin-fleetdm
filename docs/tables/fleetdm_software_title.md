@@ -9,7 +9,7 @@ FleetDM is an open-source device management platform that helps you manage and s
 
 ## Table Usage Guide
 
-The `fleetdm_software_title` table provides aggregated insights into your software inventory within FleetDM. As a system administrator or security analyst, you can use this table to understand which software titles are installed across your fleet, how many versions exist for each, and which titles have associated vulnerabilities. This is particularly useful for software lifecycle management and identifying software available for install.
+The `fleetdm_software_title` table provides aggregated insights into your software inventory within FleetDM. As a system administrator or security analyst, you can use this table to understand which software titles are installed across your fleet, how many versions exist for each, and which titles have associated vulnerabilities. This is particularly useful for software lifecycle management and identifying software available for install. Installer URLs in `software_package` and `packages` are null unless `expose_secrets = true`, as they can embed credentials.
 
 > **Note:** The FleetDM API requires `vulnerable=true` when using `min_cvss_score`, `max_cvss_score`, or `exploit` filters. The plugin automatically sets `vulnerable=true` when any of these are specified, so you don't need to include `vulnerable_only = true` explicitly in those queries (though it's still recommended for clarity).
 

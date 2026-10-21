@@ -40,6 +40,19 @@ type SoftwareTitle struct {
 	CountsUpdatedAt  *FleetTime             `json:"counts_updated_at"`
 }
 
+// installerURLKeys are the installer fields that hold download or source URLs,
+// which can embed credentials.
+var installerURLKeys = []string{"package_url", "url"}
+
+// redactInstallerURLs nulls installer URLs unless expose_secrets is set.
+func redactInstallerURLs(d *plugin.QueryData, t *SoftwareTitle) {
+	if secretsExposed(d) {
+		return
+	}
+	t.SoftwarePackage = nullURLKeys(t.SoftwarePackage, installerURLKeys...)
+	t.Packages = nullURLKeysEach(t.Packages, installerURLKeys...)
+}
+
 // ListSoftwareTitlesResponse is the expected structure for the list software titles API call.
 type ListSoftwareTitlesResponse struct {
 	SoftwareTitles  []SoftwareTitle `json:"software_titles"`
@@ -84,8 +97,8 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 
 			// Complex nested objects stored as JSON
 			{Name: "versions", Type: proto.ColumnType_JSON, Description: "List of versions for this software title, including version IDs and associated vulnerabilities."},
-			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Software package details if the software was added for install."},
-			{Name: "packages", Type: proto.ColumnType_JSON, Description: "All installer packages uploaded for this title, first-added first. software_package only holds the first one."},
+			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Software package details if the software was added for install. Installer URLs are null unless expose_secrets = true, as they can embed credentials."},
+			{Name: "packages", Type: proto.ColumnType_JSON, Description: "All installer packages uploaded for this title, first-added first. software_package only holds the first one. Installer URLs are null unless expose_secrets = true."},
 			{Name: "upgrade_code", Type: proto.ColumnType_STRING, Description: "Windows MSI upgrade code, when known."},
 			{Name: "app_store_app", Type: proto.ColumnType_JSON, Description: "App Store app details if the software is from an app store."},
 
@@ -172,6 +185,9 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 			plugin.Logger(ctx).Error("fleetdm_software_title.listSoftwareTitles", "api_error", err, "page", page, "params", params.Encode())
 			return nil, nil, err
 		}
+		for i := range response.SoftwareTitles {
+			redactInstallerURLs(d, &response.SoftwareTitles[i])
+		}
 		return response.SoftwareTitles, response.Meta, nil
 	})
 	if err != nil {
@@ -199,6 +215,7 @@ func getSoftwareTitle(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		return nil, err
 	}
 	if response.SoftwareTitle != nil {
+		redactInstallerURLs(d, response.SoftwareTitle)
 		return *response.SoftwareTitle, nil
 	}
 	return nil, nil

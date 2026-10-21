@@ -70,6 +70,7 @@ func listHostSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		return nil, err
 	}
 	exposed := secretsExposed(d)
+	rowCap := perHostRowCap(d) // stop paging a host once LIMIT rows are in
 	err = streamPerHost(ctx, d, client, func(ctx context.Context, host hostRef) ([]HostSoftwareItem, error) {
 		var rows []HostSoftwareItem
 		err := paginateCore(ctx, 100, func(ctx context.Context, page, perPage int) ([]HostSoftwareItem, *ListMeta, error) {
@@ -84,10 +85,10 @@ func listHostSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		}, func(s HostSoftwareItem) bool {
 			s.HostID, s.Hostname = host.ID, host.Hostname
 			if !exposed {
-				s.SoftwarePackage = nullURLKeys(s.SoftwarePackage, "package_url")
+				s.SoftwarePackage = nullURLKeys(s.SoftwarePackage, installerURLKeys...)
 			}
 			rows = append(rows, s)
-			return true
+			return rowCap == 0 || len(rows) < rowCap
 		})
 		return rows, err
 	})

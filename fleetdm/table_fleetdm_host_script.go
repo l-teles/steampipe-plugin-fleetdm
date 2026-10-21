@@ -53,6 +53,7 @@ func listHostScripts(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrate
 		plugin.Logger(ctx).Error("fleetdm_host_script.listHostScripts", "connection_error", err)
 		return nil, err
 	}
+	rowCap := perHostRowCap(d) // stop paging a host once LIMIT rows are in
 	err = streamPerHost(ctx, d, client, func(ctx context.Context, host hostRef) ([]HostScript, error) {
 		var rows []HostScript
 		err := paginateCore(ctx, 100, func(ctx context.Context, page, perPage int) ([]HostScript, *ListMeta, error) {
@@ -67,7 +68,7 @@ func listHostScripts(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrate
 		}, func(s HostScript) bool {
 			s.HostID, s.Hostname = host.ID, host.Hostname
 			rows = append(rows, s)
-			return true
+			return rowCap == 0 || len(rows) < rowCap
 		})
 		return rows, err
 	})
