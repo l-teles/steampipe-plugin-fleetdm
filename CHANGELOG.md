@@ -28,7 +28,7 @@ _Bug fixes_
 
 _Dependencies_
 
-- Upgraded to steampipe-plugin-sdk v6.1.0 and fixed vulnerable dependencies (golang.org/x/net, OpenTelemetry, gRPC, Go 1.26.9).
+- Upgraded to steampipe-plugin-sdk v6.1.0 and fixed vulnerable dependencies (golang.org/x/net, OpenTelemetry, gRPC, Go 1.26.10).
 
 ## v1.3.1 [2026-02-13]
 
