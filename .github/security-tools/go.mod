@@ -2,7 +2,7 @@ module security-tools
 
 go 1.26.0
 
-toolchain go1.26.9
+toolchain go1.26.10
 
 tool (
 	github.com/securego/gosec/v2/cmd/gosec

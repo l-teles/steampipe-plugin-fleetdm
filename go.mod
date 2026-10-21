@@ -2,7 +2,7 @@ module steampipe-plugin-fleetdm
 
 go 1.26.0
 
-toolchain go1.26.9
+toolchain go1.26.10
 
 require (
 	github.com/hashicorp/go-hclog v1.6.3
