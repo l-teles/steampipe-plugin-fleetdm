@@ -111,6 +111,7 @@ func streamHostActivities(ctx context.Context, d *plugin.QueryData, table, pathF
 		plugin.Logger(ctx).Error(table, "connection_error", err)
 		return err
 	}
+	rowCap := perHostRowCap(d) // stop paging a host once LIMIT rows are in
 	err = streamPerHost(ctx, d, client, func(ctx context.Context, host hostRef) ([]HostActivity, error) {
 		var rows []HostActivity
 		err := paginateCore(ctx, 100, func(ctx context.Context, page, perPage int) ([]HostActivity, *ListMeta, error) {
@@ -123,7 +124,7 @@ func streamHostActivities(ctx context.Context, d *plugin.QueryData, table, pathF
 		}, func(a HostActivity) bool {
 			a.HostID, a.Hostname = host.ID, host.Hostname
 			rows = append(rows, a)
-			return true
+			return rowCap == 0 || len(rows) < rowCap
 		})
 		return rows, err
 	})
