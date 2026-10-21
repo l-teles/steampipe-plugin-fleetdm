@@ -49,6 +49,15 @@ func hostScopes(ctx context.Context, d *plugin.QueryData, client *FleetDMClient)
 	return hosts, err
 }
 
+// perHostRowCap is the most rows one host's fetch needs to collect: the
+// query's LIMIT, since no single host can contribute more. 0 means no cap.
+func perHostRowCap(d *plugin.QueryData) int {
+	if d.QueryContext != nil && d.QueryContext.Limit != nil && *d.QueryContext.Limit > 0 {
+		return int(*d.QueryContext.Limit)
+	}
+	return 0
+}
+
 // streamPerHost runs fetch for every host in scope with bounded concurrency
 // and streams the rows from the calling goroutine (the list call). A host
 // that disappeared mid-query (404) yields no rows.
