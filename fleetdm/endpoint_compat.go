@@ -218,6 +218,18 @@ func nullURLKeys(v any, keys ...string) any {
 	return m
 }
 
+// nullURLKeysEach applies nullURLKeys to every object in a JSON array.
+func nullURLKeysEach(v any, keys ...string) any {
+	items, ok := v.([]any)
+	if !ok {
+		return v
+	}
+	for i := range items {
+		items[i] = nullURLKeys(items[i], keys...)
+	}
+	return items
+}
+
 // nullURLKeysRaw is nullURLKeys for a raw JSON object.
 func nullURLKeysRaw(raw json.RawMessage, keys ...string) json.RawMessage {
 	var m map[string]any

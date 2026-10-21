@@ -75,3 +75,28 @@ func TestNullURLKeys(t *testing.T) {
 		t.Errorf("null raw = %s", got)
 	}
 }
+
+func TestRedactInstallerURLs(t *testing.T) {
+	conn := &plugin.Connection{Name: "test"}
+	conn.SetConfig(fleetdmConfig{})
+	d := &plugin.QueryData{Connection: conn}
+	title := SoftwareTitle{
+		SoftwarePackage: map[string]any{"name": "app.pkg", "package_url": "https://u:p@example.com/app.pkg"},
+		Packages:        []any{map[string]any{"name": "app.pkg", "url": "https://example.com/app.pkg?token=x"}},
+	}
+	redactInstallerURLs(d, &title)
+	if pkg := title.SoftwarePackage.(map[string]any); pkg["package_url"] != nil || pkg["name"] != "app.pkg" {
+		t.Errorf("software_package = %v", pkg)
+	}
+	if pkg := title.Packages.([]any)[0].(map[string]any); pkg["url"] != nil || pkg["name"] != "app.pkg" {
+		t.Errorf("packages[0] = %v", pkg)
+	}
+
+	exposed := &plugin.Connection{Name: "test"}
+	exposed.SetConfig(fleetdmConfig{ExposeSecrets: ptr(true)})
+	title.SoftwarePackage = map[string]any{"package_url": "kept"}
+	redactInstallerURLs(&plugin.QueryData{Connection: exposed}, &title)
+	if title.SoftwarePackage.(map[string]any)["package_url"] != "kept" {
+		t.Error("expose_secrets = true must keep installer URLs")
+	}
+}
