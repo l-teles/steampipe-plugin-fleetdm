@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -93,6 +94,11 @@ func listSetupExperienceSoftware(ctx context.Context, d *plugin.QueryData, h *pl
 	platforms := setupExperiencePlatforms
 	if q := d.EqualsQuals["platform"]; q != nil {
 		platforms = []string{q.GetStringValue()}
+	}
+	// Before 4.74 Fleet has no platform parameter and always lists macOS, so
+	// asking for other platforms would repeat the macOS rows under their names.
+	if client.versionBefore(ctx, d, 4, 74) {
+		platforms = slices.DeleteFunc(slices.Clone(platforms), func(p string) bool { return p != "macos" })
 	}
 	exposed := secretsExposed(d)
 scopeLoop:

@@ -145,14 +145,46 @@ func coalesceSlice[T any](newer, older []T) []T {
 // team_id; every endpoint takes fleet_id from 4.83. team_id stays accepted on
 // every 4.x, so it is the fallback for older or unparseable versions.
 func fleetIDParamForVersion(version string) string {
-	var major, minor int
-	if _, err := fmt.Sscanf(version, "%d.%d", &major, &minor); err != nil {
+	major, minor, ok := parseMajorMinor(version)
+	if !ok {
 		return "team_id"
 	}
 	if major > 4 || (major == 4 && minor >= 83) {
 		return "fleet_id"
 	}
 	return "team_id"
+}
+
+// parseMajorMinor reads the leading "major.minor" of a Fleet version.
+func parseMajorMinor(version string) (major, minor int, ok bool) {
+	if _, err := fmt.Sscanf(version, "%d.%d", &major, &minor); err != nil {
+		return 0, 0, false
+	}
+	return major, minor, true
+}
+
+// versionBefore reports whether the server is known to run a Fleet older
+// than major.minor; false when its version cannot be read. The version is
+// looked up once per connection.
+func (c *FleetDMClient) versionBefore(ctx context.Context, d *plugin.QueryData, major, minor int) bool {
+	const cacheKey = "server_version"
+	version := ""
+	if v, ok := d.ConnectionCache.Get(ctx, cacheKey); ok {
+		version, _ = v.(string)
+	}
+	if version == "" {
+		var info VersionInfo
+		if err := c.Get(ctx, "version", nil, &info); err != nil {
+			plugin.Logger(ctx).Warn("versionBefore", "version_lookup_error", err)
+			return false
+		}
+		version = info.Version
+		if err := d.ConnectionCache.Set(ctx, cacheKey, version); err != nil {
+			plugin.Logger(ctx).Warn("versionBefore", "connection_cache_set_error", err)
+		}
+	}
+	got, gotMinor, ok := parseMajorMinor(version)
+	return ok && (got < major || (got == major && gotMinor < minor))
 }
 
 // addFleetIDParam sets the fleet/team filter under the name the server
