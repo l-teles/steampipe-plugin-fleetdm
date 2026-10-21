@@ -57,7 +57,7 @@ func tableFleetdmSetupExperienceSoftware(ctx context.Context) *plugin.Table {
 			{Name: "team_id", Type: proto.ColumnType_INT, Description: "ID of the team (fleet); 0 for hosts with no team."},
 			{Name: "platform", Type: proto.ColumnType_STRING, Description: "Setup experience platform: 'macos', 'ios', 'ipados', 'windows', 'linux' or 'android'. A title can appear once per platform."},
 			{Name: "install_during_setup", Type: proto.ColumnType_BOOL, Transform: transform.From(installDuringSetup), Description: "Whether the software is installed during setup."},
-			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Installer package details, if the title is a custom package."},
+			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Installer package details, if the title is a custom package. Installer URLs are null unless expose_secrets = true, as they can embed credentials."},
 			{Name: "app_store_app", Type: proto.ColumnType_JSON, Description: "App Store app details, if the title is a VPP app."},
 		},
 	}
@@ -94,6 +94,7 @@ func listSetupExperienceSoftware(ctx context.Context, d *plugin.QueryData, h *pl
 	if q := d.EqualsQuals["platform"]; q != nil {
 		platforms = []string{q.GetStringValue()}
 	}
+	exposed := secretsExposed(d)
 scopeLoop:
 	for _, scope := range scopes {
 		teamID := uint(0)
@@ -116,6 +117,9 @@ scopeLoop:
 				for i := range response.SoftwareTitles {
 					response.SoftwareTitles[i].TeamID = &teamID
 					response.SoftwareTitles[i].Platform = platform
+					if !exposed {
+						response.SoftwareTitles[i].SoftwarePackage = nullURLKeys(response.SoftwareTitles[i].SoftwarePackage, installerURLKeys...)
+					}
 				}
 				return response.SoftwareTitles, response.Meta, nil
 			})

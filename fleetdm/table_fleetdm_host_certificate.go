@@ -85,6 +85,7 @@ func listHostCertificates(ctx context.Context, d *plugin.QueryData, h *plugin.Hy
 		plugin.Logger(ctx).Error("fleetdm_host_certificate.listHostCertificates", "connection_error", err)
 		return nil, err
 	}
+	rowCap := perHostRowCap(d) // stop paging a host once LIMIT rows are in
 	err = streamPerHost(ctx, d, client, func(ctx context.Context, host hostRef) ([]HostCertificate, error) {
 		var rows []HostCertificate
 		err := paginateCore(ctx, 100, func(ctx context.Context, page, perPage int) ([]HostCertificate, *ListMeta, error) {
@@ -99,7 +100,7 @@ func listHostCertificates(ctx context.Context, d *plugin.QueryData, h *plugin.Hy
 		}, func(c HostCertificate) bool {
 			c.HostID, c.Hostname = host.ID, host.Hostname
 			rows = append(rows, c)
-			return true
+			return rowCap == 0 || len(rows) < rowCap
 		})
 		return rows, err
 	})

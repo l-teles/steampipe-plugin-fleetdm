@@ -6,12 +6,18 @@
 # Requires steampipe on PATH and FLEETDM_URL / FLEETDM_API_TOKEN in the
 # environment (from setup-fleet.sh). The connection config holds no
 # credentials: the plugin reads them from the environment. It refuses a
-# non-local Fleet unless SMOKE_ALLOW_REMOTE=1, and removes the plugin and
-# connection it installs on exit.
+# non-local Fleet unless SMOKE_ALLOW_REMOTE=1.
+#
+# It runs its own Steampipe (install dir STEAMPIPE_INSTALL_DIR, by default a
+# cache dir, service on SMOKE_DB_PORT), so it never touches ~/.steampipe or a
+# service you already run, and every run loads the plugin it just built.
 
 set -euo pipefail
 
-INSTALL_DIR="${STEAMPIPE_INSTALL_DIR:-$HOME/.steampipe}"
+default_install_dir="${XDG_CACHE_HOME:-$HOME/.cache}/fleetdm-smoke-steampipe"
+INSTALL_DIR="${STEAMPIPE_INSTALL_DIR:-$default_install_dir}"
+export STEAMPIPE_INSTALL_DIR="$INSTALL_DIR"
+SMOKE_DB_PORT="${SMOKE_DB_PORT:-9194}"
 CONN="fleetdm_smoke"
 : "${FLEETDM_URL:?FLEETDM_URL must be set}"
 : "${FLEETDM_API_TOKEN:?FLEETDM_API_TOKEN must be set}"
@@ -44,8 +50,11 @@ spc="${INSTALL_DIR}/config/${CONN}.spc"
 CONN_NS="${CONN}_nosecrets"
 spc_ns="${INSTALL_DIR}/config/${CONN_NS}.spc"
 if [ -e "$plugin_dir" ]; then
-  echo "ERROR: ${plugin_dir} already exists; this script would replace and then delete it." >&2
-  exit 1
+  if [ "$INSTALL_DIR" != "$default_install_dir" ]; then
+    echo "ERROR: ${plugin_dir} already exists; this script would replace and then delete it." >&2
+    exit 1
+  fi
+  rm -rf "$plugin_dir" # left by an interrupted run in the script's own install dir
 fi
 stop_service=0
 # shellcheck disable=SC2329 # invoked by the EXIT trap
@@ -81,15 +90,21 @@ EOF
 # Each standalone `steampipe query` shuts its database down when it ends,
 # which can abort the background load of a new connection (seen on Linux:
 # "RefreshConnections failed ... closed pool"). Keep a service up instead.
-# Reuse a running service; otherwise start one (loopback only) and stop it on
-# exit. "Not running" text differs on a fresh install, so test for running.
-if ! steampipe service status 2>&1 | grep -q 'Steampipe service is running'; then
-  if ! out=$(steampipe service start --database-listen local 2>&1); then
-    echo "ERROR: could not start the Steampipe service: $out" >&2
+# A service that is already running keeps old plugin processes alive, so the
+# new build might not load: start a fresh one (loopback only), stop it on exit.
+# "Not running" text differs on a fresh install, so test for running.
+if steampipe service status 2>&1 | grep -q 'Steampipe service is running'; then
+  if [ "$INSTALL_DIR" != "$default_install_dir" ]; then
+    echo "ERROR: a Steampipe service is running in ${INSTALL_DIR}; stop it or use another STEAMPIPE_INSTALL_DIR." >&2
     exit 1
   fi
-  stop_service=1
+  steampipe service stop --force >/dev/null 2>&1 || true # left by an interrupted run
 fi
+if ! out=$(steampipe service start --database-listen local --database-port "$SMOKE_DB_PORT" 2>&1); then
+  echo "ERROR: could not start the Steampipe service: $out" >&2
+  exit 1
+fi
+stop_service=1
 
 # A new connection loads asynchronously; wait until it is ready (a schema
 # left over from an earlier run can exist before then).

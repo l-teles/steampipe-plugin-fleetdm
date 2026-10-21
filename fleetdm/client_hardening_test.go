@@ -67,3 +67,21 @@ func TestReadBodyLimit(t *testing.T) {
 		t.Error("body over the limit should fail")
 	}
 }
+
+func TestGetEmptySuccessBodyIsNoRow(t *testing.T) {
+	for _, status := range []int{http.StatusNoContent, http.StatusOK} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(status)
+		}))
+		var target struct {
+			Vulnerability *struct{} `json:"vulnerability"`
+		}
+		if err := newConfiguredClient(t, srv.URL).Get(testCtx(t), "vulnerabilities/CVE-2024-0001", nil, &target); err != nil {
+			t.Errorf("status %d with empty body: %v", status, err)
+		}
+		if target.Vulnerability != nil {
+			t.Errorf("status %d: target should keep its zero value", status)
+		}
+		srv.Close()
+	}
+}
