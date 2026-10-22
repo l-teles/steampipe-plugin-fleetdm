@@ -1,3 +1,35 @@
+## v1.4.0 [unreleased]
+
+_What's new?_
+
+- Supports FleetDM up to v4.93.0, including servers before and after the teams→fleets and queries→reports rename (tested on Fleet Premium 4.81, 4.82 and 4.93, and Fleet Free 4.93).
+- 36 new tables, covering the rest of Fleet's read API:
+  - Inventory and configuration: `fleetdm_config`, `fleetdm_enroll_secret`, `fleetdm_invite`, `fleetdm_custom_variable`, `fleetdm_custom_host_vital`, `fleetdm_certificate_authority`, `fleetdm_certificate_template`, `fleetdm_ab_token`, `fleetdm_vpp_token`, `fleetdm_apple_mdm`, `fleetdm_android_enterprise`, `fleetdm_bootstrap_package`, `fleetdm_setup_experience_software`, `fleetdm_software_self_service_category`, `fleetdm_rest_api_endpoint`, `fleetdm_scim_status`
+  - Software, scripts and profiles: `fleetdm_vulnerability`, `fleetdm_script`, `fleetdm_configuration_profile`, `fleetdm_query_report`, `fleetdm_label_host`
+  - Summaries: `fleetdm_host_summary`, `fleetdm_mdm_summary`, `fleetdm_disk_encryption_summary`, `fleetdm_configuration_profile_summary`
+  - Per host: `fleetdm_host_software`, `fleetdm_host_script`, `fleetdm_host_configuration_profile`, `fleetdm_host_certificate`, `fleetdm_host_macadmins`, `fleetdm_host_activity`, `fleetdm_host_upcoming_activity`
+  - Results: `fleetdm_mdm_command`, `fleetdm_mdm_command_result`, `fleetdm_script_result`, `fleetdm_software_install_result`
+- New columns on existing tables for fields Fleet added up to 4.93 (host time zone, disk encryption and end users; policy type, conditional access and label scoping; user last login and MFA; team settings; and more).
+- Lookups by ID (`where id = ...`) on 12 tables now make a single request instead of listing everything; other filters in the same query still apply.
+- `fleetdm_host` only asks Fleet for policies, users, labels, device mapping and end users when those columns are selected.
+- New `max_requests_per_second` connection option that spaces out every API request the connection makes, including paging and per-host requests.
+- More data is gated behind `expose_secrets`: enroll secrets, webhook/integration/logging settings, URLs that can embed credentials (team software, the GitOps repository, installer packages), MDM command payloads, script/install outputs, and stored query results.
+- Listing tables that cover every team now work with an API token scoped to some teams, and skip a team deleted while the query runs.
+- Transient network errors (timeouts, reset connections) are retried like rate limits and server errors.
+
+_Bug fixes_
+
+- The plugin no longer follows HTTP redirects: a redirect to plain http on the same host re-sent the API token in cleartext. A redirect now fails with the address to set as `server_url`.
+- A response that failed to parse no longer copies part of its body into the error and log, where it could expose secrets hidden by `expose_secrets`.
+- Filtering by `team_id` failed with HTTP 400 on Fleet 4.82 and later on 9 tables (`fleetdm_app_store_app` silently returned no rows).
+- `fleetdm_host` and `fleetdm_host_detail` failed when a host reported an IPv6 link-local address or no public IP.
+- Columns that were always empty or wrong: `fleetdm_query.team_id` for team reports, `fleetdm_user.sso_enabled`, `fleetdm_user.admin_forced_password_reset`, `fleetdm_label.built_in`, `fleetdm_team.users`.
+- `fleetdm_team`, `fleetdm_fleet_maintained_app` and `fleetdm_app_store_app` failed on Fleet Free; they now return no rows.
+
+_Dependencies_
+
+- Upgraded to steampipe-plugin-sdk v6.1.0 and fixed vulnerable dependencies (golang.org/x/net, OpenTelemetry, gRPC, Go 1.26.10).
+
 ## v1.3.1 [2026-02-13]
 
 _What's new?_

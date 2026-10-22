@@ -3,12 +3,17 @@ package fleetdm
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
 )
 
 // newTestClient builds a FleetDMClient pointed at the given test server.
@@ -225,4 +230,90 @@ func TestGetNoContentLeavesTargetUntouched(t *testing.T) {
 	if target.Vulnerability != nil {
 		t.Errorf("target.Vulnerability = %+v, want nil", target.Vulnerability)
 	}
+}
+
+func TestMaxRequestsPerSecond(t *testing.T) {
+	t.Parallel()
+
+	// Limiters are shared per connection name, so each test uses its own.
+	var connSeq atomic.Int32
+	newConn := func(rps *int) *plugin.Connection {
+		conn := &plugin.Connection{Name: fmt.Sprintf("test-%d", connSeq.Add(1))}
+		conn.SetConfig(fleetdmConfig{ServerURL: ptr("https://fleet.example.com"), APIToken: ptr("t"), MaxRequestsPerSecond: rps})
+		return conn
+	}
+
+	t.Run("non-positive rejected", func(t *testing.T) {
+		t.Parallel()
+		for _, v := range []int{0, -5} {
+			if _, err := NewFleetDMClient(testCtx(t), newConn(ptr(v))); err == nil {
+				t.Errorf("max_requests_per_second = %d accepted, want error", v)
+			}
+		}
+	})
+
+	t.Run("unset means no limiter", func(t *testing.T) {
+		t.Parallel()
+		c, err := NewFleetDMClient(testCtx(t), newConn(nil))
+		if err != nil {
+			t.Fatalf("NewFleetDMClient: %v", err)
+		}
+		if c.limiter != nil {
+			t.Error("limiter set without max_requests_per_second")
+		}
+	})
+
+	t.Run("requests are paced", func(t *testing.T) {
+		t.Parallel()
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{}`))
+		}))
+		defer srv.Close()
+		c, err := NewFleetDMClient(testCtx(t), newConn(ptr(20)))
+		if err != nil {
+			t.Fatalf("NewFleetDMClient: %v", err)
+		}
+		c.BaseURL, c.HTTPClient = srv.URL+"/api/v1/fleet/", srv.Client()
+
+		// Requests are spaced 50ms apart at 20/s, with no free burst.
+		start := time.Now()
+		for range 11 {
+			if err := c.Get(testCtx(t), "version", nil, nil); err != nil {
+				t.Fatalf("Get: %v", err)
+			}
+		}
+		if elapsed := time.Since(start); elapsed < 450*time.Millisecond {
+			t.Errorf("11 requests at 20/s took %v, want at least ~500ms", elapsed)
+		}
+	})
+
+	t.Run("clients of one connection share a limiter", func(t *testing.T) {
+		t.Parallel()
+		conn := newConn(ptr(5))
+		var wg sync.WaitGroup
+		clients := make([]*FleetDMClient, 50)
+		for i := range clients {
+			wg.Go(func() {
+				c, err := NewFleetDMClient(testCtx(t), conn)
+				if err != nil {
+					t.Errorf("NewFleetDMClient: %v", err)
+					return
+				}
+				clients[i] = c
+			})
+		}
+		wg.Wait()
+		for _, c := range clients {
+			if c == nil || c.limiter != clients[0].limiter {
+				t.Fatal("concurrent clients for one connection got different limiters")
+			}
+		}
+		other, err := NewFleetDMClient(testCtx(t), newConn(ptr(5)))
+		if err != nil {
+			t.Fatalf("NewFleetDMClient: %v", err)
+		}
+		if other.limiter == clients[0].limiter {
+			t.Error("two connections share a limiter")
+		}
+	})
 }

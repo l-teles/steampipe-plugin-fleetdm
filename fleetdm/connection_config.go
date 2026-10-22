@@ -16,6 +16,9 @@ type fleetdmConfig struct {
 	ExposeSecrets *bool `cty:"expose_secrets"`
 	// RequestTimeout is the per-request timeout in seconds (default 30).
 	RequestTimeout *int `cty:"request_timeout"`
+	// MaxRequestsPerSecond caps API requests per second for the connection
+	// (unset: no limit).
+	MaxRequestsPerSecond *int `cty:"max_requests_per_second"`
 }
 
 // ConfigSchema defines the schema for the plugin's connection configuration.
@@ -30,6 +33,9 @@ var ConfigSchema = map[string]*schema.Attribute{
 		Type: schema.TypeBool,
 	},
 	"request_timeout": {
+		Type: schema.TypeInt,
+	},
+	"max_requests_per_second": {
 		Type: schema.TypeInt,
 	},
 }

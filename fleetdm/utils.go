@@ -14,11 +14,13 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/transform"
+	"golang.org/x/time/rate"
 )
 
 // FleetTime is a custom time type that handles empty strings in JSON unmarshalling.
@@ -104,6 +106,10 @@ type FleetDMClient struct {
 	BaseURL    string
 	APIToken   string
 	HTTPClient *http.Client
+	// limiter paces every request when max_requests_per_second is set; it
+	// covers requests made inside list calls (paging, per-host fan-out) that
+	// Steampipe's hydrate-level limiters do not see.
+	limiter *rate.Limiter
 }
 
 // defaultRequestTimeout is used when request_timeout is not set in the config.
@@ -212,6 +218,15 @@ func NewFleetDMClient(ctx context.Context, connection *plugin.Connection) (*Flee
 		timeout = time.Duration(*config.RequestTimeout) * time.Second
 	}
 
+	var limiter *rate.Limiter
+	if config.MaxRequestsPerSecond != nil {
+		rps := *config.MaxRequestsPerSecond
+		if rps <= 0 {
+			return nil, fmt.Errorf("max_requests_per_second must be a positive number, got %d", rps)
+		}
+		limiter = limiterFor(connection.Name, rps)
+	}
+
 	return &FleetDMClient{
 		BaseURL:  baseURL,
 		APIToken: apiToken,
@@ -224,6 +239,7 @@ func NewFleetDMClient(ctx context.Context, connection *plugin.Connection) (*Flee
 				return http.ErrUseLastResponse
 			},
 		},
+		limiter: limiter,
 	}, nil
 }
 
@@ -244,6 +260,19 @@ func readBody(r io.Reader, limit int64) ([]byte, error) {
 		return nil, fmt.Errorf("response body exceeds %d bytes", limit)
 	}
 	return b, nil
+}
+
+// connectionLimiters holds one limiter per connection and rate, so every
+// client built for a connection (concurrent first queries, rebuilds after the
+// connection cache expires) shares one budget. A new rate gets a new limiter.
+var connectionLimiters sync.Map // "<connection>/<rps>" -> *rate.Limiter
+
+// limiterFor returns the connection's limiter. A burst of 1 spaces requests
+// evenly, so no one-second window sees more than about rps requests.
+func limiterFor(connectionName string, rps int) *rate.Limiter {
+	key := connectionName + "/" + strconv.Itoa(rps)
+	l, _ := connectionLimiters.LoadOrStore(key, rate.NewLimiter(rate.Limit(rps), 1))
+	return l.(*rate.Limiter)
 }
 
 // truncateBody returns at most n bytes of a response body as a string, for use
@@ -369,6 +398,12 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 	}
 
 	plugin.Logger(ctx).Debug("FleetDMClient.Get", "url", fullURL.String())
+
+	if c.limiter != nil {
+		if err := c.limiter.Wait(ctx); err != nil {
+			return fmt.Errorf("waiting for max_requests_per_second: %w", err)
+		}
+	}
 
 	// Create the request
 	req, err := http.NewRequestWithContext(ctx, "GET", fullURL.String(), nil)

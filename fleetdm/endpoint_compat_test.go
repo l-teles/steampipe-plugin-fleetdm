@@ -4,8 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"sync/atomic"
 	"testing"
 
+	"github.com/turbot/steampipe-plugin-sdk/v6/connection"
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
 )
 
@@ -336,6 +340,61 @@ func TestRequireExposeSecrets(t *testing.T) {
 			}
 			if !tc.wantErr && err != nil {
 				t.Fatalf("requireExposeSecrets unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestAddFleetIDParamUsesServerVersion(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		status      int
+		version     string
+		wantParam   string
+		wantLookups int // GET /version calls across two addFleetIDParam calls
+	}{
+		{name: "renamed fleet", status: http.StatusOK, version: "4.93.0", wantParam: "fleet_id", wantLookups: 1},
+		{name: "pre-rename fleet", status: http.StatusOK, version: "4.81.0", wantParam: "team_id", wantLookups: 1},
+		{name: "users ignore fleet_id", status: http.StatusOK, version: "4.82.2", wantParam: "team_id", wantLookups: 1},
+		// team_id works everywhere, so the fallback is cached too.
+		{name: "version lookup fails", status: http.StatusInternalServerError, wantParam: "team_id", wantLookups: 1},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var lookups atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/api/v1/fleet/version" {
+					t.Errorf("unexpected request to %s", r.URL.Path)
+				}
+				lookups.Add(1)
+				w.WriteHeader(tc.status)
+				if tc.status == http.StatusOK {
+					_, _ = fmt.Fprintf(w, `{"version": %q}`, tc.version)
+				}
+			}))
+			defer srv.Close()
+
+			cache, err := connection.NewConnectionCache("test", 1000)
+			if err != nil {
+				t.Fatalf("NewConnectionCache: %v", err)
+			}
+			d := &plugin.QueryData{ConnectionCache: cache}
+			client := newTestClient(srv)
+			for range 2 {
+				params := url.Values{}
+				client.addFleetIDParam(testCtx(t), d, params, "7")
+				if got := params.Get(tc.wantParam); got != "7" {
+					t.Fatalf("params = %q, want %s=7", params.Encode(), tc.wantParam)
+				}
+				if len(params) != 1 {
+					t.Fatalf("params = %q, want only %s (Fleet rejects both)", params.Encode(), tc.wantParam)
+				}
+			}
+			if n := int(lookups.Load()); n != tc.wantLookups {
+				t.Errorf("GET /version calls = %d, want %d", n, tc.wantLookups)
 			}
 		})
 	}
