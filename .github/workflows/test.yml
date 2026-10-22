@@ -125,5 +125,10 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
+      # Pinned rather than latest: a release minutes old can still 404 on
+      # npm's CDN, and the 7-day minimumReleaseAge also covers this bump.
       - name: Validate renovate.json
-        run: npx --yes --package=renovate -- renovate-config-validator renovate.json
+        env:
+          # renovate: datasource=npm depName=renovate
+          RENOVATE_VERSION: "44.160.1"
+        run: npx --yes --package="renovate@${RENOVATE_VERSION}" -- renovate-config-validator renovate.json
