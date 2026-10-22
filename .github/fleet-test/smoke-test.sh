@@ -51,6 +51,10 @@ fi
 stop_service=0
 # shellcheck disable=SC2329 # invoked by the EXIT trap
 cleanup() {
+  if [ -n "${team_id:-}" ]; then
+    curl -s -o /dev/null -X DELETE -H "Authorization: Bearer ${FLEETDM_API_TOKEN}" \
+      "${FLEETDM_URL}/api/v1/fleet/teams/${team_id}" || true
+  fi
   rm -f "$spc"
   rm -rf "$plugin_dir"
   if [ "$stop_service" = 1 ]; then
@@ -88,7 +92,7 @@ fi
 stop_service=1
 
 # A new connection loads asynchronously; wait until it is ready (a schema
-# left over from an earlier run can exist before then), then list its tables.
+# left over from an earlier run can exist before then).
 state=""
 for _ in $(seq 1 20); do
   state=$(steampipe query --output csv --header=false \
@@ -107,22 +111,75 @@ if [ "$state" != "ready" ]; then
   echo "ERROR: connection ${CONN} did not become ready (state: ${state:-unknown})." >&2
   exit 1
 fi
-tables=$(steampipe query --output csv --header=false \
-  "select table_name from information_schema.tables where table_schema = '${CONN}' order by table_name")
-if [ -z "$tables" ]; then
-  echo "ERROR: plugin exposed no tables; it failed to load." >&2
+
+# The schema import can lag; wait until every table registered in plugin.go
+# is visible, so none is skipped.
+expected=$(grep -cE '^[[:space:]]+"fleetdm_[a-z_]+":[[:space:]]+tableFleetdm' fleetdm/plugin.go)
+tables=""
+for _ in $(seq 1 40); do
+  tables=$(steampipe query --output csv --header=false \
+    "select table_name from information_schema.tables where table_schema = '${CONN}' order by table_name" 2>/dev/null) || tables=""
+  [ "$(grep -c . <<<"$tables")" -eq "$expected" ] && break
+  sleep 3
+done
+if [ "$(grep -c . <<<"$tables")" -ne "$expected" ]; then
+  echo "ERROR: expected ${expected} tables, Steampipe exposes $(grep -c . <<<"$tables"); the plugin failed to load." >&2
   exit 1
 fi
 
 failed=0
-for t in $tables; do
-  sql="select count(*) from ${CONN}.${t} $(extra_where "$t")"
-  # steampipe can exit 0 on a failed query, so also inspect the output.
-  if out=$(steampipe query --output csv --header=false "$sql" 2>&1) && ! grep -qE '^(Error|Warning)' <<<"$out"; then
-    printf '%-32s ok (%s rows)\n' "$t" "$out"
+# run_check LABEL SQL [WANT]: steampipe can exit 0 on a failed query, so also
+# inspect the output. With WANT, the count must equal it.
+run_check() {
+  local out
+  if out=$(steampipe query --output csv --header=false "$2" 2>&1) && ! grep -qE '^(Error|Warning)' <<<"$out"; then
+    if [ -n "${3:-}" ] && [ "$out" != "$3" ]; then
+      printf '%-48s FAILED: %s rows, want %s\n' "$1" "$out" "$3"
+      failed=1
+      return
+    fi
+    printf '%-48s ok (%s rows)\n' "$1" "$out"
   else
-    printf '%-32s FAILED: %s\n' "$t" "$out"
+    printf '%-48s FAILED: %s\n' "$1" "$out"
     failed=1
+  fi
+}
+
+for t in $tables; do
+  run_check "$t" "select count(*) from ${CONN}.${t} $(extra_where "$t")"
+done
+
+# Team filters are renamed across Fleet versions (team_id -> fleet_id), so
+# exercise every table that takes one against a new, empty team. A filter the
+# server ignores returns rows, so each must count 0, except tables whose team
+# view also holds global rows.
+team_filter_returns_rows() {
+  case "$1" in
+    fleetdm_fleet_maintained_app) return 0 ;; # catalog of what a team could install
+    fleetdm_label) return 0 ;;                # global labels plus the team's
+  esac
+  return 1
+}
+team_id=""
+team_id=$(curl -sf -X POST "${FLEETDM_URL}/api/v1/fleet/teams" \
+  -H "Authorization: Bearer ${FLEETDM_API_TOKEN}" -H "Content-Type: application/json" \
+  -d "{\"name\": \"smoke-$(date +%s)\"}" | jq -r '.team.id // .fleet.id')
+if ! [[ "$team_id" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: could not create a smoke-test team (got '${team_id}')." >&2
+  exit 1
+fi
+team_tables=$(steampipe query --output csv --header=false \
+  "select table_name || ':' || data_type from information_schema.columns where table_schema = '${CONN}' and column_name = 'team_id' order by table_name")
+for entry in $team_tables; do
+  t="${entry%%:*}"
+  value="${team_id}"
+  [ "${entry#*:}" = "text" ] && value="'${team_id}'"
+  # No extra_where here: the team filter must reach each table's list call.
+  sql="select count(*) from ${CONN}.${t} where team_id = ${value}"
+  if team_filter_returns_rows "$t"; then
+    run_check "$t (team_id)" "$sql"
+  else
+    run_check "$t (team_id)" "$sql" 0
   fi
 done
 

@@ -125,19 +125,56 @@ func coalesceSlice[T any](newer, older []T) []T {
 	return older
 }
 
-// addFleetIDParam sets BOTH the new "fleet_id" and the old "team_id" query
-// parameters to id. Servers of either generation ignore the unknown one; the
-// helper centralizes that policy so table code stays generation-agnostic.
-func addFleetIDParam(params url.Values, id string) {
-	params.Set("fleet_id", id)
-	params.Set("team_id", id)
+// fleetIDParamForVersion returns the query parameter that filters by fleet
+// (formerly team) for a server version. Fleet 4.82 renamed team_id to fleet_id
+// and rejects requests carrying both, but its user list still reads only
+// team_id; every endpoint takes fleet_id from 4.83. team_id stays accepted on
+// every 4.x, so it is the fallback for older or unparseable versions.
+func fleetIDParamForVersion(version string) string {
+	var major, minor int
+	if _, err := fmt.Sscanf(version, "%d.%d", &major, &minor); err != nil {
+		return "team_id"
+	}
+	if major > 4 || (major == 4 && minor >= 83) {
+		return "fleet_id"
+	}
+	return "team_id"
+}
+
+// addFleetIDParam sets the fleet/team filter under the name the server
+// expects, resolved once per connection from GET /version.
+func (c *FleetDMClient) addFleetIDParam(ctx context.Context, d *plugin.QueryData, params url.Values, id string) {
+	const cacheKey = "fleet_id_param"
+	name := ""
+	if v, ok := d.ConnectionCache.Get(ctx, cacheKey); ok {
+		name, _ = v.(string)
+	}
+	if name == "" {
+		var info VersionInfo
+		if err := c.Get(ctx, "version", nil, &info); err != nil {
+			// team_id works on every 4.x, so cache it rather than retrying
+			// the lookup on every page.
+			plugin.Logger(ctx).Warn("addFleetIDParam", "version_lookup_error", err)
+		}
+		name = fleetIDParamForVersion(info.Version)
+		if err := d.ConnectionCache.Set(ctx, cacheKey, name); err != nil {
+			plugin.Logger(ctx).Warn("addFleetIDParam", "connection_cache_set_error", err)
+		}
+	}
+	params.Set(name, id)
+}
+
+// secretsExposed reports whether the connection opted in to secret material
+// with expose_secrets = true; unset means no.
+func secretsExposed(d *plugin.QueryData) bool {
+	config := GetConfig(d.Connection)
+	return config.ExposeSecrets != nil && *config.ExposeSecrets
 }
 
 // requireExposeSecrets gates tables that return live secret material behind
 // the expose_secrets connection config flag.
 func requireExposeSecrets(d *plugin.QueryData) error {
-	config := GetConfig(d.Connection)
-	if config.ExposeSecrets != nil && *config.ExposeSecrets {
+	if secretsExposed(d) {
 		return nil
 	}
 	return errors.New("this table returns live secrets; set expose_secrets = true in the fleetdm connection config to query it")
@@ -160,23 +197,33 @@ func isPremiumError(err error) bool {
 	return false
 }
 
-// handlePremiumError returns true when err is a Fleet Premium licensing
-// failure that should be swallowed (treat as zero rows) instead of failing
-// the query. It logs one Warn per connection+table, deduped via the
-// connection cache.
-func handlePremiumError(ctx context.Context, d *plugin.QueryData, table string, err error) bool {
-	if !isPremiumError(err) {
+// isMDMOffError classifies err as Fleet refusing an MDM endpoint because MDM
+// is not turned on.
+func isMDMOffError(err error) bool {
+	var apiErr *FleetAPIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusBadRequest {
 		return false
 	}
-	cacheKey := "premium_warned/" + table
+	return strings.Contains(strings.ToLower(apiErr.Snippet), "mdm features aren't turned on")
+}
+
+// handleUnavailableFeature returns true when err means the feature behind a
+// table is not available on this server (Fleet Premium license missing, or
+// MDM turned off), so the query should yield zero rows instead of failing.
+// It logs one Warn per connection+table, deduped via the connection cache.
+func handleUnavailableFeature(ctx context.Context, d *plugin.QueryData, table string, err error) bool {
+	if !isPremiumError(err) && !isMDMOffError(err) {
+		return false
+	}
+	cacheKey := "unavailable_warned/" + table
 	if d != nil && d.ConnectionCache != nil {
 		if _, warned := d.ConnectionCache.Get(ctx, cacheKey); warned {
 			return true
 		}
 		if cerr := d.ConnectionCache.Set(ctx, cacheKey, true); cerr != nil {
-			plugin.Logger(ctx).Warn("handlePremiumError", "connection_cache_set_error", cerr, "table", table)
+			plugin.Logger(ctx).Warn("handleUnavailableFeature", "connection_cache_set_error", cerr, "table", table)
 		}
 	}
-	plugin.Logger(ctx).Warn("handlePremiumError", "table", table, "premium_feature_unavailable", err.Error())
+	plugin.Logger(ctx).Warn("handleUnavailableFeature", "table", table, "feature_unavailable", err.Error())
 	return true
 }

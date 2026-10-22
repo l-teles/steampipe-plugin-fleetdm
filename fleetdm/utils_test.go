@@ -157,6 +157,36 @@ func TestFlexibleTimeTransform(t *testing.T) {
 	}
 }
 
+func TestIPAddrTransform(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		value any
+		want  any
+	}{
+		{name: "ipv4", value: "192.0.2.10", want: "192.0.2.10"},
+		{name: "ipv6", value: "2001:db8::1", want: "2001:db8::1"},
+		{name: "ipv6 with zone", value: "fe80::1%en0", want: "fe80::1"},
+		{name: "empty", value: "", want: nil},
+		{name: "whitespace", value: "  ", want: nil},
+		{name: "garbage", value: "not-an-ip", want: nil},
+		{name: "nil", value: nil, want: nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, err := ipAddrTransform(testCtx(t), &transform.TransformData{Value: tc.value, ColumnName: "primary_ip"})
+			if err != nil {
+				t.Fatalf("ipAddrTransform(%#v) unexpected error: %v", tc.value, err)
+			}
+			if got != tc.want {
+				t.Fatalf("ipAddrTransform(%#v) = %#v, want %#v", tc.value, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestTruncateBody(t *testing.T) {
 	t.Parallel()
 

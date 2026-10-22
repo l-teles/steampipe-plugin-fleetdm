@@ -13,7 +13,7 @@ The `fleetdm_label` table provides comprehensive insights into label configurati
 
 **Note:** This table supports the following optional key column for server-side API filtering:
 
-- `team_id` — Filter labels by team (Fleet Premium). Use `'global'` to return only global labels.
+- `team_id` — Filter labels by team (Fleet Premium). Use `'global'` to return only global labels. It only echoes the filter; the label's own team is in `fleet_id`, which is the column to join `fleetdm_team` on.
 
 Using this key column in your `WHERE` clause pushes the filtering to the FleetDM API.
 

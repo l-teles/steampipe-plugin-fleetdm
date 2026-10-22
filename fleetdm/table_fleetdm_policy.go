@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -31,6 +32,21 @@ type Policy struct {
 	FailingHostCount      int       `json:"failing_host_count"`      // Number of hosts failing the policy
 	Critical              bool      `json:"critical"`                // Whether the policy is critical (introduced in Fleet 4.41)
 	CalendarEventsEnabled bool      `json:"calendar_events_enabled"` // Whether calendar events are enabled for this policy (Fleet 4.44+)
+	FleetID               *uint     `json:"fleet_id"`                // team_id since Fleet 4.82
+
+	Type                         string          `json:"type"` // "dynamic" or "patch" (Fleet 4.83+)
+	ConditionalAccessEnabled     bool            `json:"conditional_access_enabled"`
+	ContinuousAutomationsEnabled bool            `json:"continuous_automations_enabled"`
+	PatchWhenClosed              bool            `json:"patch_when_closed"`
+	NotifyBeforePatching         bool            `json:"notify_before_patching"`
+	HostCountUpdatedAt           *FleetTime      `json:"host_count_updated_at"`
+	LabelsIncludeAny             json.RawMessage `json:"labels_include_any"`
+	LabelsIncludeAll             json.RawMessage `json:"labels_include_all"`
+	LabelsExcludeAny             json.RawMessage `json:"labels_exclude_any"`
+	LabelsExcludeAll             json.RawMessage `json:"labels_exclude_all"`
+	InstallSoftware              json.RawMessage `json:"install_software"`
+	RunScript                    json.RawMessage `json:"run_script"`
+	PatchSoftware                json.RawMessage `json:"patch_software"`
 }
 
 // ListPoliciesResponse is the structure for the list policies API response.
@@ -68,7 +84,20 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 			{Name: "query_text", Type: proto.ColumnType_STRING, Transform: transform.FromField("Query"), Description: "The osquery query that defines the policy."},
 			{Name: "description", Type: proto.ColumnType_STRING, Description: "Description of the policy."},
 			{Name: "platform", Type: proto.ColumnType_STRING, Description: "Target platform for the policy (e.g., 'darwin', 'windows', 'linux', or empty for all)."},
-			{Name: "team_id", Type: proto.ColumnType_INT, Description: "ID of the team the policy belongs to. Null if it's a global policy."},
+			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromField("FleetID", "TeamID"), Description: "ID of the team (fleet) the policy belongs to. Null if it's a global policy."},
+			{Name: "type", Type: proto.ColumnType_STRING, Description: "Policy type: 'dynamic' (osquery) or 'patch' (Fleet 4.83+)."},
+			{Name: "conditional_access_enabled", Type: proto.ColumnType_BOOL, Description: "Whether failing this policy blocks access via conditional access."},
+			{Name: "continuous_automations_enabled", Type: proto.ColumnType_BOOL, Description: "Whether automations re-run on every failing check instead of only the first."},
+			{Name: "patch_when_closed", Type: proto.ColumnType_BOOL, Description: "For patch policies: whether the update installs when the app is closed."},
+			{Name: "notify_before_patching", Type: proto.ColumnType_BOOL, Description: "For patch policies: whether the end user is notified before patching."},
+			{Name: "host_count_updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("HostCountUpdatedAt").Transform(flexibleTimeTransform), Description: "When passing/failing host counts were last computed."},
+			{Name: "labels_include_any", Type: proto.ColumnType_JSON, Description: "Labels targeting the policy: hosts with any of these labels."},
+			{Name: "labels_include_all", Type: proto.ColumnType_JSON, Description: "Labels targeting the policy: hosts with all of these labels (Fleet 4.86+)."},
+			{Name: "labels_exclude_any", Type: proto.ColumnType_JSON, Description: "Labels excluding hosts with any of these labels from the policy."},
+			{Name: "labels_exclude_all", Type: proto.ColumnType_JSON, Description: "Labels excluding hosts with all of these labels from the policy (Fleet 4.86+)."},
+			{Name: "install_software", Type: proto.ColumnType_JSON, Description: "Software installed automatically on hosts failing the policy."},
+			{Name: "run_script", Type: proto.ColumnType_JSON, Description: "Script run automatically on hosts failing the policy."},
+			{Name: "patch_software", Type: proto.ColumnType_JSON, Description: "For patch policies: the software title kept up to date."},
 			{Name: "passing_host_count", Type: proto.ColumnType_INT, Description: "Number of hosts currently passing this policy."},
 			{Name: "failing_host_count", Type: proto.ColumnType_INT, Description: "Number of hosts currently failing this policy."},
 			{Name: "resolution", Type: proto.ColumnType_STRING, Description: "Resolution steps or instructions for hosts failing this policy."},

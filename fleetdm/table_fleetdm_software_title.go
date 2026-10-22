@@ -32,6 +32,8 @@ type SoftwareTitle struct {
 	VersionsCount    uint                   `json:"versions_count"`
 	Versions         []SoftwareTitleVersion `json:"versions"`
 	SoftwarePackage  interface{}            `json:"software_package"`
+	Packages         interface{}            `json:"packages"`     // All installer packages, first-added first
+	UpgradeCode      *string                `json:"upgrade_code"` // Windows MSI upgrade code
 	AppStoreApp      interface{}            `json:"app_store_app"`
 	BundleIdentifier *string                `json:"bundle_identifier"`
 	CountsUpdatedAt  *FleetTime             `json:"counts_updated_at"`
@@ -81,6 +83,8 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 			// Complex nested objects stored as JSON
 			{Name: "versions", Type: proto.ColumnType_JSON, Description: "List of versions for this software title, including version IDs and associated vulnerabilities."},
 			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Software package details if the software was added for install."},
+			{Name: "packages", Type: proto.ColumnType_JSON, Description: "All installer packages uploaded for this title, first-added first. software_package only holds the first one."},
+			{Name: "upgrade_code", Type: proto.ColumnType_STRING, Description: "Windows MSI upgrade code, when known."},
 			{Name: "app_store_app", Type: proto.ColumnType_JSON, Description: "App Store app details if the software is from an app store."},
 
 			// Query parameters that can be used for filtering (key columns)
@@ -118,7 +122,7 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 			params.Add("vulnerable", strconv.FormatBool(d.EqualsQuals["vulnerable_only"].GetBoolValue()))
 		}
 		if d.EqualsQuals["team_id"] != nil {
-			addFleetIDParam(params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			client.addFleetIDParam(ctx, d, params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
 		if d.EqualsQuals["available_for_install"] != nil {
 			params.Add("available_for_install", strconv.FormatBool(d.EqualsQuals["available_for_install"].GetBoolValue()))

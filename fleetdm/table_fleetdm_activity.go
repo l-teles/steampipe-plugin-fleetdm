@@ -25,6 +25,8 @@ type Activity struct {
 	ActorType       string          `json:"actor_type,omitempty"`        // e.g. "user", "system" - not in main doc but useful
 	HostID          *uint           `json:"host_id,omitempty"`           // If activity relates to a specific host
 	HostDisplayName *string         `json:"host_display_name,omitempty"` // If activity relates to a specific host
+	ActorAPIOnly    *bool           `json:"actor_api_only,omitempty"`
+	FleetInitiated  bool            `json:"fleet_initiated"` // Performed by Fleet itself rather than a user
 }
 
 // ListActivitiesResponse for `GET /api/v1/fleet/activities`
@@ -57,6 +59,8 @@ func tableFleetdmActivity(ctx context.Context) *plugin.Table {
 			{Name: "actor_email", Type: proto.ColumnType_STRING, Description: "Email of the actor."},
 			{Name: "actor_gravatar", Type: proto.ColumnType_STRING, Description: "Gravatar URL for the actor."},
 			{Name: "type", Type: proto.ColumnType_STRING, Description: "Type of activity (e.g., 'created_user', 'ran_live_query')."},
+			{Name: "actor_api_only", Type: proto.ColumnType_BOOL, Description: "Whether the actor is an API-only user."},
+			{Name: "fleet_initiated", Type: proto.ColumnType_BOOL, Description: "Whether the activity was performed by Fleet itself rather than a user."},
 			{Name: "details", Type: proto.ColumnType_JSON, Description: "JSON object containing details specific to the activity type."},
 			{Name: "host_id", Type: proto.ColumnType_INT, Description: "ID of the host related to this activity, if applicable."},
 			{Name: "host_display_name", Type: proto.ColumnType_STRING, Description: "Display name of the host related to this activity, if applicable."},

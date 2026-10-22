@@ -55,6 +55,10 @@ jobs:
           - label: v4.81.0 (pre-rename)
             fleet_image: fleetdm/fleet:v4.81.0@sha256:e9a7a80e0cf9c638bbe9936c2807dbf25d068cfa70bf8b6d3c334f2f1509888b
             canary: false
+          # First release with fleet_id, whose user list still reads only team_id.
+          - label: v4.82.2 (fleet_id boundary)
+            fleet_image: fleetdm/fleet:v4.82.2@sha256:ae433ce0b9760f538fb657d6801628fd0377a57977197d21d8fd469800f54fae
+            canary: false
           # Non-blocking and deliberately unpinned: surfaces a breaking Fleet release early.
           - label: latest (canary)
             fleet_image: fleetdm/fleet:latest

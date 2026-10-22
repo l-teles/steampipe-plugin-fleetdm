@@ -205,3 +205,35 @@ group by
 order by
   policy_count desc;
 ```
+
+### Find patch policies and policies that block access
+
+Patch policies (Fleet 4.83+) keep a software title up to date; conditional access policies block a failing host's end user from company apps.
+
+```sql+postgres
+select
+  id,
+  name,
+  type,
+  conditional_access_enabled,
+  failing_host_count
+from
+  fleetdm_policy
+where
+  type = 'patch'
+  or conditional_access_enabled;
+```
+
+```sql+sqlite
+select
+  id,
+  name,
+  type,
+  conditional_access_enabled,
+  failing_host_count
+from
+  fleetdm_policy
+where
+  type = 'patch'
+  or conditional_access_enabled;
+```

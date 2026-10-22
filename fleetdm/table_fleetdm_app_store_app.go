@@ -97,30 +97,14 @@ func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		teamsToQuery = append(teamsToQuery, teamInfo{ID: teamID, Name: ""})
 		plugin.Logger(ctx).Info("fleetdm_app_store_app.listAppStoreApps", "using_specific_team_id", teamID)
 	} else {
-		// Auto-discover all teams by calling GET /api/v1/fleet/teams.
-		// This is a nested full fetch (not a stream), so it uses a plain page
-		// loop that terminates on the first empty page.
-		plugin.Logger(ctx).Info("fleetdm_app_store_app.listAppStoreApps", "discovering_all_teams", true)
-
-		perPage := 100
-		for page := 0; ; page++ {
-			params := url.Values{}
-			params.Add("page", strconv.Itoa(page))
-			params.Add("per_page", strconv.Itoa(perPage))
-
-			var teamsResponse ListTeamsResponse
-			if err := client.GetCompat(ctx, d, famFleets, nil, params, &teamsResponse); err != nil {
-				plugin.Logger(ctx).Error("fleetdm_app_store_app.listAppStoreApps", "teams_api_error", err, "page", page)
-				return nil, err
-			}
-
-			teams := coalesceSlice(teamsResponse.Fleets, teamsResponse.Teams)
-			if len(teams) == 0 {
-				break
-			}
-			for _, team := range teams {
-				teamsToQuery = append(teamsToQuery, teamInfo{ID: team.ID, Name: team.Name})
-			}
+		// Auto-discover all teams.
+		teams, err := fetchAllTeams(ctx, d, client)
+		if err != nil {
+			plugin.Logger(ctx).Error("fleetdm_app_store_app.listAppStoreApps", "teams_api_error", err)
+			return nil, err
+		}
+		for _, team := range teams {
+			teamsToQuery = append(teamsToQuery, teamInfo{ID: team.ID, Name: team.Name})
 		}
 
 		plugin.Logger(ctx).Info("fleetdm_app_store_app.listAppStoreApps", "total_teams_discovered", len(teamsToQuery))
@@ -129,7 +113,7 @@ func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 	// For each team, query the app store apps endpoint.
 	for _, team := range teamsToQuery {
 		params := url.Values{}
-		addFleetIDParam(params, strconv.FormatUint(uint64(team.ID), 10))
+		client.addFleetIDParam(ctx, d, params, strconv.FormatUint(uint64(team.ID), 10))
 
 		var response ListAppStoreAppsResponse
 		if err := client.Get(ctx, "software/app_store_apps", params, &response); err != nil {

@@ -127,7 +127,7 @@ steampipe query
 > .inspect fleetdm
 ```
 
-Test against a throwaway local Fleet (needs Docker; CI runs the same smoke test on every PR against the pinned Fleet release, Fleet v4.81.0 from before the teams→fleets rename, and the latest release):
+Test against a throwaway local Fleet (needs Docker; CI runs the same smoke test on every PR against the pinned Fleet release, Fleet v4.81.0 from before the teams→fleets rename, v4.82.2 where the team filter changed name, and the latest release):
 
 ```sh
 export FLEET_SERVER_PRIVATE_KEY="$(openssl rand -hex 32)"
@@ -245,6 +245,7 @@ Then, run queries against the available tables.
 * `fleetdm_activity`
 * `fleetdm_app_store_app`
 * `fleetdm_carve`
+* `fleetdm_configuration_profile`
 * `fleetdm_fleet_maintained_app`
 * `fleetdm_host`
 * `fleetdm_host_detail`
@@ -253,11 +254,13 @@ Then, run queries against the available tables.
 * `fleetdm_pack`
 * `fleetdm_policy`
 * `fleetdm_query`
+* `fleetdm_script`
 * `fleetdm_software_title`
 * `fleetdm_software_version`
 * `fleetdm_team`
 * `fleetdm_user`
 * `fleetdm_version`
+* `fleetdm_vulnerability`
 
 **Example Queries:**
 

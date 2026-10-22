@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"testing"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
@@ -205,16 +204,29 @@ func TestCoalesceSlice(t *testing.T) {
 	}
 }
 
-func TestAddFleetIDParam(t *testing.T) {
+func TestFleetIDParamForVersion(t *testing.T) {
 	t.Parallel()
 
-	params := url.Values{}
-	addFleetIDParam(params, "7")
-	if got := params["fleet_id"]; len(got) != 1 || got[0] != "7" {
-		t.Errorf("fleet_id = %v, want [7]", got)
+	tests := []struct {
+		version string
+		want    string
+	}{
+		{"4.93.0", "fleet_id"},
+		{"4.83.0", "fleet_id"},
+		{"4.83.1-rc.1", "fleet_id"},
+		{"5.0.0", "fleet_id"},
+		{"4.82.2", "team_id"}, // its user list ignores fleet_id
+		{"4.82.0", "team_id"},
+		{"4.81.0", "team_id"},
+		{"4.9.1", "team_id"},
+		{"3.99.0", "team_id"},
+		{"", "team_id"},
+		{"dev", "team_id"},
 	}
-	if got := params["team_id"]; len(got) != 1 || got[0] != "7" {
-		t.Errorf("team_id = %v, want [7]", got)
+	for _, tc := range tests {
+		if got := fleetIDParamForVersion(tc.version); got != tc.want {
+			t.Errorf("fleetIDParamForVersion(%q) = %q, want %q", tc.version, got, tc.want)
+		}
 	}
 }
 
@@ -252,14 +264,21 @@ func TestHandlePremiumError(t *testing.T) {
 
 	ctx := testCtx(t)
 	// nil QueryData exercises the nil-safe dedupe path.
-	if !handlePremiumError(ctx, nil, "fleetdm_test", apiErr(http.StatusPaymentRequired, "")) {
-		t.Error("handlePremiumError(402) = false, want true")
+	if !handleUnavailableFeature(ctx, nil, "fleetdm_test", apiErr(http.StatusPaymentRequired, "")) {
+		t.Error("handleUnavailableFeature(402) = false, want true")
 	}
-	if handlePremiumError(ctx, nil, "fleetdm_test", apiErr(http.StatusInternalServerError, "boom")) {
-		t.Error("handlePremiumError(500) = true, want false")
+	mdmOff := `{"message": "Bad request", "errors": [{"name": "base", "reason": "MDM features aren't turned on in Fleet."}]}`
+	if !handleUnavailableFeature(ctx, nil, "fleetdm_test", apiErr(http.StatusBadRequest, mdmOff)) {
+		t.Error("handleUnavailableFeature(400 MDM off) = false, want true")
 	}
-	if handlePremiumError(ctx, nil, "fleetdm_test", nil) {
-		t.Error("handlePremiumError(nil) = true, want false")
+	if handleUnavailableFeature(ctx, nil, "fleetdm_test", apiErr(http.StatusBadRequest, "invalid page")) {
+		t.Error("handleUnavailableFeature(400 other) = true, want false")
+	}
+	if handleUnavailableFeature(ctx, nil, "fleetdm_test", apiErr(http.StatusInternalServerError, "boom")) {
+		t.Error("handleUnavailableFeature(500) = true, want false")
+	}
+	if handleUnavailableFeature(ctx, nil, "fleetdm_test", nil) {
+		t.Error("handleUnavailableFeature(nil) = true, want false")
 	}
 }
 

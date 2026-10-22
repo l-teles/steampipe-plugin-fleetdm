@@ -132,10 +132,22 @@ type HostDetail struct {
 	LoggerTLSPeriod             int                    `json:"logger_tls_period"`
 	TeamID                      *int                   `json:"team_id"`
 	TeamName                    *string                `json:"team_name"`
+	FleetID                     *int                   `json:"fleet_id"`
+	FleetName                   *string                `json:"fleet_name"`
+	TimeZone                    *string                `json:"timezone"`
+	HardwareMarketingName       string                 `json:"hardware_marketing_name"`
+	GigsAllDiskSpace            *float64               `json:"gigs_all_disk_space"`
 	GigsDiskSpaceAvailable      float64                `json:"gigs_disk_space_available"`
 	PercentDiskSpaceAvailable   float64                `json:"percent_disk_space_available"`
 	GigsTotalDiskSpace          float64                `json:"gigs_total_disk_space"`
 	DiskEncryptionEnabled       *bool                  `json:"disk_encryption_enabled"`
+	ConditionalAccessBypassed   bool                   `json:"conditional_access_bypassed"`
+	DEPAssignedToFleet          *bool                  `json:"dep_assigned_to_fleet"`
+	LastMDMEnrollmentType       *string                `json:"last_mdm_enrollment_type"`
+	MDMEnrollmentHWAttested     bool                   `json:"mdm_enrollment_hardware_attested"`
+	OSUpdateDeadline            *string                `json:"os_update_deadline"`
+	OSUpdateMinimumVersion      *string                `json:"os_update_minimum_version"`
+	PackStats                   *json.RawMessage       `json:"pack_stats"`
 	Status                      string                 `json:"status"`
 	DisplayText                 string                 `json:"display_text"`
 	Additional                  *json.RawMessage       `json:"additional"`
@@ -201,8 +213,11 @@ func tableFleetdmHostDetail(ctx context.Context) *plugin.Table {
 			{Name: "display_name", Type: proto.ColumnType_STRING, Description: "The display name of the host."},
 			{Name: "uuid", Type: proto.ColumnType_STRING, Description: "The unique UUID of the host."},
 			{Name: "status", Type: proto.ColumnType_STRING, Description: "The current status of the host (online, offline, mia)."},
-			{Name: "team_id", Type: proto.ColumnType_INT, Description: "The ID of the team the host belongs to, if any."},
-			{Name: "team_name", Type: proto.ColumnType_STRING, Description: "The name of the team the host belongs to, if any."},
+			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromField("FleetID", "TeamID"), Description: "The ID of the team (fleet) the host belongs to, if any."},
+			{Name: "team_name", Type: proto.ColumnType_STRING, Transform: transform.FromField("FleetName", "TeamName"), Description: "The name of the team (fleet) the host belongs to, if any."},
+			{Name: "timezone", Type: proto.ColumnType_STRING, Transform: transform.FromField("TimeZone"), Description: "Time zone reported by the host."},
+			{Name: "hardware_marketing_name", Type: proto.ColumnType_STRING, Description: "Marketing name of the hardware model."},
+			{Name: "gigs_all_disk_space", Type: proto.ColumnType_DOUBLE, Description: "Total gigabytes across all disks (Linux)."},
 			{Name: "display_text", Type: proto.ColumnType_STRING, Description: "The display text for the host."},
 			{Name: "computer_name", Type: proto.ColumnType_STRING, Description: "The computer name of the host."},
 			{Name: "seen_time", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("SeenTime").Transform(flexibleTimeTransform), Description: "Timestamp when the host was last seen by Fleet."},
@@ -241,8 +256,8 @@ func tableFleetdmHostDetail(ctx context.Context) *plugin.Table {
 			{Name: "gigs_disk_space_available", Type: proto.ColumnType_DOUBLE, Description: "Gigabytes of disk space available."},
 			{Name: "percent_disk_space_available", Type: proto.ColumnType_DOUBLE, Description: "Percentage of disk space available."},
 			{Name: "gigs_total_disk_space", Type: proto.ColumnType_DOUBLE, Description: "Total gigabytes of disk space."},
-			{Name: "public_ip", Type: proto.ColumnType_IPADDR, Description: "The public IP address of the host."},
-			{Name: "primary_ip", Type: proto.ColumnType_IPADDR, Description: "The primary IP address of the host."},
+			{Name: "public_ip", Type: proto.ColumnType_IPADDR, Transform: transform.FromField("PublicIP").Transform(ipAddrTransform), Description: "The public IP address of the host."},
+			{Name: "primary_ip", Type: proto.ColumnType_IPADDR, Transform: transform.FromField("PrimaryIP").Transform(ipAddrTransform), Description: "The primary IP address of the host."},
 			{Name: "primary_mac", Type: proto.ColumnType_STRING, Description: "The primary MAC address of the host."},
 			{Name: "distributed_interval", Type: proto.ColumnType_INT, Description: "The distributed query interval for the host."},
 			{Name: "config_tls_refresh", Type: proto.ColumnType_INT, Description: "The config TLS refresh interval."},
@@ -262,6 +277,13 @@ func tableFleetdmHostDetail(ctx context.Context) *plugin.Table {
 			{Name: "maintenance_window", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("MaintenanceWindow").Transform(arrayOrObjectToJSONString), Description: "Configured maintenance window for the host."},
 			{Name: "additional", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("Additional").Transform(arrayOrObjectToJSONString), Description: "Additional custom details for the host."},
 			{Name: "packs", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("Packs").Transform(arrayOrObjectToJSONString), Description: "Query packs applied to the host."},
+			{Name: "pack_stats", Type: proto.ColumnType_JSON, Hydrate: getHostDetails, Transform: transform.FromField("PackStats").Transform(arrayOrObjectToJSONString), Description: "Statistics for query packs on the host."},
+			{Name: "conditional_access_bypassed", Type: proto.ColumnType_BOOL, Hydrate: getHostDetails, Description: "Whether the host's end user has bypassed conditional access."},
+			{Name: "dep_assigned_to_fleet", Type: proto.ColumnType_BOOL, Hydrate: getHostDetails, Transform: transform.FromField("DEPAssignedToFleet"), Description: "Whether the host is assigned to Fleet in Apple Business Manager (ADE)."},
+			{Name: "last_mdm_enrollment_type", Type: proto.ColumnType_STRING, Hydrate: getHostDetails, Transform: transform.FromField("LastMDMEnrollmentType"), Description: "How the host last enrolled in MDM."},
+			{Name: "mdm_enrollment_hardware_attested", Type: proto.ColumnType_BOOL, Hydrate: getHostDetails, Transform: transform.FromField("MDMEnrollmentHWAttested"), Description: "Whether the host's MDM enrollment was hardware attested."},
+			{Name: "os_update_deadline", Type: proto.ColumnType_STRING, Hydrate: getHostDetails, Transform: transform.FromField("OSUpdateDeadline"), Description: "Deadline of the OS update enforced on the host, if any."},
+			{Name: "os_update_minimum_version", Type: proto.ColumnType_STRING, Hydrate: getHostDetails, Transform: transform.FromField("OSUpdateMinimumVersion"), Description: "Minimum OS version enforced on the host, if any."},
 
 			// Query parameters that can be used for filtering (key columns)
 			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords for hostname, UUID, serial number, or IP. Set in WHERE clause."},
@@ -287,7 +309,7 @@ func listHostsForDetails(ctx context.Context, d *plugin.QueryData, h *plugin.Hyd
 		params.Add("order_direction", "asc")
 
 		if d.EqualsQuals["team_id"] != nil {
-			addFleetIDParam(params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			client.addFleetIDParam(ctx, d, params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
 		}
 		if d.EqualsQuals["status"] != nil {
 			params.Add("status", d.EqualsQuals["status"].GetStringValue())

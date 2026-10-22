@@ -132,3 +132,27 @@ from
 where
   name = 'Engineering';
 ```
+
+### Check which teams enforce disk encryption
+
+Review each team's MDM disk encryption setting.
+
+```sql+postgres
+select
+  name,
+  mdm ->> 'enable_disk_encryption' as disk_encryption_enforced
+from
+  fleetdm_team
+order by
+  name;
+```
+
+```sql+sqlite
+select
+  name,
+  json_extract(mdm, '$.enable_disk_encryption') as disk_encryption_enforced
+from
+  fleetdm_team
+order by
+  name;
+```

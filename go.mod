@@ -6,6 +6,7 @@ toolchain go1.26.10
 
 require (
 	github.com/hashicorp/go-hclog v1.6.3
+	github.com/turbot/go-kit v1.1.0
 	github.com/turbot/steampipe-plugin-sdk/v6 v6.1.0
 )
 
@@ -81,7 +82,7 @@ require (
 	github.com/hashicorp/go-version v1.8.0 // indirect
 	github.com/hashicorp/hcl/v2 v2.20.1 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
-	github.com/iancoleman/strcase v0.3.0 // indirect
+	github.com/iancoleman/strcase v0.3.0
 	github.com/klauspost/compress v1.18.7 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
@@ -104,7 +105,6 @@ require (
 	github.com/spiffe/go-spiffe/v2 v2.7.0 // indirect
 	github.com/stevenle/topsort v0.2.0 // indirect
 	github.com/tkrajina/go-reflector v0.5.6 // indirect
-	github.com/turbot/go-kit v1.1.0 // indirect
 	github.com/ulikunitz/xz v0.5.15 // indirect
 	github.com/zclconf/go-cty v1.14.4 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
