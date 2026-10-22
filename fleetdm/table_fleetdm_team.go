@@ -41,10 +41,7 @@ type TeamSecret struct {
 	TeamID    uint      `json:"team_id"` // This might be redundant if secrets are always nested under a team object
 }
 
-// TeamUser represents a user within a team and their role.
-// This is similar to UserTeam in the user table but might be structured slightly differently
-// in the /teams endpoint response if it includes more/less detail.
-// The API doc for "Get team" shows `users` array with `id`, `name`, `email`, `global_role`, `role`.
+// TeamUser is a member of a team and their role in it.
 type TeamUser struct {
 	ID         uint    `json:"id"`
 	Name       string  `json:"name"`
@@ -69,6 +66,7 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listTeams,
 			KeyColumns: []*plugin.KeyColumn{
+				{Name: "id", Require: plugin.Optional},    // Alone (or with team_id where noted), fetched directly
 				{Name: "query", Require: plugin.Optional}, // Search by team name
 			},
 		},
@@ -81,17 +79,15 @@ func tableFleetdmTeam(ctx context.Context) *plugin.Table {
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "Timestamp when the team was created."},
 			{Name: "agent_options", Type: proto.ColumnType_JSON, Description: "Agent options configured for this team."},
 
-			// Secrets and Users are complex objects/arrays, exposing as JSON.
-			// Could be expanded into separate tables or hydrated further.
 			{Name: "secrets", Type: proto.ColumnType_JSON, Hydrate: getTeamSecrets, Transform: transform.FromValue(), Description: "Enrollment secrets associated with the team. NULL unless expose_secrets = true is set in the connection config, as these are live credentials that allow device enrollment."},
-			{Name: "users", Type: proto.ColumnType_JSON, Description: "Users belonging to this team and their roles. Fetched via GetTeam hydrate function."},
+			{Name: "users", Type: proto.ColumnType_JSON, Hydrate: getTeamUsers, Transform: transform.FromValue(), Description: "Members of the team (id, name, email, global_role) and their role in it. One extra request per team, made only when this column is selected."},
 			{Name: "features", Type: proto.ColumnType_JSON, Description: "Team feature toggles (host users, software inventory, historical data)."},
 			{Name: "host_expiry_settings", Type: proto.ColumnType_JSON, Description: "Host expiry settings for the team."},
 			{Name: "mdm", Type: proto.ColumnType_JSON, Transform: transform.FromField("MDM"), Description: "Team MDM settings (OS updates, disk encryption, setup experience, profiles)."},
 			{Name: "scripts", Type: proto.ColumnType_JSON, Description: "Scripts configured for the team via GitOps."},
-			{Name: "software", Type: proto.ColumnType_JSON, Hydrate: getTeamIfSecretsExposed, Transform: transform.FromField("Software"), Description: "Software configured for the team (packages, App Store apps, Fleet-maintained apps). NULL unless expose_secrets = true, as package URLs can embed credentials."},
-			{Name: "integrations", Type: proto.ColumnType_JSON, Hydrate: getTeamIfSecretsExposed, Transform: transform.FromField("Integrations"), Description: "Team integrations (Jira, Zendesk, Google Calendar, conditional access). NULL unless expose_secrets = true, as webhook URLs can embed credentials."},
-			{Name: "webhook_settings", Type: proto.ColumnType_JSON, Hydrate: getTeamIfSecretsExposed, Transform: transform.FromField("WebhookSettings"), Description: "Team webhook settings. NULL unless expose_secrets = true, as destination URLs can embed credentials."},
+			{Name: "software", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("Software"), Description: "Software configured for the team (packages, App Store apps, Fleet-maintained apps). NULL unless expose_secrets = true, as package URLs can embed credentials."},
+			{Name: "integrations", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("Integrations"), Description: "Team integrations (Jira, Zendesk, Google Calendar, conditional access). NULL unless expose_secrets = true, as webhook URLs can embed credentials."},
+			{Name: "webhook_settings", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("WebhookSettings"), Description: "Team webhook settings. NULL unless expose_secrets = true, as destination URLs can embed credentials."},
 
 			// Query parameters that can be used for filtering (key columns)
 			{Name: "query", Type: proto.ColumnType_STRING, Transform: transform.FromQual("query"), Description: "Search query keywords. Searchable field is team name. Set in WHERE clause."},
@@ -117,17 +113,65 @@ func getTeamSecrets(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 	return team.Secrets, nil
 }
 
-// getTeamIfSecretsExposed returns the list item only when expose_secrets is
-// set, so columns that may carry credentials read NULL otherwise. No extra API
-// call is made.
-func getTeamIfSecretsExposed(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
-	if !secretsExposed(d) {
-		return nil, nil
+// listTeamUsersResponse is `GET /api/v1/fleet/fleets/{id}/users`. Each user
+// embeds full copies of their teams (including settings gated elsewhere), so
+// only the identity and the role for this team are kept.
+type listTeamUsersResponse struct {
+	Users []struct {
+		ID         uint       `json:"id"`
+		Name       string     `json:"name"`
+		Email      string     `json:"email"`
+		GlobalRole *string    `json:"global_role"`
+		Teams      []teamRole `json:"teams"`
+		Fleets     []teamRole `json:"fleets"` // teams since Fleet 4.82
+	} `json:"users"`
+}
+
+// teamRole is the part of a user's team membership the users column keeps.
+type teamRole struct {
+	ID   uint   `json:"id"`
+	Role string `json:"role"`
+}
+
+// getTeamUsers fetches a team's members; the team list does not include them.
+func getTeamUsers(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	team, ok := h.Item.(Team)
+	if !ok {
+		return nil, fmt.Errorf("getTeamUsers: unexpected item type %T", h.Item)
 	}
-	return h.Item, nil
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response listTeamUsersResponse
+	// Without per_page Fleet returns every member in one response.
+	if err := client.GetCompat(ctx, d, famFleetUsers, []any{team.ID}, nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_team.getTeamUsers", "api_error", err, "team_id", team.ID)
+		return nil, err
+	}
+	users := make([]TeamUser, 0, len(response.Users))
+	for _, u := range response.Users {
+		member := TeamUser{ID: u.ID, Name: u.Name, Email: u.Email, GlobalRole: u.GlobalRole}
+		for _, t := range coalesceSlice(u.Fleets, u.Teams) {
+			if t.ID == team.ID {
+				member.Role = t.Role
+			}
+		}
+		users = append(users, member)
+	}
+	return users, nil
 }
 
 func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	// A lookup by id alone is one request; with other filters, list so
+	// they still apply.
+	if d.EqualsQuals["id"] != nil && onlyQuals(d, "id") {
+		// Fleet answers id 0 with a synthetic "No team" the list never has.
+		if d.EqualsQuals["id"].GetInt64Value() <= 0 {
+			return nil, nil
+		}
+		return streamByID(ctx, d, "fleetdm_team", getTeam)
+	}
 	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_team.listTeams", "connection_error", err)
@@ -154,6 +198,10 @@ func listTeams(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) 
 		return coalesceSlice(response.Fleets, response.Teams), nil, nil
 	})
 	if err != nil {
+		// Teams are a Fleet Premium feature.
+		if handleUnavailableFeature(ctx, d, "fleetdm_team", err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -179,4 +227,27 @@ func fetchAllTeams(ctx context.Context, d *plugin.QueryData, client *FleetDMClie
 		return true
 	})
 	return all, err
+}
+
+// getTeam fetches one team by id, when it is the only filter.
+func getTeam(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Fleet *Team `json:"fleet"`
+		Team  *Team `json:"team"`
+	}
+	if err := client.GetCompat(ctx, d, famFleet, []any{d.EqualsQuals["id"].GetInt64Value()}, nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_team.getTeam", "api_error", err)
+		return nil, err
+	}
+	if response.Fleet != nil {
+		return *response.Fleet, nil
+	}
+	if response.Team != nil {
+		return *response.Team, nil
+	}
+	return nil, nil
 }

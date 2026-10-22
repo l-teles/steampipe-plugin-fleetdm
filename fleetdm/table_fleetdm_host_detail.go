@@ -360,7 +360,8 @@ func getHostDetails(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateD
 	}
 
 	params := url.Values{}
-	addHostPopulationParams(params)
+	// A single host: request everything the detail columns may need.
+	addHostPopulationParams(params, func(string) bool { return true })
 
 	var response struct {
 		Host HostDetail `json:"host"` // Use the new rich HostDetail struct

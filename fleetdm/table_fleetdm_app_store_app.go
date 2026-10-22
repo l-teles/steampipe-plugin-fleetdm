@@ -100,6 +100,10 @@ func listAppStoreApps(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 		// Auto-discover all teams.
 		teams, err := fetchAllTeams(ctx, d, client)
 		if err != nil {
+			// App Store apps (VPP) need teams, a Fleet Premium feature.
+			if handleUnavailableFeature(ctx, d, "fleetdm_app_store_app", err) {
+				return nil, nil
+			}
 			plugin.Logger(ctx).Error("fleetdm_app_store_app.listAppStoreApps", "teams_api_error", err)
 			return nil, err
 		}

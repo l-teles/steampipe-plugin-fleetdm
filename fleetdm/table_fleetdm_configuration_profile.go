@@ -3,6 +3,7 @@ package fleetdm
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -45,6 +46,10 @@ func tableFleetdmConfigurationProfile(ctx context.Context) *plugin.Table {
 			KeyColumns: []*plugin.KeyColumn{
 				{Name: "team_id", Require: plugin.Optional}, // Only this team's profiles
 			},
+		},
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("profile_uuid"),
+			Hydrate:    getConfigurationProfile,
 		},
 		Columns: []*plugin.Column{
 			{Name: "profile_uuid", Type: proto.ColumnType_STRING, Description: "Unique ID of the profile."},
@@ -103,4 +108,23 @@ func listConfigurationProfiles(ctx context.Context, d *plugin.QueryData, h *plug
 		}
 	}
 	return nil, nil
+}
+
+// getConfigurationProfile fetches one configuration profile by profile_uuid, instead of listing and filtering.
+// The profile object is the response body itself.
+func getConfigurationProfile(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var row ConfigurationProfile
+	if err := client.Get(ctx, fmt.Sprintf("configuration_profiles/%s", d.EqualsQuals["profile_uuid"].GetStringValue()), nil, &row); err != nil {
+		// MDM turned off: no profiles, rather than a failed query.
+		if handleUnavailableFeature(ctx, d, "fleetdm_configuration_profile", err) {
+			return nil, nil
+		}
+		plugin.Logger(ctx).Error("fleetdm_configuration_profile.getConfigurationProfile", "api_error", err)
+		return nil, err
+	}
+	return row, nil
 }

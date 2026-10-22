@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -37,6 +38,10 @@ func tableFleetdmScript(ctx context.Context) *plugin.Table {
 			KeyColumns: []*plugin.KeyColumn{
 				{Name: "team_id", Require: plugin.Optional}, // Only this team's scripts
 			},
+		},
+		Get: &plugin.GetConfig{
+			KeyColumns: plugin.SingleColumn("id"),
+			Hydrate:    getScript,
 		},
 		Columns: []*plugin.Column{
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the script."},
@@ -85,4 +90,19 @@ func listScripts(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData
 		}
 	}
 	return nil, nil
+}
+
+// getScript fetches one script by id, instead of listing and filtering.
+// The script object is the response body itself.
+func getScript(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var row Script
+	if err := client.Get(ctx, fmt.Sprintf("scripts/%d", d.EqualsQuals["id"].GetInt64Value()), nil, &row); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_script.getScript", "api_error", err)
+		return nil, err
+	}
+	return row, nil
 }

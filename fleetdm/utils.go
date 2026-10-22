@@ -1,6 +1,7 @@
 package fleetdm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"os" // Added for os.Getenv
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
@@ -291,14 +293,53 @@ func parseRetryAfter(v string) time.Duration {
 // in-line before handing the error to the SDK retry machinery.
 const maxRetryAfterSleep = 10 * time.Second
 
-// shouldRetryError tells the SDK retry machinery to retry rate limits and
-// transient server errors.
-func shouldRetryError(_ context.Context, _ *plugin.QueryData, _ *plugin.HydrateData, err error) bool {
+// isTransient reports whether err is a rate limit, transient server error or
+// network failure (timeout, reset connection, truncated response) worth
+// retrying. A cancelled query is not.
+func isTransient(err error) bool {
 	var apiErr *FleetAPIError
 	if errors.As(err, &apiErr) {
 		return apiErr.StatusCode == http.StatusTooManyRequests || apiErr.StatusCode >= 500
 	}
-	return false
+	if err == nil || errors.Is(err, context.Canceled) {
+		return false
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return true
+	}
+	return errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || errors.Is(err, syscall.ECONNRESET)
+}
+
+// shouldRetryError tells the SDK retry machinery to retry rate limits and
+// transient server errors.
+func shouldRetryError(_ context.Context, _ *plugin.QueryData, _ *plugin.HydrateData, err error) bool {
+	return isTransient(err)
+}
+
+// Retry policy for requests made inside a list call after rows may already
+// have streamed, where the SDK will no longer retry the whole hydrate.
+var (
+	transientRetryAttempts = 4
+	transientRetryBase     = 500 * time.Millisecond
+)
+
+// retryTransient runs fn, retrying transient errors with exponential backoff.
+// Other errors and context cancellation return immediately.
+func retryTransient(ctx context.Context, fn func() error) error {
+	delay := transientRetryBase
+	for attempt := 1; ; attempt++ {
+		err := fn()
+		if err == nil || !isTransient(err) || attempt >= transientRetryAttempts {
+			return err
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(delay):
+		}
+		delay *= 2
+	}
 }
 
 // shouldIgnoreError maps 404s to "no rows" instead of a query error, so
@@ -391,6 +432,12 @@ func (c *FleetDMClient) Get(ctx context.Context, endpoint string, queryParams ur
 		if err != nil {
 			plugin.Logger(ctx).Error("FleetDMClient.Get", "read_body_for_decode_error", err, "url", fullURL.String())
 			return fmt.Errorf("error reading response body from %s: %w", fullURL.String(), err)
+		}
+
+		// 204 No Content (e.g. an unknown CVE) or an empty body has nothing
+		// to decode; target keeps its zero value.
+		if resp.StatusCode == http.StatusNoContent || len(bytes.TrimSpace(bodyBytes)) == 0 {
+			return nil
 		}
 
 		// The body is left out of the error and log: successful responses

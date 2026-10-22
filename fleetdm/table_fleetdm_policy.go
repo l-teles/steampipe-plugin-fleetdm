@@ -72,6 +72,7 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 			// - With team_id:    GET /teams/:id/policies, renamed upstream to
 			//   /fleets/:id/policies (supports query, merge_inherited, page, per_page)
 			KeyColumns: []*plugin.KeyColumn{
+				{Name: "id", Require: plugin.Optional},                  // Alone (or with team_id where noted), fetched directly
 				{Name: "filter_search_query", Require: plugin.Optional}, // Maps to API 'query' param (team policies only)
 				{Name: "team_id", Require: plugin.Optional},             // Switches to team policies endpoint
 				{Name: "fleet_id", Require: plugin.Optional},            // Alias of team_id (newer Fleet naming)
@@ -118,6 +119,11 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 }
 
 func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	// A lookup by id alone is one request; with other filters, list so
+	// they still apply.
+	if d.EqualsQuals["id"] != nil && onlyQuals(d, "id") {
+		return streamByID(ctx, d, "fleetdm_policy", getPolicy)
+	}
 	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_policy.listPolicies", "connection_error", err)
@@ -177,5 +183,27 @@ func listPolicies(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateDat
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getPolicy fetches one policy by id, when it is the only filter.
+// Global and team policies alike.
+func getPolicy(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		Policy *Policy `json:"policy"`
+	}
+	if err := client.Get(ctx, fmt.Sprintf("global/policies/%d", d.EqualsQuals["id"].GetInt64Value()), nil, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_policy.getPolicy", "api_error", err)
+		return nil, err
+	}
+	// global/policies/{id} also returns team policies, which the list
+	// without team_id does not, so drop them to keep both paths in step.
+	if response.Policy != nil && response.Policy.TeamID == nil && response.Policy.FleetID == nil {
+		return *response.Policy, nil
+	}
 	return nil, nil
 }

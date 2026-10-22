@@ -230,6 +230,35 @@ func TestFleetIDParamForVersion(t *testing.T) {
 	}
 }
 
+func TestItemIfSecretsExposed(t *testing.T) {
+	t.Parallel()
+
+	item := AppConfig{WebhookSettings: []byte(`{"url":"https://hooks.example.com/token"}`)}
+	tests := []struct {
+		name   string
+		expose *bool
+		want   bool
+	}{
+		{name: "unset hides", expose: nil, want: false},
+		{name: "false hides", expose: ptr(false), want: false},
+		{name: "true returns item", expose: ptr(true), want: true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			conn := &plugin.Connection{Name: "test"}
+			conn.SetConfig(fleetdmConfig{ExposeSecrets: tc.expose})
+			got, err := itemIfSecretsExposed(testCtx(t), &plugin.QueryData{Connection: conn}, &plugin.HydrateData{Item: item})
+			if err != nil {
+				t.Fatalf("itemIfSecretsExposed unexpected error: %v", err)
+			}
+			if (got != nil) != tc.want {
+				t.Fatalf("itemIfSecretsExposed returned %v, want item returned = %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestIsPremiumError(t *testing.T) {
 	t.Parallel()
 

@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"strconv"
 
@@ -39,6 +40,19 @@ type SoftwareTitle struct {
 	CountsUpdatedAt  *FleetTime             `json:"counts_updated_at"`
 }
 
+// installerURLKeys are the installer fields that hold download or source URLs,
+// which can embed credentials.
+var installerURLKeys = []string{"package_url", "url"}
+
+// redactInstallerURLs nulls installer URLs unless expose_secrets is set.
+func redactInstallerURLs(d *plugin.QueryData, t *SoftwareTitle) {
+	if secretsExposed(d) {
+		return
+	}
+	t.SoftwarePackage = nullURLKeys(t.SoftwarePackage, installerURLKeys...)
+	t.Packages = nullURLKeysEach(t.Packages, installerURLKeys...)
+}
+
 // ListSoftwareTitlesResponse is the expected structure for the list software titles API call.
 type ListSoftwareTitlesResponse struct {
 	SoftwareTitles  []SoftwareTitle `json:"software_titles"`
@@ -54,6 +68,7 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 		List: &plugin.ListConfig{
 			Hydrate: listSoftwareTitles,
 			KeyColumns: []*plugin.KeyColumn{
+				{Name: "id", Require: plugin.Optional},                            // Alone or with team_id, fetched directly
 				{Name: "vulnerable_only", Require: plugin.Optional},               // Filter for vulnerable software
 				{Name: "team_id", Require: plugin.Optional},                       // Filter by team ID (Fleet Premium)
 				{Name: "available_for_install", Require: plugin.Optional},         // Filter for installable software
@@ -82,8 +97,8 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 
 			// Complex nested objects stored as JSON
 			{Name: "versions", Type: proto.ColumnType_JSON, Description: "List of versions for this software title, including version IDs and associated vulnerabilities."},
-			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Software package details if the software was added for install."},
-			{Name: "packages", Type: proto.ColumnType_JSON, Description: "All installer packages uploaded for this title, first-added first. software_package only holds the first one."},
+			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Software package details if the software was added for install. Installer URLs are null unless expose_secrets = true, as they can embed credentials."},
+			{Name: "packages", Type: proto.ColumnType_JSON, Description: "All installer packages uploaded for this title, first-added first. software_package only holds the first one. Installer URLs are null unless expose_secrets = true."},
 			{Name: "upgrade_code", Type: proto.ColumnType_STRING, Description: "Windows MSI upgrade code, when known."},
 			{Name: "app_store_app", Type: proto.ColumnType_JSON, Description: "App Store app details if the software is from an app store."},
 
@@ -104,6 +119,11 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 }
 
 func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	// A lookup by id (optionally per team) is one request; with other
+	// filters, list so they still apply.
+	if d.EqualsQuals["id"] != nil && onlyQuals(d, "id", "team_id") {
+		return streamByID(ctx, d, "fleetdm_software_title", getSoftwareTitle)
+	}
 	client, err := getClient(ctx, d)
 	if err != nil {
 		plugin.Logger(ctx).Error("fleetdm_software_title.listSoftwareTitles", "connection_error", err)
@@ -165,11 +185,38 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 			plugin.Logger(ctx).Error("fleetdm_software_title.listSoftwareTitles", "api_error", err, "page", page, "params", params.Encode())
 			return nil, nil, err
 		}
+		for i := range response.SoftwareTitles {
+			redactInstallerURLs(d, &response.SoftwareTitles[i])
+		}
 		return response.SoftwareTitles, response.Meta, nil
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	return nil, nil
+}
+
+// getSoftwareTitle fetches one software title by id, when it is the only filter (with team_id, for that team's counts).
+func getSoftwareTitle(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	client, err := getClient(ctx, d)
+	if err != nil {
+		return nil, err
+	}
+	var response struct {
+		SoftwareTitle *SoftwareTitle `json:"software_title"`
+	}
+	params := url.Values{}
+	if q := d.EqualsQuals["team_id"]; q != nil {
+		client.addFleetIDParam(ctx, d, params, strconv.FormatInt(q.GetInt64Value(), 10))
+	}
+	if err := client.Get(ctx, fmt.Sprintf("software/titles/%d", d.EqualsQuals["id"].GetInt64Value()), params, &response); err != nil {
+		plugin.Logger(ctx).Error("fleetdm_software_title.getSoftwareTitle", "api_error", err)
+		return nil, err
+	}
+	if response.SoftwareTitle != nil {
+		redactInstallerURLs(d, response.SoftwareTitle)
+		return *response.SoftwareTitle, nil
+	}
 	return nil, nil
 }

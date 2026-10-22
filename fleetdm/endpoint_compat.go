@@ -2,10 +2,12 @@ package fleetdm
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
@@ -22,6 +24,11 @@ const (
 	famFleets        endpointFamily = "fleets"         // fleets <- teams
 	famReports       endpointFamily = "reports"        // reports <- queries
 	famFleetPolicies endpointFamily = "fleet_policies" // fleets/%d/policies <- teams/%d/policies
+	famFleetSecrets  endpointFamily = "fleet_secrets"  // fleets/%d/secrets <- teams/%d/secrets
+	famFleetUsers    endpointFamily = "fleet_users"    // fleets/%d/users <- teams/%d/users
+	famFleet         endpointFamily = "fleet"          // fleets/%d <- teams/%d
+	famReport        endpointFamily = "report"         // reports/%d <- queries/%d
+	famABTokens      endpointFamily = "ab_tokens"      // ab_tokens <- abm_tokens
 )
 
 // endpointPaths maps a family to {newPathFormat, oldPathFormat}. The formats
@@ -30,6 +37,11 @@ var endpointPaths = map[endpointFamily][2]string{
 	famFleets:        {"fleets", "teams"},
 	famReports:       {"reports", "queries"},
 	famFleetPolicies: {"fleets/%d/policies", "teams/%d/policies"},
+	famFleetSecrets:  {"fleets/%d/secrets", "teams/%d/secrets"},
+	famFleetUsers:    {"fleets/%d/users", "teams/%d/users"},
+	famFleet:         {"fleets/%d", "teams/%d"},
+	famReport:        {"reports/%d", "queries/%d"},
+	famABTokens:      {"ab_tokens", "abm_tokens"},
 }
 
 // is404 reports whether err is a *FleetAPIError with a 404 status.
@@ -131,14 +143,46 @@ func coalesceSlice[T any](newer, older []T) []T {
 // team_id; every endpoint takes fleet_id from 4.83. team_id stays accepted on
 // every 4.x, so it is the fallback for older or unparseable versions.
 func fleetIDParamForVersion(version string) string {
-	var major, minor int
-	if _, err := fmt.Sscanf(version, "%d.%d", &major, &minor); err != nil {
+	major, minor, ok := parseMajorMinor(version)
+	if !ok {
 		return "team_id"
 	}
 	if major > 4 || (major == 4 && minor >= 83) {
 		return "fleet_id"
 	}
 	return "team_id"
+}
+
+// parseMajorMinor reads the leading "major.minor" of a Fleet version.
+func parseMajorMinor(version string) (major, minor int, ok bool) {
+	if _, err := fmt.Sscanf(version, "%d.%d", &major, &minor); err != nil {
+		return 0, 0, false
+	}
+	return major, minor, true
+}
+
+// versionBefore reports whether the server is known to run a Fleet older
+// than major.minor; false when its version cannot be read. The version is
+// looked up once per connection.
+func (c *FleetDMClient) versionBefore(ctx context.Context, d *plugin.QueryData, major, minor int) bool {
+	const cacheKey = "server_version"
+	version := ""
+	if v, ok := d.ConnectionCache.Get(ctx, cacheKey); ok {
+		version, _ = v.(string)
+	}
+	if version == "" {
+		var info VersionInfo
+		if err := c.Get(ctx, "version", nil, &info); err != nil {
+			plugin.Logger(ctx).Warn("versionBefore", "version_lookup_error", err)
+			return false
+		}
+		version = info.Version
+		if err := d.ConnectionCache.Set(ctx, cacheKey, version); err != nil {
+			plugin.Logger(ctx).Warn("versionBefore", "connection_cache_set_error", err)
+		}
+	}
+	got, gotMinor, ok := parseMajorMinor(version)
+	return ok && (got < major || (got == major && gotMinor < minor))
 }
 
 // addFleetIDParam sets the fleet/team filter under the name the server
@@ -178,6 +222,57 @@ func requireExposeSecrets(d *plugin.QueryData) error {
 		return nil
 	}
 	return errors.New("this table returns live secrets; set expose_secrets = true in the fleetdm connection config to query it")
+}
+
+// itemIfSecretsExposed returns the list item only when expose_secrets is set,
+// so columns that may carry credentials read NULL otherwise. No extra API call
+// is made.
+func itemIfSecretsExposed(ctx context.Context, d *plugin.QueryData, h *plugin.HydrateData) (interface{}, error) {
+	if !secretsExposed(d) {
+		return nil, nil
+	}
+	return h.Item, nil
+}
+
+// nullURLKeys sets the named keys of a JSON object to null, for URL fields
+// that can embed credentials (user:token@host, ?token=) when expose_secrets
+// is off. Anything that is not an object is returned unchanged.
+func nullURLKeys(v any, keys ...string) any {
+	m, ok := v.(map[string]any)
+	if !ok {
+		return v
+	}
+	for _, k := range keys {
+		if _, ok := m[k]; ok {
+			m[k] = nil
+		}
+	}
+	return m
+}
+
+// nullURLKeysEach applies nullURLKeys to every object in a JSON array.
+func nullURLKeysEach(v any, keys ...string) any {
+	items, ok := v.([]any)
+	if !ok {
+		return v
+	}
+	for i := range items {
+		items[i] = nullURLKeys(items[i], keys...)
+	}
+	return items
+}
+
+// nullURLKeysRaw is nullURLKeys for a raw JSON object.
+func nullURLKeysRaw(raw json.RawMessage, keys ...string) json.RawMessage {
+	var m map[string]any
+	if err := json.Unmarshal(raw, &m); err != nil || m == nil {
+		return raw
+	}
+	out, err := json.Marshal(nullURLKeys(m, keys...))
+	if err != nil {
+		return raw
+	}
+	return out
 }
 
 // isPremiumError classifies err as a Fleet Premium licensing failure: a 402,
@@ -226,4 +321,32 @@ func handleUnavailableFeature(ctx context.Context, d *plugin.QueryData, table st
 	}
 	plugin.Logger(ctx).Warn("handleUnavailableFeature", "table", table, "feature_unavailable", err.Error())
 	return true
+}
+
+// onlyQuals reports whether every key-column qual in the query is one of
+// allowed, so a direct lookup cannot skip a filter the list would apply.
+func onlyQuals(d *plugin.QueryData, allowed ...string) bool {
+	for column := range d.Quals {
+		if !slices.Contains(allowed, column) {
+			return false
+		}
+	}
+	return true
+}
+
+// streamByID streams the single row fetch returns, from a list call. A 404
+// yields no rows (via the ignore config), as does a feature that is not
+// available on this server.
+func streamByID(ctx context.Context, d *plugin.QueryData, table string, fetch plugin.HydrateFunc) (interface{}, error) {
+	row, err := fetch(ctx, d, nil)
+	if err != nil {
+		if handleUnavailableFeature(ctx, d, table, err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if row != nil {
+		d.StreamListItem(ctx, row)
+	}
+	return nil, nil
 }

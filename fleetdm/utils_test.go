@@ -2,7 +2,10 @@ package fleetdm
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -413,5 +416,130 @@ func TestNewFleetDMClientRequestTimeout(t *testing.T) {
 				t.Errorf("HTTPClient.Timeout = %v, want %v", client.HTTPClient.Timeout, tc.want)
 			}
 		})
+	}
+}
+
+// Not parallel: it shortens the package-level retry backoff.
+func TestRetryTransient(t *testing.T) {
+	oldBase := transientRetryBase
+	transientRetryBase = time.Millisecond
+	t.Cleanup(func() { transientRetryBase = oldBase })
+
+	transient := &FleetAPIError{StatusCode: http.StatusTooManyRequests}
+	permanent := &FleetAPIError{StatusCode: http.StatusBadRequest}
+
+	tests := []struct {
+		name      string
+		errs      []error // returned by successive calls; nil after the list ends
+		wantCalls int
+		wantErr   error
+	}{
+		{name: "success first try", errs: nil, wantCalls: 1},
+		{name: "transient then success", errs: []error{transient, &FleetAPIError{StatusCode: 503}}, wantCalls: 3},
+		{name: "transient until attempts run out", errs: []error{transient, transient, transient, transient, transient}, wantCalls: 4, wantErr: transient},
+		{name: "permanent error not retried", errs: []error{permanent}, wantCalls: 1, wantErr: permanent},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			calls := 0
+			err := retryTransient(context.Background(), func() error {
+				calls++
+				if calls <= len(tc.errs) {
+					return tc.errs[calls-1]
+				}
+				return nil
+			})
+			if calls != tc.wantCalls {
+				t.Errorf("calls = %d, want %d", calls, tc.wantCalls)
+			}
+			if !errors.Is(err, tc.wantErr) {
+				t.Errorf("err = %v, want %v", err, tc.wantErr)
+			}
+		})
+	}
+
+	t.Run("cancelled context stops retrying", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		calls := 0
+		err := retryTransient(ctx, func() error { calls++; return transient })
+		if calls != 1 || !errors.Is(err, context.Canceled) {
+			t.Errorf("calls = %d, err = %v; want 1 call and context.Canceled", calls, err)
+		}
+	})
+}
+
+func TestIsUnsupportedPlatformError(t *testing.T) {
+	t.Parallel()
+	if !isUnsupportedPlatformError(&FleetAPIError{StatusCode: http.StatusBadRequest, Snippet: `platform "foo" unsupported`}) {
+		t.Error("400 mentioning platform = false, want true")
+	}
+	if isUnsupportedPlatformError(&FleetAPIError{StatusCode: http.StatusBadRequest, Snippet: "Param team_id is required"}) {
+		t.Error("unrelated 400 = true, want false")
+	}
+	if isUnsupportedPlatformError(&FleetAPIError{StatusCode: http.StatusInternalServerError, Snippet: "platform"}) {
+		t.Error("500 = true, want false")
+	}
+}
+
+func TestAddHostPopulationParams(t *testing.T) {
+	t.Parallel()
+
+	selected := map[string]bool{"hostname": true, "policies": true, "end_users": true}
+	params := url.Values{}
+	addHostPopulationParams(params, func(c string) bool { return selected[c] })
+	want := url.Values{"populate_policies": {"true"}, "populate_end_users": {"true"}}
+	if params.Encode() != want.Encode() {
+		t.Errorf("params = %q, want %q", params.Encode(), want.Encode())
+	}
+
+	none := url.Values{}
+	addHostPopulationParams(none, func(string) bool { return false })
+	if len(none) != 0 {
+		t.Errorf("params with no optional columns = %q, want none", none.Encode())
+	}
+}
+
+func TestIsTransientNetworkErrors(t *testing.T) {
+	dropped := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, _, err := w.(http.Hijacker).Hijack()
+		if err == nil {
+			_ = conn.Close()
+		}
+	}))
+	defer dropped.Close()
+	slow := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(2 * time.Second):
+		}
+	}))
+	defer slow.Close()
+
+	get := func(ctx context.Context, srv *httptest.Server, timeout time.Duration) error {
+		c := &FleetDMClient{BaseURL: srv.URL + "/", APIToken: "x", HTTPClient: &http.Client{Timeout: timeout}}
+		return c.Get(ctx, "x", nil, &struct{}{})
+	}
+	cancelled, cancel := context.WithCancel(testCtx(t))
+	cancel()
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"dropped connection", get(testCtx(t), dropped, time.Second), true},
+		{"client timeout", get(testCtx(t), slow, 50*time.Millisecond), true},
+		{"cancelled query", get(cancelled, slow, time.Second), false},
+		{"plain error", errors.New("boom"), false},
+	}
+	for _, tc := range tests {
+		if tc.err == nil {
+			t.Errorf("%s: want an error", tc.name)
+			continue
+		}
+		if got := isTransient(tc.err); got != tc.want {
+			t.Errorf("%s: isTransient(%v) = %v, want %v", tc.name, tc.err, got, tc.want)
+		}
 	}
 }

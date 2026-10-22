@@ -79,6 +79,10 @@ func listFleetMaintainedApps(ctx context.Context, d *plugin.QueryData, h *plugin
 		return response.FleetMaintainedApps, response.Meta, nil
 	})
 	if err != nil {
+		// Fleet-maintained apps are a Fleet Premium feature.
+		if handleUnavailableFeature(ctx, d, "fleetdm_fleet_maintained_app", err) {
+			return nil, nil
+		}
 		return nil, err
 	}
 
