@@ -33,11 +33,14 @@ case "$FLEETDM_URL" in
 esac
 
 # Tables with required key columns get a qual; a missing row is not an error.
+# Result IDs are well-formed UUIDs so the request still reaches Fleet.
 extra_where() {
   case "$1" in
     fleetdm_host_detail) echo "where id = 0" ;;
     fleetdm_mdm_command) echo "where host_identifier = 'smoke-no-such-host'" ;;
     fleetdm_mdm_command_result) echo "where command_uuid = 'smoke-no-such-command'" ;;
+    fleetdm_script_result) echo "where execution_id = '00000000-0000-4000-8000-00000000a0a1'" ;;
+    fleetdm_software_install_result) echo "where install_uuid = '00000000-0000-4000-8000-00000000a0a2'" ;;
   esac
 }
 

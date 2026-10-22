@@ -244,8 +244,10 @@ Then, run queries against the available tables.
 
 * `fleetdm_ab_token`
 * `fleetdm_activity`
+* `fleetdm_android_enterprise`
 * `fleetdm_app_store_app`
 * `fleetdm_apple_mdm`
+* `fleetdm_bootstrap_package`
 * `fleetdm_carve`
 * `fleetdm_certificate_authority`
 * `fleetdm_certificate_template`
@@ -258,6 +260,7 @@ Then, run queries against the available tables.
 * `fleetdm_enroll_secret`
 * `fleetdm_fleet_maintained_app`
 * `fleetdm_host`
+* `fleetdm_host_activity`
 * `fleetdm_host_certificate`
 * `fleetdm_host_configuration_profile`
 * `fleetdm_host_detail`
@@ -265,8 +268,10 @@ Then, run queries against the available tables.
 * `fleetdm_host_script`
 * `fleetdm_host_software`
 * `fleetdm_host_summary`
+* `fleetdm_host_upcoming_activity`
 * `fleetdm_invite`
 * `fleetdm_label`
+* `fleetdm_label_host`
 * `fleetdm_mdm_command`
 * `fleetdm_mdm_command_result`
 * `fleetdm_mdm_summary`
@@ -274,10 +279,13 @@ Then, run queries against the available tables.
 * `fleetdm_pack`
 * `fleetdm_policy`
 * `fleetdm_query`
+* `fleetdm_query_report`
 * `fleetdm_rest_api_endpoint`
 * `fleetdm_scim_status`
 * `fleetdm_script`
+* `fleetdm_script_result`
 * `fleetdm_setup_experience_software`
+* `fleetdm_software_install_result`
 * `fleetdm_software_self_service_category`
 * `fleetdm_software_title`
 * `fleetdm_software_version`

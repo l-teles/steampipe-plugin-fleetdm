@@ -11,15 +11,21 @@ import (
 // gatedColumns lists every column that may carry credentials and must read
 // NULL unless expose_secrets is set. Removing a gate fails this test.
 var gatedColumns = map[string]plugin.HydrateFunc{
-	"fleetdm_config.integrations":        itemIfSecretsExposed,
-	"fleetdm_config.webhook_settings":    itemIfSecretsExposed,
-	"fleetdm_config.logging":             itemIfSecretsExposed,
-	"fleetdm_team.integrations":          itemIfSecretsExposed,
-	"fleetdm_team.webhook_settings":      itemIfSecretsExposed,
-	"fleetdm_team.software":              itemIfSecretsExposed,
-	"fleetdm_team.secrets":               getTeamSecrets,
-	"fleetdm_mdm_command_result.payload": itemIfSecretsExposed,
-	"fleetdm_mdm_command_result.result":  itemIfSecretsExposed,
+	"fleetdm_config.integrations":                                itemIfSecretsExposed,
+	"fleetdm_config.webhook_settings":                            itemIfSecretsExposed,
+	"fleetdm_config.logging":                                     itemIfSecretsExposed,
+	"fleetdm_team.integrations":                                  itemIfSecretsExposed,
+	"fleetdm_team.webhook_settings":                              itemIfSecretsExposed,
+	"fleetdm_team.software":                                      itemIfSecretsExposed,
+	"fleetdm_team.secrets":                                       getTeamSecrets,
+	"fleetdm_mdm_command_result.payload":                         itemIfSecretsExposed,
+	"fleetdm_mdm_command_result.result":                          itemIfSecretsExposed,
+	"fleetdm_query_report.columns":                               itemIfSecretsExposed,
+	"fleetdm_script_result.script_contents":                      itemIfSecretsExposed,
+	"fleetdm_script_result.output":                               itemIfSecretsExposed,
+	"fleetdm_software_install_result.output":                     itemIfSecretsExposed,
+	"fleetdm_software_install_result.pre_install_query_output":   itemIfSecretsExposed,
+	"fleetdm_software_install_result.post_install_script_output": itemIfSecretsExposed,
 }
 
 func funcPtr(f any) uintptr { return reflect.ValueOf(f).Pointer() }

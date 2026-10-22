@@ -207,3 +207,22 @@ func TestGetNilTargetDiscardsBody(t *testing.T) {
 		t.Fatalf("Get with nil target unexpected error: %v", err)
 	}
 }
+
+func TestGetNoContentLeavesTargetUntouched(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	var target struct {
+		Vulnerability *Vulnerability `json:"vulnerability"`
+	}
+	if err := newTestClient(srv).Get(testCtx(t), "vulnerabilities/CVE-2024-0001", nil, &target); err != nil {
+		t.Fatalf("Get on 204 unexpected error: %v", err)
+	}
+	if target.Vulnerability != nil {
+		t.Errorf("target.Vulnerability = %+v, want nil", target.Vulnerability)
+	}
+}

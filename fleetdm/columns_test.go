@@ -21,8 +21,10 @@ func TestDefaultTransformColumnsResolve(t *testing.T) {
 	listRow := map[string]any{
 		"fleetdm_ab_token":                       ABToken{},
 		"fleetdm_activity":                       Activity{},
+		"fleetdm_android_enterprise":             AndroidEnterprise{},
 		"fleetdm_app_store_app":                  AppStoreAppWithTeam{},
 		"fleetdm_apple_mdm":                      AppleMDM{},
+		"fleetdm_bootstrap_package":              BootstrapPackage{},
 		"fleetdm_carve":                          Carve{},
 		"fleetdm_certificate_authority":          CertificateAuthority{},
 		"fleetdm_certificate_template":           CertificateTemplate{},
@@ -35,6 +37,7 @@ func TestDefaultTransformColumnsResolve(t *testing.T) {
 		"fleetdm_enroll_secret":                  EnrollSecret{},
 		"fleetdm_fleet_maintained_app":           FleetMaintainedApp{},
 		"fleetdm_host":                           Host{},
+		"fleetdm_host_activity":                  HostActivity{},
 		"fleetdm_host_certificate":               HostCertificate{},
 		"fleetdm_host_configuration_profile":     HostConfigurationProfile{},
 		"fleetdm_host_detail":                    Host{},
@@ -42,8 +45,10 @@ func TestDefaultTransformColumnsResolve(t *testing.T) {
 		"fleetdm_host_script":                    HostScript{},
 		"fleetdm_host_software":                  HostSoftwareItem{},
 		"fleetdm_host_summary":                   HostSummary{},
+		"fleetdm_host_upcoming_activity":         HostActivity{},
 		"fleetdm_invite":                         Invite{},
 		"fleetdm_label":                          Label{},
+		"fleetdm_label_host":                     LabelHost{},
 		"fleetdm_mdm_command":                    MDMCommand{},
 		"fleetdm_mdm_command_result":             MDMCommandResult{},
 		"fleetdm_mdm_summary":                    MDMEnrollmentSummary{},
@@ -51,10 +56,13 @@ func TestDefaultTransformColumnsResolve(t *testing.T) {
 		"fleetdm_pack":                           Pack{},
 		"fleetdm_policy":                         Policy{},
 		"fleetdm_query":                          QuerySaved{},
+		"fleetdm_query_report":                   QueryReportRow{},
 		"fleetdm_rest_api_endpoint":              RESTAPIEndpoint{},
 		"fleetdm_scim_status":                    ScimStatus{},
 		"fleetdm_script":                         Script{},
+		"fleetdm_script_result":                  ScriptResult{},
 		"fleetdm_setup_experience_software":      SetupExperienceSoftware{},
+		"fleetdm_software_install_result":        SoftwareInstallResult{},
 		"fleetdm_software_self_service_category": SelfServiceCategory{},
 		"fleetdm_software_title":                 SoftwareTitle{},
 		"fleetdm_software_version":               Software{},
@@ -65,7 +73,8 @@ func TestDefaultTransformColumnsResolve(t *testing.T) {
 		"fleetdm_vulnerability":                  Vulnerability{},
 	}
 	hydrateRow := map[uintptr]any{
-		reflect.ValueOf(getHostDetails).Pointer(): HostDetail{},
+		reflect.ValueOf(getHostDetails).Pointer():          HostDetail{},
+		reflect.ValueOf(getVulnerabilityDetails).Pointer(): VulnerabilityDetails{},
 	}
 
 	p := Plugin(context.Background())
