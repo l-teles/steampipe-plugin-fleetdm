@@ -192,7 +192,7 @@ run_select_all() {
   else
     # Only the error line: on a partial failure the output can hold row data,
     # including secrets from this expose_secrets connection.
-    printf '%-48s FAILED: %s\n' "$1" "$(grep -m1 -E '^(Error|Warning)' <<<"$out" || head -c 300 <<<"$out")"
+    printf '%-48s FAILED: %s\n' "$1" "$(grep -m1 -E '^(Error|Warning)' <<<"$out" || echo 'query failed (no error line; output withheld)')"
     failed=1
   fi
 }
