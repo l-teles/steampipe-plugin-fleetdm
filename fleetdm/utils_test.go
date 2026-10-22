@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/context_key"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/transform"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/context_key"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/transform"
 )
 
 // ptr returns a pointer to v; a tiny helper for building config literals.
@@ -26,14 +26,13 @@ func testCtx(t *testing.T) context.Context {
 
 // testConnection builds a *plugin.Connection with the given config values.
 func testConnection(serverURL, apiToken *string, requestTimeout *int) *plugin.Connection {
-	return &plugin.Connection{
-		Name: "test",
-		Config: fleetdmConfig{
-			ServerURL:      serverURL,
-			APIToken:       apiToken,
-			RequestTimeout: requestTimeout,
-		},
-	}
+	conn := &plugin.Connection{Name: "test"}
+	conn.SetConfig(fleetdmConfig{
+		ServerURL:      serverURL,
+		APIToken:       apiToken,
+		RequestTimeout: requestTimeout,
+	})
+	return conn
 }
 
 func TestFleetTimeUnmarshalJSON(t *testing.T) {
@@ -307,7 +306,8 @@ func TestNewFleetDMClientEnvFallback(t *testing.T) {
 	t.Run("empty config and empty env", func(t *testing.T) {
 		t.Setenv("FLEETDM_URL", "")
 		t.Setenv("FLEETDM_API_TOKEN", "")
-		conn := &plugin.Connection{Name: "test", Config: fleetdmConfig{}}
+		conn := &plugin.Connection{Name: "test"}
+		conn.SetConfig(fleetdmConfig{})
 		_, err := NewFleetDMClient(testCtx(t), conn)
 		if err == nil {
 			t.Fatal("NewFleetDMClient with no config and no env = nil error, want error")
@@ -320,7 +320,7 @@ func TestNewFleetDMClientEnvFallback(t *testing.T) {
 	t.Run("env used when config nil", func(t *testing.T) {
 		t.Setenv("FLEETDM_URL", "https://env.example.com")
 		t.Setenv("FLEETDM_API_TOKEN", "env-token")
-		conn := &plugin.Connection{Name: "test", Config: nil}
+		conn := &plugin.Connection{Name: "test"}
 		client, err := NewFleetDMClient(testCtx(t), conn)
 		if err != nil {
 			t.Fatalf("NewFleetDMClient from env unexpected error: %v", err)

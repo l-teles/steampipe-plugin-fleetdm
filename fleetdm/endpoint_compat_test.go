@@ -7,7 +7,7 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
 )
 
 // apiErr builds a *FleetAPIError with the given status code and snippet.
@@ -279,12 +279,9 @@ func TestRequireExposeSecrets(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			d := &plugin.QueryData{
-				Connection: &plugin.Connection{
-					Name:   "test",
-					Config: fleetdmConfig{ExposeSecrets: tc.expose},
-				},
-			}
+			conn := &plugin.Connection{Name: "test"}
+			conn.SetConfig(fleetdmConfig{ExposeSecrets: tc.expose})
+			d := &plugin.QueryData{Connection: conn}
 			err := requireExposeSecrets(d)
 			if tc.wantErr && err == nil {
 				t.Fatal("requireExposeSecrets = nil error, want error")

@@ -33,14 +33,98 @@ jobs:
       - name: go test
         run: go test -race ./...
 
+  # Loads the built plugin into Steampipe and queries every table against a
+  # live Fleet. Unit tests cannot see SDK/cache regressions from a dependency
+  # bump; this can.
+  smoke:
+    name: Smoke (Fleet ${{ matrix.label }})
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: ${{ matrix.canary }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Empty image = the digest-pinned default in .github/fleet-test/docker-compose.yml.
+          - label: pinned
+            fleet_image: ""
+            canary: false
+          # Last release before the teams→fleets / queries→reports rename;
+          # exercises the endpoint compat fallback.
+          - label: v4.81.0 (pre-rename)
+            fleet_image: fleetdm/fleet:v4.81.0@sha256:e9a7a80e0cf9c638bbe9936c2807dbf25d068cfa70bf8b6d3c334f2f1509888b
+            canary: false
+          # Non-blocking and deliberately unpinned: surfaces a breaking Fleet release early.
+          - label: latest (canary)
+            fleet_image: fleetdm/fleet:latest
+            canary: true
+    env:
+      FLEET_IMAGE: ${{ matrix.fleet_image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+      # Direct release download rather than turbot/steampipe-action-setup:
+      # the action lists releases via the unauthenticated GitHub API and fails
+      # when the shared runner IP is rate limited.
+      - name: Install Steampipe
+        env:
+          # renovate: datasource=github-releases depName=turbot/steampipe
+          STEAMPIPE_VERSION: "2.4.7"
+        run: |
+          asset="steampipe_linux_$(dpkg --print-architecture).tar.gz"
+          base="https://github.com/turbot/steampipe/releases/download/v${STEAMPIPE_VERSION}"
+          cd "$RUNNER_TEMP"
+          curl -fsSLO --retry 3 "${base}/${asset}"
+          curl -fsSL --retry 3 "${base}/checksums.txt" | grep " ${asset}\$" | sha256sum -c -
+          tar -xzf "$asset" steampipe
+          sudo install -m 0755 steampipe /usr/local/bin/steampipe
+          steampipe --version
+      - name: Generate Fleet server key
+        run: |
+          key="$(openssl rand -hex 32)"
+          echo "::add-mask::${key}"
+          echo "FLEET_SERVER_PRIVATE_KEY=${key}" >> "$GITHUB_ENV"
+      - name: Start Fleet
+        run: docker compose -f .github/fleet-test/docker-compose.yml up -d --wait
+      # Apple MDM only turns on after a restart that follows first-time setup,
+      # and the restart invalidates the first login token, so log in again.
+      - name: Set up Fleet and obtain API token
+        run: |
+          .github/fleet-test/setup-fleet.sh > /dev/null
+          docker compose -f .github/fleet-test/docker-compose.yml restart fleet
+          .github/fleet-test/setup-fleet.sh > "${RUNNER_TEMP}/fleet-env"
+          token="$(sed -n 's/^FLEETDM_API_TOKEN=//p' "${RUNNER_TEMP}/fleet-env")"
+          echo "::add-mask::${token}"
+          cat "${RUNNER_TEMP}/fleet-env" >> "$GITHUB_ENV"
+      - name: Smoke test every table
+        run: .github/fleet-test/smoke-test.sh
+      # The compose file requires the key; these steps don't start Fleet, so a
+      # placeholder lets them run even when an earlier step failed first.
+      - name: Fleet logs
+        if: failure()
+        run: FLEET_SERVER_PRIVATE_KEY="${FLEET_SERVER_PRIVATE_KEY:-unused}" docker compose -f .github/fleet-test/docker-compose.yml logs fleet | tail -200
+      - name: Stop Fleet
+        if: always()
+        run: FLEET_SERVER_PRIVATE_KEY="${FLEET_SERVER_PRIVATE_KEY:-unused}" docker compose -f .github/fleet-test/docker-compose.yml down -v
+
   renovate-config:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: 24
+      # Pinned rather than latest: a release minutes old can still 404 on
+      # npm's CDN, and the 7-day minimumReleaseAge also covers this bump.
       - name: Validate renovate.json
-        run: npx --yes --package=renovate -- renovate-config-validator renovate.json
+        env:
+          # renovate: datasource=npm depName=renovate
+          RENOVATE_VERSION: "44.160.1"
+        run: npx --yes --package="renovate@${RENOVATE_VERSION}" -- renovate-config-validator renovate.json

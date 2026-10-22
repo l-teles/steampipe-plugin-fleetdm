@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
 )
 
 // endpointFamily identifies a group of FleetDM API endpoints that were renamed

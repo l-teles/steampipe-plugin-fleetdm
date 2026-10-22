@@ -1,0 +1,185 @@
+# Docker Compose for an ephemeral Fleet test instance, used by the CI smoke
+# test and for local development. Adapted from the terraform-provider-fleetdm
+# test rig. All services use host networking so Fleet --dev reaches its S3
+# store on localhost:9000. Apple MDM needs one Fleet restart after setup.
+#
+# Usage:
+#   export FLEET_SERVER_PRIVATE_KEY="$(openssl rand -hex 32)"
+#   docker compose -f .github/fleet-test/docker-compose.yml up -d --wait
+#   fleet_env="$(mktemp)"
+#   .github/fleet-test/setup-fleet.sh > "$fleet_env"   # FLEETDM_URL / FLEETDM_API_TOKEN
+#   docker compose -f .github/fleet-test/docker-compose.yml restart fleet
+#   .github/fleet-test/setup-fleet.sh > "$fleet_env"   # login tokens die on restart
+#   set -a; . "$fleet_env"; set +a; rm -f "$fleet_env"
+#   .github/fleet-test/smoke-test.sh
+#   docker compose -f .github/fleet-test/docker-compose.yml down -v   # key var must still be set
+
+services:
+  # Held on the 8.4 LTS line. Fleet's migrations and generated columns
+  # compute checksums with MySQL's MD5(), which MySQL removed in the 26.x
+  # line — every schema migration fails there. Renovate caps it to <9.
+  mysql:
+    image: mysql:8.4@sha256:0f51e63e537a1f176423fa03ef559aabe6fa4372a53160a44bc7e75da7d15364
+    network_mode: "host"
+    environment:
+      MYSQL_ROOT_PASSWORD: toor
+      MYSQL_DATABASE: fleet
+      MYSQL_USER: fleet
+      MYSQL_PASSWORD: insecure
+    # Host networking: listen on loopback only, so the fixed test credentials
+    # are never reachable from the local network.
+    command: --max_allowed_packet=536870912 --bind-address=127.0.0.1 --mysqlx=OFF
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "fleet", "-pinsecure"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+      start_period: 10s
+
+  redis:
+    image: redis:8@sha256:2c2dff791878316e3b083188be0d578423b24813cdda5de0e80ea4f7b3e6bfd6
+    network_mode: "host"
+    command: redis-server --bind 127.0.0.1
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+
+  # RustFS provides the S3-compatible storage Fleet --dev expects at
+  # localhost:9000 — the same server Fleet's own dev compose uses. The
+  # credentials must be exactly `locals3`/`locals3`: Fleet --dev hardcodes
+  # them client-side (cmd/fleet/main.go) and auto-creates its buckets at
+  # startup with them. MinIO can't take this role — it rejects root passwords
+  # shorter than 8 characters, so Fleet's bucket auto-create fails and every
+  # installer upload 403s. Test-only credentials for an ephemeral local store,
+  # not a real secret.
+  s3:
+    image: rustfs/rustfs:1.0.1@sha256:1803faef57627e2d9c2e7d89d655d712ddded5389040054987163043fecb6a3c
+    network_mode: "host"
+    environment:
+      RUSTFS_ADDRESS: 127.0.0.1:9000
+      RUSTFS_CONSOLE_ENABLE: "false"
+      RUSTFS_ACCESS_KEY: locals3
+      RUSTFS_SECRET_KEY: locals3
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 10s
+      retries: 12
+      start_period: 5s
+
+  # One-shot generator of a self-signed WSTEP identity certificate. Any
+  # cert/key pair lets Fleet turn on Windows MDM in this test rig, which
+  # makes the MDM-gated endpoints reachable. The key must
+  # be PKCS#1 ("RSA PRIVATE KEY") — Fleet's WSTEP depot rejects PKCS#8.
+  mdm-certs:
+    image: alpine/openssl:3.5.9@sha256:e8a2319d15637db5296c0ff540bb028cfabc480b22fcdd4a020582393d32673f
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        set -e
+        if [ ! -f /certs/wstep-cert.pem ] || [ ! -f /certs/wstep-key.pem ]; then
+          openssl req -x509 -newkey rsa:2048 -keyout /certs/wstep-key-pkcs8.pem \
+            -out /certs/wstep-cert.pem -days 365 -nodes -subj "/CN=Fleet Test WSTEP"
+          openssl rsa -in /certs/wstep-key-pkcs8.pem -out /certs/wstep-key.pem -traditional
+          rm /certs/wstep-key-pkcs8.pem
+          # Throwaway test-only key: must be readable by the non-root fleet user.
+          chmod 644 /certs/wstep-cert.pem /certs/wstep-key.pem
+        fi
+        # Apple MDM. Fleet only needs to parse these to report Apple MDM as
+        # configured, and it reads the APNs push topic out of the certificate's
+        # subject UID -- hence the com.apple.mgmt.External.<uuid> shape. They
+        # are self-signed throwaways: no push would ever reach Apple, which is
+        # fine because the smoke test exercises Fleet's API surface rather
+        # than device delivery. Turning Apple MDM on is what makes the
+        # MDM-gated settings reachable at all (disk encryption, recovery lock,
+        # Apple configuration profiles, setup experience).
+        if [ ! -f /certs/apns-cert.pem ] || [ ! -f /certs/apns-key.pem ]; then
+          openssl req -x509 -newkey rsa:2048 -keyout /certs/apns-key-pkcs8.pem \
+            -out /certs/apns-cert.pem -days 365 -nodes \
+            -subj "/CN=Fleet Test APNs/UID=com.apple.mgmt.External.00000000-0000-0000-0000-000000000000"
+          openssl rsa -in /certs/apns-key-pkcs8.pem -out /certs/apns-key.pem -traditional
+          rm /certs/apns-key-pkcs8.pem
+          chmod 644 /certs/apns-cert.pem /certs/apns-key.pem
+        fi
+        if [ ! -f /certs/apple-scep-cert.pem ] || [ ! -f /certs/apple-scep-key.pem ]; then
+          openssl req -x509 -newkey rsa:2048 -keyout /certs/apple-scep-key-pkcs8.pem \
+            -out /certs/apple-scep-cert.pem -days 365 -nodes -subj "/CN=Fleet Test Apple SCEP CA"
+          openssl rsa -in /certs/apple-scep-key-pkcs8.pem -out /certs/apple-scep-key.pem -traditional
+          rm /certs/apple-scep-key-pkcs8.pem
+          chmod 644 /certs/apple-scep-cert.pem /certs/apple-scep-key.pem
+        fi
+    volumes:
+      - mdm-certs:/certs
+
+  fleet-migrate:
+    image: ${FLEET_IMAGE:-fleetdm/fleet:v4.93.0@sha256:fc2e73a94563fe64325ceaffba04e6ca4e0557e2dfb606100d3a8d77e0a2a80f}
+    network_mode: "host"
+    command: fleet prepare db
+    environment:
+      # host networking → all services reachable at 127.0.0.1
+      FLEET_MYSQL_ADDRESS: 127.0.0.1:3306
+      FLEET_MYSQL_USERNAME: fleet
+      FLEET_MYSQL_PASSWORD: insecure
+      FLEET_MYSQL_DATABASE: fleet
+      FLEET_REDIS_ADDRESS: 127.0.0.1:6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    # Exits 0 on success; compose treats it as a one-shot service.
+
+  fleet:
+    image: ${FLEET_IMAGE:-fleetdm/fleet:v4.93.0@sha256:fc2e73a94563fe64325ceaffba04e6ca4e0557e2dfb606100d3a8d77e0a2a80f}
+    network_mode: "host"
+    # --dev    : sets Fleet development defaults (logging, TLS cert, etc.)
+    # --dev_license: enables Fleet Premium via the built-in development license
+    command: fleet serve --dev --dev_license
+    environment:
+      FLEET_MYSQL_ADDRESS: 127.0.0.1:3306
+      FLEET_MYSQL_USERNAME: fleet
+      FLEET_MYSQL_PASSWORD: insecure
+      FLEET_MYSQL_DATABASE: fleet
+      FLEET_REDIS_ADDRESS: 127.0.0.1:6379
+      FLEET_SERVER_ADDRESS: 127.0.0.1:8080
+      # Override --dev's forced TLS so tests can connect over plain HTTP.
+      FLEET_SERVER_TLS: "false"
+      FLEET_LOGGING_JSON: "true"
+      # Fleet needs a >= 32-byte key to encrypt stored credentials; generated
+      # per run by the caller so no key ever lives in the repo.
+      FLEET_SERVER_PRIVATE_KEY: ${FLEET_SERVER_PRIVATE_KEY:?generate with openssl rand -hex 32}
+      # Self-signed WSTEP identity (generated by the mdm-certs service) so
+      # Windows MDM can be enabled; setup-fleet.sh turns it on via the API.
+      FLEET_MDM_WINDOWS_WSTEP_IDENTITY_CERT: /certs/wstep-cert.pem
+      FLEET_MDM_WINDOWS_WSTEP_IDENTITY_KEY: /certs/wstep-key.pem
+      # Self-signed Apple MDM material (generated by the mdm-certs service).
+      # This flips mdm.enabled_and_configured to true, which is the gate on
+      # every Apple-MDM endpoint. Apple Business
+      # Manager and VPP stay unconfigured -- those need real Apple-issued
+      # tokens, so ABM/DEP and App Store apps remain out of reach here.
+      FLEET_MDM_APPLE_ENABLE: "true"
+      FLEET_MDM_APPLE_APNS_CERT: /certs/apns-cert.pem
+      FLEET_MDM_APPLE_APNS_KEY: /certs/apns-key.pem
+      FLEET_MDM_APPLE_SCEP_CERT: /certs/apple-scep-cert.pem
+      FLEET_MDM_APPLE_SCEP_KEY: /certs/apple-scep-key.pem
+    volumes:
+      - mdm-certs:/certs:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
+      fleet-migrate:
+        condition: service_completed_successfully
+      mdm-certs:
+        condition: service_completed_successfully
+    # No healthcheck here: the Fleet image is a minimal binary that does not
+    # ship curl/wget.  setup-fleet.sh polls /healthz from the runner instead.
+
+volumes:
+  mdm-certs:

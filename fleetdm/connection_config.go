@@ -1,8 +1,8 @@
 package fleetdm
 
 import (
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin"
-	"github.com/turbot/steampipe-plugin-sdk/v5/plugin/schema"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin"
+	"github.com/turbot/steampipe-plugin-sdk/v6/plugin/schema"
 )
 
 // fleetdmConfig contains the configuration for the FleetDM plugin.
@@ -41,9 +41,9 @@ func ConfigInstance() interface{} {
 
 // GetConfig extracts and validates the fleetdmConfig from the connection configuration.
 func GetConfig(connection *plugin.Connection) fleetdmConfig {
-	if connection == nil || connection.Config == nil {
+	if connection == nil {
 		return fleetdmConfig{}
 	}
-	config, _ := connection.Config.(fleetdmConfig)
+	config, _ := connection.GetConfig().(fleetdmConfig)
 	return config
 }
