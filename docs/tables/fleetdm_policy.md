@@ -237,3 +237,33 @@ where
   type = 'patch'
   or conditional_access_enabled;
 ```
+
+### Find policies hidden from end users
+
+Hidden policies (Fleet Premium 4.94+) don't show in Fleet Desktop, so end users aren't asked to fix them.
+
+```sql+postgres
+select
+  id,
+  name,
+  team_id,
+  failing_host_count
+from
+  fleetdm_policy
+where
+  team_id = 1
+  and hidden;
+```
+
+```sql+sqlite
+select
+  id,
+  name,
+  team_id,
+  failing_host_count
+from
+  fleetdm_policy
+where
+  team_id = 1
+  and hidden;
+```

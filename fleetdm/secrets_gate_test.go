@@ -87,22 +87,34 @@ func TestRedactInstallerURLs(t *testing.T) {
 	conn.SetConfig(fleetdmConfig{})
 	d := &plugin.QueryData{Connection: conn}
 	title := SoftwareTitle{
-		SoftwarePackage: map[string]any{"name": "app.pkg", "package_url": "https://u:p@example.com/app.pkg"},
-		Packages:        []any{map[string]any{"name": "app.pkg", "url": "https://example.com/app.pkg?token=x"}},
+		SoftwarePackage: map[string]any{"name": "app.pkg", "package_url": "https://u:p@example.com/app.pkg", "configuration": "<dict/>"},
+		Packages:        []any{map[string]any{"name": "app.pkg", "url": "https://example.com/app.pkg?token=x", "configuration": "<dict/>"}},
+		AppStoreApp:     map[string]any{"name": "app", "configuration": map[string]any{"managedConfiguration": "x"}},
+		AppStoreApps:    []any{map[string]any{"name": "app", "configuration": map[string]any{"managedConfiguration": "x"}}},
 	}
 	redactInstallerURLs(d, &title)
-	if pkg := title.SoftwarePackage.(map[string]any); pkg["package_url"] != nil || pkg["name"] != "app.pkg" {
+	if pkg := title.SoftwarePackage.(map[string]any); pkg["package_url"] != nil || pkg["configuration"] != nil || pkg["name"] != "app.pkg" {
 		t.Errorf("software_package = %v", pkg)
 	}
-	if pkg := title.Packages.([]any)[0].(map[string]any); pkg["url"] != nil || pkg["name"] != "app.pkg" {
+	if pkg := title.Packages.([]any)[0].(map[string]any); pkg["url"] != nil || pkg["configuration"] != nil || pkg["name"] != "app.pkg" {
 		t.Errorf("packages[0] = %v", pkg)
+	}
+	if app := title.AppStoreApp.(map[string]any); app["configuration"] != nil || app["name"] != "app" {
+		t.Errorf("app_store_app = %v", app)
+	}
+	if app := title.AppStoreApps.([]any)[0].(map[string]any); app["configuration"] != nil || app["name"] != "app" {
+		t.Errorf("app_store_apps[0] = %v", app)
 	}
 
 	exposed := &plugin.Connection{Name: "test"}
 	exposed.SetConfig(fleetdmConfig{ExposeSecrets: ptr(true)})
 	title.SoftwarePackage = map[string]any{"package_url": "kept"}
+	title.AppStoreApps = []any{map[string]any{"configuration": "kept"}}
 	redactInstallerURLs(&plugin.QueryData{Connection: exposed}, &title)
 	if title.SoftwarePackage.(map[string]any)["package_url"] != "kept" {
 		t.Error("expose_secrets = true must keep installer URLs")
+	}
+	if title.AppStoreApps.([]any)[0].(map[string]any)["configuration"] != "kept" {
+		t.Error("expose_secrets = true must keep app configuration")
 	}
 }

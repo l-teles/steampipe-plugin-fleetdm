@@ -62,3 +62,31 @@ from
 where
   status = 'failed';
 ```
+
+### List self-service profiles a host has not installed
+
+On Fleet Premium 4.94+, macOS hosts also list the self-service profiles their end user can install from My device. Until the end user installs one, its `status` is null.
+
+```sql+postgres
+select
+  name,
+  hidden
+from
+  fleetdm_host_configuration_profile
+where
+  host_id = 1
+  and self_service
+  and status is null;
+```
+
+```sql+sqlite
+select
+  name,
+  hidden
+from
+  fleetdm_host_configuration_profile
+where
+  host_id = 1
+  and self_service
+  and status is null;
+```

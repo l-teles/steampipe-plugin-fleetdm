@@ -115,7 +115,7 @@ services:
       - mdm-certs:/certs
 
   fleet-migrate:
-    image: ${FLEET_IMAGE:-fleetdm/fleet:v4.93.0@sha256:fc2e73a94563fe64325ceaffba04e6ca4e0557e2dfb606100d3a8d77e0a2a80f}
+    image: ${FLEET_IMAGE:-fleetdm/fleet:v4.94.0@sha256:b5c51db790a8768e79ab3a165dd2f7308fa264c3036637c620531dcbfb9fa2bc}
     network_mode: "host"
     command: fleet prepare db
     environment:
@@ -133,7 +133,7 @@ services:
     # Exits 0 on success; compose treats it as a one-shot service.
 
   fleet:
-    image: ${FLEET_IMAGE:-fleetdm/fleet:v4.93.0@sha256:fc2e73a94563fe64325ceaffba04e6ca4e0557e2dfb606100d3a8d77e0a2a80f}
+    image: ${FLEET_IMAGE:-fleetdm/fleet:v4.94.0@sha256:b5c51db790a8768e79ab3a165dd2f7308fa264c3036637c620531dcbfb9fa2bc}
     network_mode: "host"
     # --dev    : sets Fleet development defaults (logging, TLS cert, etc.)
     # --dev_license: enables Fleet Premium via the built-in development license

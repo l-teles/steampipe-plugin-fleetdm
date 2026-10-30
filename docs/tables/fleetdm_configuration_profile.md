@@ -80,3 +80,35 @@ where
   or labels_include_any is not null
   or labels_exclude_any is not null;
 ```
+
+### List self-service and hidden profiles
+
+```sql+postgres
+select
+  name,
+  description,
+  platform,
+  team_id,
+  self_service,
+  hidden
+from
+  fleetdm_configuration_profile
+where
+  self_service
+  or hidden;
+```
+
+```sql+sqlite
+select
+  name,
+  description,
+  platform,
+  team_id,
+  self_service,
+  hidden
+from
+  fleetdm_configuration_profile
+where
+  self_service
+  or hidden;
+```
