@@ -28,7 +28,7 @@ The `fleetdm_software_title` table provides aggregated insights into your softwa
 | versions_count                | `INT`     | Number of distinct versions of this software title.                                                                                                |
 | bundle_identifier             | `TEXT`    | Bundle identifier, typically for macOS and iOS software.                                                                                           |
 | versions                      | `JSONB`   | List of versions for this software title, including version IDs, release and associated vulnerabilities.                                           |
-| software_package              | `JSONB`   | Software package details if the software was added for install.                                                                                    |
+| software_package              | `JSONB`   | Software package details if the software was added for install; installer URLs and `configuration` are null unless `expose_secrets = true`.                                                                                   |
 | app_store_app                 | `JSONB`   | App Store app details; the first-added version when there are several. `configuration` is null unless `expose_secrets = true`.                     |
 | app_store_apps                | `JSONB`   | Every App Store version added to the team (Fleet 4.94+). Only set when filtering by `id` and `team_id`.                                            |
 | vulnerable_only               | `BOOLEAN` | (Key Column) Filter for software titles with known vulnerabilities. Use in `WHERE` clause.                                                         |

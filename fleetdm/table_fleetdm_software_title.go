@@ -47,14 +47,16 @@ type SoftwareTitle struct {
 // which can embed credentials.
 var installerURLKeys = []string{"package_url", "url"}
 
-// redactInstallerURLs nulls installer URLs, and the managed configuration of
-// App Store apps (which can hold app credentials), unless expose_secrets is set.
+// redactInstallerURLs nulls installer URLs, and the managed app configuration
+// of packages and App Store apps (which can hold app credentials), unless
+// expose_secrets is set.
 func redactInstallerURLs(d *plugin.QueryData, t *SoftwareTitle) {
 	if secretsExposed(d) {
 		return
 	}
-	t.SoftwarePackage = nullURLKeys(t.SoftwarePackage, installerURLKeys...)
-	t.Packages = nullURLKeysEach(t.Packages, installerURLKeys...)
+	packageKeys := append([]string{"configuration"}, installerURLKeys...)
+	t.SoftwarePackage = nullURLKeys(t.SoftwarePackage, packageKeys...)
+	t.Packages = nullURLKeysEach(t.Packages, packageKeys...)
 	t.AppStoreApp = nullURLKeys(t.AppStoreApp, "configuration")
 	t.AppStoreApps = nullURLKeysEach(t.AppStoreApps, "configuration")
 }
@@ -103,8 +105,8 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 
 			// Complex nested objects stored as JSON
 			{Name: "versions", Type: proto.ColumnType_JSON, Description: "List of versions for this software title, including version IDs, release and associated vulnerabilities."},
-			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Software package details if the software was added for install. Installer URLs are null unless expose_secrets = true, as they can embed credentials."},
-			{Name: "packages", Type: proto.ColumnType_JSON, Description: "All installer packages uploaded for this title, first-added first. software_package only holds the first one. Installer URLs are null unless expose_secrets = true."},
+			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Software package details if the software was added for install. Installer URLs and configuration are null unless expose_secrets = true, as they can embed credentials."},
+			{Name: "packages", Type: proto.ColumnType_JSON, Description: "All installer packages uploaded for this title, first-added first. software_package only holds the first one. Installer URLs and configuration are null unless expose_secrets = true."},
 			{Name: "upgrade_code", Type: proto.ColumnType_STRING, Description: "Windows MSI upgrade code, when known."},
 			{Name: "app_store_app", Type: proto.ColumnType_JSON, Description: "App Store app details if the software is from an app store; the first-added version when there are several. configuration is null unless expose_secrets = true, as it can hold app credentials."},
 			{Name: "app_store_apps", Type: proto.ColumnType_JSON, Description: "Every App Store version added to the team (Fleet 4.94+). Only set when filtering by id and team_id. configuration is null unless expose_secrets = true."},
