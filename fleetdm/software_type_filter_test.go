@@ -39,6 +39,7 @@ func TestSoftwareTypeFilter(t *testing.T) {
 }
 
 func TestWithSoftwareTypeFilterFallback(t *testing.T) {
+	unprocessable := &FleetAPIError{StatusCode: http.StatusUnprocessableEntity, Status: "422 Unprocessable Entity"}
 	badRequest := &FleetAPIError{StatusCode: http.StatusBadRequest, Status: "400 Bad Request"}
 	forbidden := &FleetAPIError{StatusCode: http.StatusForbidden, Status: "403 Forbidden"}
 	withSource := plugin.KeyColumnEqualsQualMap{"source": stringQual("not_a_source")}
@@ -51,10 +52,12 @@ func TestWithSoftwareTypeFilterFallback(t *testing.T) {
 		wantErr   error
 	}{
 		{"filter accepted", withSource, []error{nil}, []url.Values{{"source": {"not_a_source"}}}, nil},
-		{"filter rejected, retried without it", withSource, []error{badRequest, nil},
+		{"filter rejected (422), retried without it", withSource, []error{unprocessable, nil},
+			[]url.Values{{"source": {"not_a_source"}}, {}}, nil},
+		{"filter rejected (400), retried without it", withSource, []error{badRequest, nil},
 			[]url.Values{{"source": {"not_a_source"}}, {}}, nil},
 		{"other errors are returned", withSource, []error{forbidden}, []url.Values{{"source": {"not_a_source"}}}, forbidden},
-		{"no filter, no retry", plugin.KeyColumnEqualsQualMap{}, []error{badRequest}, []url.Values{{}}, badRequest},
+		{"no filter, no retry", plugin.KeyColumnEqualsQualMap{}, []error{unprocessable}, []url.Values{{}}, unprocessable},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

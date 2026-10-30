@@ -52,10 +52,11 @@ func is404(err error) bool {
 	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound
 }
 
-// is400 reports whether err is a *FleetAPIError with a 400 status.
-func is400(err error) bool {
+// isInvalidArgument reports whether err is a *FleetAPIError for a rejected
+// parameter: Fleet answers 422, and its docs say 400.
+func isInvalidArgument(err error) bool {
 	var apiErr *FleetAPIError
-	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusBadRequest
+	return errors.As(err, &apiErr) && (apiErr.StatusCode == http.StatusUnprocessableEntity || apiErr.StatusCode == http.StatusBadRequest)
 }
 
 // resolveCompat is the pure decision core behind GetCompat, extracted so it

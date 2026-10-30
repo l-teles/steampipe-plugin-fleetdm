@@ -32,13 +32,13 @@ func softwareTypeFilter(d *plugin.QueryData) url.Values {
 }
 
 // withSoftwareTypeFilter runs list with the software type filter, and again
-// without it when Fleet rejects the filter with a 400 (a source outside its
-// allowlist). Fleet before 4.94 ignores the parameters. Either way Postgres
-// still applies the WHERE clause to the rows returned.
+// without it when Fleet rejects the filter (a source outside its allowlist).
+// Fleet before 4.94 ignores the parameters. Either way Postgres still applies
+// the WHERE clause to the rows returned.
 func withSoftwareTypeFilter(ctx context.Context, d *plugin.QueryData, table string, list func(filter url.Values) error) error {
 	filter := softwareTypeFilter(d)
 	err := list(filter)
-	if len(filter) == 0 || !is400(err) {
+	if len(filter) == 0 || !isInvalidArgument(err) {
 		return err
 	}
 	plugin.Logger(ctx).Warn(table, "software_type_filter_rejected", err)
