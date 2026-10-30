@@ -2,7 +2,7 @@
 
 _What's new?_
 
-- Supports FleetDM up to v4.94.0, including servers before and after the teams→fleets and queries→reports rename (tested on Fleet Premium 4.81, 4.82 and 4.93, and Fleet Free 4.93).
+- Supports FleetDM up to v4.94.0, including servers before and after the teams→fleets and queries→reports rename (tested on Fleet Premium 4.81, 4.82, 4.93 and 4.94, and Fleet Free 4.93).
 - 36 new tables, covering the rest of Fleet's read API:
   - Inventory and configuration: `fleetdm_config`, `fleetdm_enroll_secret`, `fleetdm_invite`, `fleetdm_custom_variable`, `fleetdm_custom_host_vital`, `fleetdm_certificate_authority`, `fleetdm_certificate_template`, `fleetdm_ab_token`, `fleetdm_vpp_token`, `fleetdm_apple_mdm`, `fleetdm_android_enterprise`, `fleetdm_bootstrap_package`, `fleetdm_setup_experience_software`, `fleetdm_software_self_service_category`, `fleetdm_rest_api_endpoint`, `fleetdm_scim_status`
   - Software, scripts and profiles: `fleetdm_vulnerability`, `fleetdm_script`, `fleetdm_configuration_profile`, `fleetdm_query_report`, `fleetdm_label_host`
