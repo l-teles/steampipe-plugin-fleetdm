@@ -3,6 +3,7 @@ package fleetdm
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
 	"strconv"
 
@@ -41,9 +42,9 @@ func tableFleetdmHostSoftware(ctx context.Context) *plugin.Table {
 		Description: "Software on each host, with installed versions, paths and vulnerabilities. Without a host_id filter every host is queried.",
 		List: &plugin.ListConfig{
 			Hydrate: listHostSoftware,
-			KeyColumns: []*plugin.KeyColumn{
+			KeyColumns: append([]*plugin.KeyColumn{
 				{Name: "host_id", Require: plugin.Optional},
-			},
+			}, softwareTypeKeyColumns()...), // source and extension_for (Fleet 4.94+)
 		},
 		Columns: []*plugin.Column{
 			{Name: "host_id", Type: proto.ColumnType_INT, Description: "ID of the host."},
@@ -51,8 +52,8 @@ func tableFleetdmHostSoftware(ctx context.Context) *plugin.Table {
 			{Name: "software_title_id", Type: proto.ColumnType_INT, Transform: transform.FromField("ID"), Description: "ID of the software title."},
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "Name of the software."},
 			{Name: "display_name", Type: proto.ColumnType_STRING, Description: "Custom display name of the software, if set."},
-			{Name: "source", Type: proto.ColumnType_STRING, Description: "Source of the software (e.g. 'apps', 'programs', 'deb_packages', 'chrome_extensions')."},
-			{Name: "extension_for", Type: proto.ColumnType_STRING, Description: "Browser or app the extension belongs to, for extensions."},
+			{Name: "source", Type: proto.ColumnType_STRING, Description: "Source of the software (e.g. 'apps', 'programs', 'deb_packages', 'chrome_extensions'). Filtered by Fleet 4.94+ when set in WHERE clause."},
+			{Name: "extension_for", Type: proto.ColumnType_STRING, Description: "Browser or app the extension belongs to, for extensions. Filtered by Fleet 4.94+ when set in WHERE clause with source."},
 			{Name: "bundle_identifier", Type: proto.ColumnType_STRING, Description: "Bundle identifier (macOS)."},
 			{Name: "status", Type: proto.ColumnType_STRING, Description: "Install status of a Fleet-managed installer, e.g. 'installed', 'pending_install', 'failed_install'."},
 			{Name: "installed_versions", Type: proto.ColumnType_JSON, Description: "Installed versions with paths, signatures, last opened time and vulnerabilities."},
@@ -73,22 +74,27 @@ func listHostSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 	rowCap := perHostRowCap(d) // stop paging a host once LIMIT rows are in
 	err = streamPerHost(ctx, d, client, func(ctx context.Context, host hostRef) ([]HostSoftwareItem, error) {
 		var rows []HostSoftwareItem
-		err := paginateCore(ctx, 100, func(ctx context.Context, page, perPage int) ([]HostSoftwareItem, *ListMeta, error) {
-			params := url.Values{}
-			params.Add("page", strconv.Itoa(page))
-			params.Add("per_page", strconv.Itoa(perPage))
-			var response ListHostSoftwareResponse
-			if err := client.Get(ctx, fmt.Sprintf("hosts/%d/software", host.ID), params, &response); err != nil {
-				return nil, nil, err
-			}
-			return response.Software, response.Meta, nil
-		}, func(s HostSoftwareItem) bool {
-			s.HostID, s.Hostname = host.ID, host.Hostname
-			if !exposed {
-				s.SoftwarePackage = nullURLKeys(s.SoftwarePackage, installerURLKeys...)
-			}
-			rows = append(rows, s)
-			return rowCap == 0 || len(rows) < rowCap
+		// Rows are only emitted once fetch returns, so a retry without the filter cannot duplicate them.
+		err := withSoftwareTypeFilter(ctx, d, "fleetdm_host_software.listHostSoftware", func(filter url.Values) error {
+			rows = nil
+			return paginateCore(ctx, 100, func(ctx context.Context, page, perPage int) ([]HostSoftwareItem, *ListMeta, error) {
+				params := url.Values{}
+				maps.Copy(params, filter)
+				params.Add("page", strconv.Itoa(page))
+				params.Add("per_page", strconv.Itoa(perPage))
+				var response ListHostSoftwareResponse
+				if err := client.Get(ctx, fmt.Sprintf("hosts/%d/software", host.ID), params, &response); err != nil {
+					return nil, nil, err
+				}
+				return response.Software, response.Meta, nil
+			}, func(s HostSoftwareItem) bool {
+				s.HostID, s.Hostname = host.ID, host.Hostname
+				if !exposed {
+					s.SoftwarePackage = nullURLKeys(s.SoftwarePackage, installerURLKeys...)
+				}
+				rows = append(rows, s)
+				return rowCap == 0 || len(rows) < rowCap
+			})
 		})
 		return rows, err
 	})

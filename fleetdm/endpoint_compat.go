@@ -52,6 +52,12 @@ func is404(err error) bool {
 	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound
 }
 
+// is400 reports whether err is a *FleetAPIError with a 400 status.
+func is400(err error) bool {
+	var apiErr *FleetAPIError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusBadRequest
+}
+
 // resolveCompat is the pure decision core behind GetCompat, extracted so it
 // can be unit-tested without SDK plumbing.
 //

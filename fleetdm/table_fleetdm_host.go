@@ -36,6 +36,7 @@ type HostPolicy struct {
 	Resolution            string    `json:"resolution"`
 	Platform              string    `json:"platform"`
 	CalendarEventsEnabled bool      `json:"calendar_events_enabled"`
+	Hidden                bool      `json:"hidden"` // Hidden from end users in Fleet Desktop (Fleet 4.94+)
 	CreatedAt             FleetTime `json:"created_at"`
 	UpdatedAt             FleetTime `json:"updated_at"`
 	Response              string    `json:"response"` // e.g., "pass", "fail"
@@ -293,7 +294,7 @@ func tableFleetdmHost(ctx context.Context) *plugin.Table {
 			{Name: "software_title_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("software_title_id"), Description: "Filter by software title ID. Set in WHERE clause."},
 			{Name: "policy_id", Type: proto.ColumnType_INT, Transform: transform.FromQual("policy_id"), Description: "Filter by policy ID. Set in WHERE clause."},
 			{Name: "policy_response", Type: proto.ColumnType_STRING, Transform: transform.FromQual("policy_response"), Description: "Filter by policy response. Requires policy_id. Options: 'passing', 'failing'. Set in WHERE clause."},
-			{Name: "mdm_enrollment_status", Type: proto.ColumnType_STRING, Transform: transform.FromQual("mdm_enrollment_status"), Description: "Filter by MDM enrollment status: 'manual', 'automatic', 'enrolled', 'pending', 'unenrolled'. Set in WHERE clause."},
+			{Name: "mdm_enrollment_status", Type: proto.ColumnType_STRING, Transform: transform.FromQual("mdm_enrollment_status"), Description: "Filter by MDM enrollment status: 'manual', 'automatic', 'personal', 'manual-personal' (Fleet 4.94+), 'enrolled', 'pending', 'unenrolled'. Set in WHERE clause."},
 			{Name: "low_disk_space", Type: proto.ColumnType_INT, Transform: transform.FromQual("low_disk_space"), Description: "Filter hosts with less than N GB free disk space (1-100, Fleet Premium). Set in WHERE clause."},
 		},
 	}

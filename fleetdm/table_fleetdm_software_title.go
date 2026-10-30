@@ -3,6 +3,7 @@ package fleetdm
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/url"
 	"strconv"
 
@@ -15,7 +16,8 @@ import (
 type SoftwareTitleVersion struct {
 	ID              uint     `json:"id"`
 	Version         string   `json:"version"`
-	Vulnerabilities []string `json:"vulnerabilities"` // List of CVE strings
+	Release         string   `json:"release,omitempty"` // e.g. RPM release or the Go toolchain of a Go binary
+	Vulnerabilities []string `json:"vulnerabilities"`   // List of CVE strings
 	HostsCount      *uint    `json:"hosts_count,omitempty"`
 }
 
@@ -36,6 +38,7 @@ type SoftwareTitle struct {
 	Packages         interface{}            `json:"packages"`     // All installer packages, first-added first
 	UpgradeCode      *string                `json:"upgrade_code"` // Windows MSI upgrade code
 	AppStoreApp      interface{}            `json:"app_store_app"`
+	AppStoreApps     interface{}            `json:"app_store_apps"` // Every App Store version on the team (Fleet 4.94+)
 	BundleIdentifier *string                `json:"bundle_identifier"`
 	CountsUpdatedAt  *FleetTime             `json:"counts_updated_at"`
 }
@@ -44,13 +47,16 @@ type SoftwareTitle struct {
 // which can embed credentials.
 var installerURLKeys = []string{"package_url", "url"}
 
-// redactInstallerURLs nulls installer URLs unless expose_secrets is set.
+// redactInstallerURLs nulls installer URLs, and the managed configuration of
+// App Store apps (which can hold app credentials), unless expose_secrets is set.
 func redactInstallerURLs(d *plugin.QueryData, t *SoftwareTitle) {
 	if secretsExposed(d) {
 		return
 	}
 	t.SoftwarePackage = nullURLKeys(t.SoftwarePackage, installerURLKeys...)
 	t.Packages = nullURLKeysEach(t.Packages, installerURLKeys...)
+	t.AppStoreApp = nullURLKeys(t.AppStoreApp, "configuration")
+	t.AppStoreApps = nullURLKeysEach(t.AppStoreApps, "configuration")
 }
 
 // ListSoftwareTitlesResponse is the expected structure for the list software titles API call.
@@ -67,7 +73,7 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 		Description: "Software titles from FleetDM. A software title groups multiple versions of the same software. Uses the /software/titles endpoint.",
 		List: &plugin.ListConfig{
 			Hydrate: listSoftwareTitles,
-			KeyColumns: []*plugin.KeyColumn{
+			KeyColumns: append([]*plugin.KeyColumn{
 				{Name: "id", Require: plugin.Optional},                            // Alone or with team_id, fetched directly
 				{Name: "vulnerable_only", Require: plugin.Optional},               // Filter for vulnerable software
 				{Name: "team_id", Require: plugin.Optional},                       // Filter by team ID (Fleet Premium)
@@ -80,7 +86,7 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 				{Name: "exploit", Require: plugin.Optional},                       // Filter for CISA known exploits (Fleet Premium)
 				{Name: "platform", Require: plugin.Optional},                      // Filter by platform (requires team_id)
 				{Name: "exclude_fleet_maintained_apps", Require: plugin.Optional}, // Exclude Fleet-maintained apps
-			},
+			}, softwareTypeKeyColumns()...), // source and extension_for (Fleet 4.94+)
 		},
 		Columns: []*plugin.Column{
 			// Core software title information
@@ -88,19 +94,20 @@ func tableFleetdmSoftwareTitle(ctx context.Context) *plugin.Table {
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "Name of the software title."},
 			{Name: "display_name", Type: proto.ColumnType_STRING, Description: "Display name of the software title."},
 			{Name: "icon_url", Type: proto.ColumnType_STRING, Transform: transform.FromField("IconURL"), Description: "URL of the software icon."},
-			{Name: "source", Type: proto.ColumnType_STRING, Description: "Source of the software information (e.g., 'apps', 'deb_packages', 'chrome_extensions')."},
-			{Name: "extension_for", Type: proto.ColumnType_STRING, Description: "If a browser extension, specifies which software it extends."},
+			{Name: "source", Type: proto.ColumnType_STRING, Description: "Source of the software information (e.g., 'apps', 'deb_packages', 'chrome_extensions'). Filtered by Fleet 4.94+ when set in WHERE clause."},
+			{Name: "extension_for", Type: proto.ColumnType_STRING, Description: "If a browser or IDE extension, specifies which software it extends. Filtered by Fleet 4.94+ when set in WHERE clause with source."},
 			{Name: "browser", Type: proto.ColumnType_STRING, Description: "Browser name for browser extensions."},
 			{Name: "hosts_count", Type: proto.ColumnType_INT, Description: "Number of hosts where this software title is installed."},
 			{Name: "versions_count", Type: proto.ColumnType_INT, Description: "Number of distinct versions of this software title."},
 			{Name: "bundle_identifier", Type: proto.ColumnType_STRING, Description: "Bundle identifier, typically for macOS and iOS software."},
 
 			// Complex nested objects stored as JSON
-			{Name: "versions", Type: proto.ColumnType_JSON, Description: "List of versions for this software title, including version IDs and associated vulnerabilities."},
+			{Name: "versions", Type: proto.ColumnType_JSON, Description: "List of versions for this software title, including version IDs, release and associated vulnerabilities."},
 			{Name: "software_package", Type: proto.ColumnType_JSON, Description: "Software package details if the software was added for install. Installer URLs are null unless expose_secrets = true, as they can embed credentials."},
 			{Name: "packages", Type: proto.ColumnType_JSON, Description: "All installer packages uploaded for this title, first-added first. software_package only holds the first one. Installer URLs are null unless expose_secrets = true."},
 			{Name: "upgrade_code", Type: proto.ColumnType_STRING, Description: "Windows MSI upgrade code, when known."},
-			{Name: "app_store_app", Type: proto.ColumnType_JSON, Description: "App Store app details if the software is from an app store."},
+			{Name: "app_store_app", Type: proto.ColumnType_JSON, Description: "App Store app details if the software is from an app store; the first-added version when there are several. configuration is null unless expose_secrets = true, as it can hold app credentials."},
+			{Name: "app_store_apps", Type: proto.ColumnType_JSON, Description: "Every App Store version added to the team (Fleet 4.94+). Only set when filtering by id and team_id. configuration is null unless expose_secrets = true."},
 
 			// Query parameters that can be used for filtering (key columns)
 			{Name: "vulnerable_only", Type: proto.ColumnType_BOOL, Transform: transform.FromQual("vulnerable_only"), Description: "Filter for software titles with known vulnerabilities. Set in WHERE clause."},
@@ -131,64 +138,67 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 	}
 
 	// Bulk endpoint: large pages keep the page count low on big inventories.
-	err = paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]SoftwareTitle, *ListMeta, error) {
-		params := url.Values{}
-		params.Add("page", strconv.Itoa(page))
-		params.Add("per_page", strconv.Itoa(perPage))
-		params.Add("order_key", "hosts_count")
-		params.Add("order_direction", "desc")
+	err = withSoftwareTypeFilter(ctx, d, "fleetdm_software_title.listSoftwareTitles", func(filter url.Values) error {
+		return paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]SoftwareTitle, *ListMeta, error) {
+			params := url.Values{}
+			maps.Copy(params, filter)
+			params.Add("page", strconv.Itoa(page))
+			params.Add("per_page", strconv.Itoa(perPage))
+			params.Add("order_key", "hosts_count")
+			params.Add("order_direction", "desc")
 
-		if d.EqualsQuals["vulnerable_only"] != nil {
-			params.Add("vulnerable", strconv.FormatBool(d.EqualsQuals["vulnerable_only"].GetBoolValue()))
-		}
-		if d.EqualsQuals["team_id"] != nil {
-			client.addFleetIDParam(ctx, d, params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
-		}
-		if d.EqualsQuals["available_for_install"] != nil {
-			params.Add("available_for_install", strconv.FormatBool(d.EqualsQuals["available_for_install"].GetBoolValue()))
-		}
-		if d.EqualsQuals["query"] != nil {
-			params.Add("query", d.EqualsQuals["query"].GetStringValue())
-		}
-		if d.EqualsQuals["self_service"] != nil {
-			params.Add("self_service", strconv.FormatBool(d.EqualsQuals["self_service"].GetBoolValue()))
-		}
-		if d.EqualsQuals["packages_only"] != nil {
-			params.Add("packages_only", strconv.FormatBool(d.EqualsQuals["packages_only"].GetBoolValue()))
-		}
+			if d.EqualsQuals["vulnerable_only"] != nil {
+				params.Add("vulnerable", strconv.FormatBool(d.EqualsQuals["vulnerable_only"].GetBoolValue()))
+			}
+			if d.EqualsQuals["team_id"] != nil {
+				client.addFleetIDParam(ctx, d, params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			}
+			if d.EqualsQuals["available_for_install"] != nil {
+				params.Add("available_for_install", strconv.FormatBool(d.EqualsQuals["available_for_install"].GetBoolValue()))
+			}
+			if d.EqualsQuals["query"] != nil {
+				params.Add("query", d.EqualsQuals["query"].GetStringValue())
+			}
+			if d.EqualsQuals["self_service"] != nil {
+				params.Add("self_service", strconv.FormatBool(d.EqualsQuals["self_service"].GetBoolValue()))
+			}
+			if d.EqualsQuals["packages_only"] != nil {
+				params.Add("packages_only", strconv.FormatBool(d.EqualsQuals["packages_only"].GetBoolValue()))
+			}
 
-		// The API requires vulnerable=true when using min_cvss_score, max_cvss_score, or exploit.
-		// Auto-set vulnerable=true if any of these are specified and vulnerable_only was not explicitly set.
-		hasCVSSOrExploit := d.EqualsQuals["min_cvss_score"] != nil || d.EqualsQuals["max_cvss_score"] != nil || d.EqualsQuals["exploit"] != nil
-		if hasCVSSOrExploit && d.EqualsQuals["vulnerable_only"] == nil {
-			params.Add("vulnerable", "true")
-		}
+			// The API requires vulnerable=true when using min_cvss_score, max_cvss_score, or exploit.
+			// Auto-set vulnerable=true if any of these are specified and vulnerable_only was not explicitly set.
+			hasCVSSOrExploit := d.EqualsQuals["min_cvss_score"] != nil || d.EqualsQuals["max_cvss_score"] != nil || d.EqualsQuals["exploit"] != nil
+			if hasCVSSOrExploit && d.EqualsQuals["vulnerable_only"] == nil {
+				params.Add("vulnerable", "true")
+			}
 
-		if d.EqualsQuals["min_cvss_score"] != nil {
-			params.Add("min_cvss_score", strconv.FormatFloat(d.EqualsQuals["min_cvss_score"].GetDoubleValue(), 'f', -1, 64))
-		}
-		if d.EqualsQuals["max_cvss_score"] != nil {
-			params.Add("max_cvss_score", strconv.FormatFloat(d.EqualsQuals["max_cvss_score"].GetDoubleValue(), 'f', -1, 64))
-		}
-		if d.EqualsQuals["exploit"] != nil {
-			params.Add("exploit", strconv.FormatBool(d.EqualsQuals["exploit"].GetBoolValue()))
-		}
-		if d.EqualsQuals["platform"] != nil {
-			params.Add("platform", d.EqualsQuals["platform"].GetStringValue())
-		}
-		if d.EqualsQuals["exclude_fleet_maintained_apps"] != nil {
-			params.Add("exclude_fleet_maintained_apps", strconv.FormatBool(d.EqualsQuals["exclude_fleet_maintained_apps"].GetBoolValue()))
-		}
+			if d.EqualsQuals["min_cvss_score"] != nil {
+				params.Add("min_cvss_score", strconv.FormatFloat(d.EqualsQuals["min_cvss_score"].GetDoubleValue(), 'f', -1, 64))
+			}
+			if d.EqualsQuals["max_cvss_score"] != nil {
+				params.Add("max_cvss_score", strconv.FormatFloat(d.EqualsQuals["max_cvss_score"].GetDoubleValue(), 'f', -1, 64))
+			}
+			if d.EqualsQuals["exploit"] != nil {
+				params.Add("exploit", strconv.FormatBool(d.EqualsQuals["exploit"].GetBoolValue()))
+			}
+			if d.EqualsQuals["platform"] != nil {
+				params.Add("platform", d.EqualsQuals["platform"].GetStringValue())
+			}
+			if d.EqualsQuals["exclude_fleet_maintained_apps"] != nil {
+				params.Add("exclude_fleet_maintained_apps", strconv.FormatBool(d.EqualsQuals["exclude_fleet_maintained_apps"].GetBoolValue()))
+			}
 
-		var response ListSoftwareTitlesResponse
-		if err := client.Get(ctx, "software/titles", params, &response); err != nil {
-			plugin.Logger(ctx).Error("fleetdm_software_title.listSoftwareTitles", "api_error", err, "page", page, "params", params.Encode())
-			return nil, nil, err
-		}
-		for i := range response.SoftwareTitles {
-			redactInstallerURLs(d, &response.SoftwareTitles[i])
-		}
-		return response.SoftwareTitles, response.Meta, nil
+			var response ListSoftwareTitlesResponse
+			if err := client.Get(ctx, "software/titles", params, &response); err != nil {
+				plugin.Logger(ctx).Error("fleetdm_software_title.listSoftwareTitles", "api_error", err, "page", page, "params", params.Encode())
+				return nil, nil, err
+			}
+			for i := range response.SoftwareTitles {
+				redactInstallerURLs(d, &response.SoftwareTitles[i])
+			}
+			return response.SoftwareTitles, response.Meta, nil
+		})
 	})
 	if err != nil {
 		return nil, err

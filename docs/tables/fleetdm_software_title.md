@@ -21,15 +21,16 @@ The `fleetdm_software_title` table provides aggregated insights into your softwa
 | name                          | `TEXT`    | Name of the software title.                                                                                                                        |
 | display_name                  | `TEXT`    | Display name of the software title.                                                                                                                |
 | icon_url                      | `TEXT`    | URL of the software icon.                                                                                                                          |
-| source                        | `TEXT`    | Source of the software information (e.g., 'apps', 'deb_packages', 'chrome_extensions').                                                            |
-| extension_for                 | `TEXT`    | If a browser extension, specifies which software it extends.                                                                                       |
+| source                        | `TEXT`    | Source of the software information (e.g., 'apps', 'deb_packages', 'chrome_extensions'). Filtered by Fleet 4.94+ when used in `WHERE` clause.       |
+| extension_for                 | `TEXT`    | If a browser or IDE extension, specifies which software it extends. Filtered by Fleet 4.94+ when used in `WHERE` clause with `source`.             |
 | browser                       | `TEXT`    | Browser name for browser extensions.                                                                                                               |
 | hosts_count                   | `INT`     | Number of hosts where this software title is installed.                                                                                            |
 | versions_count                | `INT`     | Number of distinct versions of this software title.                                                                                                |
 | bundle_identifier             | `TEXT`    | Bundle identifier, typically for macOS and iOS software.                                                                                           |
-| versions                      | `JSONB`   | List of versions for this software title, including version IDs and associated vulnerabilities.                                                    |
+| versions                      | `JSONB`   | List of versions for this software title, including version IDs, release and associated vulnerabilities.                                           |
 | software_package              | `JSONB`   | Software package details if the software was added for install.                                                                                    |
-| app_store_app                 | `JSONB`   | App Store app details if the software is from an app store.                                                                                        |
+| app_store_app                 | `JSONB`   | App Store app details; the first-added version when there are several. `configuration` is null unless `expose_secrets = true`.                     |
+| app_store_apps                | `JSONB`   | Every App Store version added to the team (Fleet 4.94+). Only set when filtering by `id` and `team_id`.                                            |
 | vulnerable_only               | `BOOLEAN` | (Key Column) Filter for software titles with known vulnerabilities. Use in `WHERE` clause.                                                         |
 | team_id                       | `INT`     | (Key Column) Filter by team ID (Fleet Premium). Use 0 for hosts assigned to 'No team'. Use in `WHERE` clause.                                      |
 | available_for_install         | `BOOLEAN` | (Key Column) Filter for software available for install (added by the user). Use in `WHERE` clause.                                                 |
@@ -330,4 +331,32 @@ where
   and platform = 'darwin'
 order by
   name;
+```
+
+### List VS Code extensions
+
+On Fleet 4.94+ a `source` filter (and `extension_for`, with `source`) is applied by Fleet, so only matching titles are fetched.
+
+```sql+postgres
+select
+  name,
+  extension_for,
+  hosts_count
+from
+  fleetdm_software_title
+where
+  source = 'vscode_extensions'
+  and extension_for = 'cursor';
+```
+
+```sql+sqlite
+select
+  name,
+  extension_for,
+  hosts_count
+from
+  fleetdm_software_title
+where
+  source = 'vscode_extensions'
+  and extension_for = 'cursor';
 ```

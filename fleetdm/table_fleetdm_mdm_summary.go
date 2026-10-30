@@ -16,12 +16,13 @@ import (
 type MDMEnrollmentSummary struct {
 	CountsUpdatedAt  FleetTime `json:"counts_updated_at"`
 	EnrollmentStatus struct {
-		EnrolledManualHostsCount    int `json:"enrolled_manual_hosts_count"`
-		EnrolledAutomatedHostsCount int `json:"enrolled_automated_hosts_count"`
-		EnrolledPersonalHostsCount  int `json:"enrolled_personal_hosts_count"`
-		PendingHostsCount           int `json:"pending_hosts_count"`
-		UnenrolledHostsCount        int `json:"unenrolled_hosts_count"`
-		HostsCount                  int `json:"hosts_count"`
+		EnrolledManualHostsCount         int `json:"enrolled_manual_hosts_count"`
+		EnrolledAutomatedHostsCount      int `json:"enrolled_automated_hosts_count"`
+		EnrolledPersonalHostsCount       int `json:"enrolled_personal_hosts_count"`
+		EnrolledManualPersonalHostsCount int `json:"enrolled_manual_personal_hosts_count"` // Fleet 4.94+
+		PendingHostsCount                int `json:"pending_hosts_count"`
+		UnenrolledHostsCount             int `json:"unenrolled_hosts_count"`
+		HostsCount                       int `json:"hosts_count"`
 	} `json:"mobile_device_management_enrollment_status"`
 	Solutions json.RawMessage `json:"mobile_device_management_solution"`
 }
@@ -41,7 +42,8 @@ func tableFleetdmMDMSummary(ctx context.Context) *plugin.Table {
 			{Name: "hosts_count", Type: proto.ColumnType_INT, Transform: transform.FromField("EnrollmentStatus.HostsCount"), Description: "Number of hosts counted."},
 			{Name: "enrolled_manual_hosts_count", Type: proto.ColumnType_INT, Transform: transform.FromField("EnrollmentStatus.EnrolledManualHostsCount"), Description: "Hosts enrolled in MDM manually."},
 			{Name: "enrolled_automated_hosts_count", Type: proto.ColumnType_INT, Transform: transform.FromField("EnrollmentStatus.EnrolledAutomatedHostsCount"), Description: "Hosts enrolled in MDM automatically (ADE/Autopilot)."},
-			{Name: "enrolled_personal_hosts_count", Type: proto.ColumnType_INT, Transform: transform.FromField("EnrollmentStatus.EnrolledPersonalHostsCount"), Description: "Personally owned hosts enrolled in MDM."},
+			{Name: "enrolled_personal_hosts_count", Type: proto.ColumnType_INT, Transform: transform.FromField("EnrollmentStatus.EnrolledPersonalHostsCount"), Description: "Personally owned hosts enrolled with a Managed Apple Account or an Android work profile. Before Fleet 4.94 this also counted hosts enrolled with a personal enrollment profile."},
+			{Name: "enrolled_manual_personal_hosts_count", Type: proto.ColumnType_INT, Transform: transform.FromField("EnrollmentStatus.EnrolledManualPersonalHostsCount"), Description: "Hosts enrolled with a personal enrollment profile (Fleet 4.94+)."},
 			{Name: "pending_hosts_count", Type: proto.ColumnType_INT, Transform: transform.FromField("EnrollmentStatus.PendingHostsCount"), Description: "Hosts with a pending MDM enrollment."},
 			{Name: "unenrolled_hosts_count", Type: proto.ColumnType_INT, Transform: transform.FromField("EnrollmentStatus.UnenrolledHostsCount"), Description: "Hosts not enrolled in MDM."},
 			{Name: "mdm_solutions", Type: proto.ColumnType_JSON, Transform: transform.FromField("Solutions"), Description: "Host counts per MDM solution (server URL)."},

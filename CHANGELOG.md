@@ -2,7 +2,7 @@
 
 _What's new?_
 
-- Supports FleetDM up to v4.93.0, including servers before and after the teams→fleets and queries→reports rename (tested on Fleet Premium 4.81, 4.82 and 4.93, and Fleet Free 4.93).
+- Supports FleetDM up to v4.94.0, including servers before and after the teams→fleets and queries→reports rename (tested on Fleet Premium 4.81, 4.82 and 4.93, and Fleet Free 4.93).
 - 36 new tables, covering the rest of Fleet's read API:
   - Inventory and configuration: `fleetdm_config`, `fleetdm_enroll_secret`, `fleetdm_invite`, `fleetdm_custom_variable`, `fleetdm_custom_host_vital`, `fleetdm_certificate_authority`, `fleetdm_certificate_template`, `fleetdm_ab_token`, `fleetdm_vpp_token`, `fleetdm_apple_mdm`, `fleetdm_android_enterprise`, `fleetdm_bootstrap_package`, `fleetdm_setup_experience_software`, `fleetdm_software_self_service_category`, `fleetdm_rest_api_endpoint`, `fleetdm_scim_status`
   - Software, scripts and profiles: `fleetdm_vulnerability`, `fleetdm_script`, `fleetdm_configuration_profile`, `fleetdm_query_report`, `fleetdm_label_host`
@@ -10,10 +10,12 @@ _What's new?_
   - Per host: `fleetdm_host_software`, `fleetdm_host_script`, `fleetdm_host_configuration_profile`, `fleetdm_host_certificate`, `fleetdm_host_macadmins`, `fleetdm_host_activity`, `fleetdm_host_upcoming_activity`
   - Results: `fleetdm_mdm_command`, `fleetdm_mdm_command_result`, `fleetdm_script_result`, `fleetdm_software_install_result`
 - New columns on existing tables for fields Fleet added up to 4.93 (host time zone, disk encryption and end users; policy type, conditional access and label scoping; user last login and MFA; team settings; and more).
+- New columns for Fleet 4.94: `description`, `self_service` and `hidden` on `fleetdm_configuration_profile`, `self_service` and `hidden` on `fleetdm_host_configuration_profile`, `hidden` on `fleetdm_policy` (and in host policies), `enrolled_manual_personal_hosts_count` on `fleetdm_mdm_summary`, `software_display_name` on `fleetdm_software_install_result`, `app_store_apps` on `fleetdm_software_title`, and `staged_upload_available` and `auth` on `fleetdm_config`.
+- `source` and `extension_for` filters on `fleetdm_software_title`, `fleetdm_software_version` and `fleetdm_host_software` are sent to Fleet 4.94+, so only matching software is fetched.
 - Lookups by ID (`where id = ...`) on 12 tables now make a single request instead of listing everything; other filters in the same query still apply.
 - `fleetdm_host` only asks Fleet for policies, users, labels, device mapping and end users when those columns are selected.
 - New `max_requests_per_second` connection option that spaces out every API request the connection makes, including paging and per-host requests.
-- More data is gated behind `expose_secrets`: enroll secrets, webhook/integration/logging settings, URLs that can embed credentials (team software, the GitOps repository, installer packages), MDM command payloads, script/install outputs, and stored query results.
+- More data is gated behind `expose_secrets`: App Store app configuration on `fleetdm_software_title`, enroll secrets, webhook/integration/logging settings, URLs that can embed credentials (team software, the GitOps repository, installer packages), MDM command payloads, script/install outputs, and stored query results.
 - Listing tables that cover every team now work with an API token scoped to some teams, and skip a team deleted while the query runs.
 - Transient network errors (timeouts, reset connections) are retried like rate limits and server errors.
 

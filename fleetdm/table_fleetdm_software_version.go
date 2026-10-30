@@ -2,6 +2,7 @@ package fleetdm
 
 import (
 	"context"
+	"maps"
 	"net/url"
 	"strconv"
 
@@ -89,28 +90,28 @@ func tableFleetdmSoftwareVersion(ctx context.Context) *plugin.Table {
 		Description: "Software versions inventory from FleetDM. Uses the /software/versions endpoint.",
 		List: &plugin.ListConfig{
 			Hydrate: listSoftwareVersions,
-			KeyColumns: []*plugin.KeyColumn{
+			KeyColumns: append([]*plugin.KeyColumn{
 				{Name: "vulnerable_only", Require: plugin.Optional}, // Filter for vulnerable software
 				{Name: "team_id", Require: plugin.Optional},         // Filter by team ID (Fleet Premium)
 				{Name: "query", Require: plugin.Optional},           // Search by name, version, or CVE
 				{Name: "min_cvss_score", Require: plugin.Optional},  // Min CVSS v3.x base score (Fleet Premium)
 				{Name: "max_cvss_score", Require: plugin.Optional},  // Max CVSS v3.x base score (Fleet Premium)
 				{Name: "exploit", Require: plugin.Optional},         // Filter for CISA known exploits (Fleet Premium)
-			},
+			}, softwareTypeKeyColumns()...), // source and extension_for (Fleet 4.94+)
 		},
 		Columns: []*plugin.Column{
 			// Core software information
 			{Name: "id", Type: proto.ColumnType_INT, Description: "Unique ID of the software item."},
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "Name of the software."},
 			{Name: "version", Type: proto.ColumnType_STRING, Description: "Version of the software."},
-			{Name: "source", Type: proto.ColumnType_STRING, Description: "Source of the software information (e.g., 'apps', 'deb_packages', 'chrome_extensions')."},
+			{Name: "source", Type: proto.ColumnType_STRING, Description: "Source of the software information (e.g., 'apps', 'deb_packages', 'chrome_extensions'). Filtered by Fleet 4.94+ when set in WHERE clause."},
 			{Name: "host_count", Type: proto.ColumnType_INT, Transform: transform.FromField("HostCount"), Description: "Number of hosts where this software is installed."},
 			{Name: "generated_cpe", Type: proto.ColumnType_STRING, Transform: transform.FromField("GeneratedCPE"), Description: "Generated Common Platform Enumeration (CPE) string for the software."},
 			{Name: "bundle_identifier", Type: proto.ColumnType_STRING, Description: "Bundle identifier, typically for macOS and iOS software."},
 			{Name: "upgrade_code", Type: proto.ColumnType_STRING, Description: "Windows installer upgrade code."},
 			{Name: "display_name", Type: proto.ColumnType_STRING, Description: "Display name for the software."},
-			{Name: "extension_for", Type: proto.ColumnType_STRING, Description: "For browser extensions - indicates which application the extension is for."},
-			{Name: "release", Type: proto.ColumnType_STRING, Description: "Release information, e.g., for RPM packages."},
+			{Name: "extension_for", Type: proto.ColumnType_STRING, Description: "For browser and IDE extensions - indicates which application the extension is for. Filtered by Fleet 4.94+ when set in WHERE clause with source."},
+			{Name: "release", Type: proto.ColumnType_STRING, Description: "Release information, e.g. the package release for RPM packages or the Go toolchain version for Go binaries."},
 			{Name: "vendor", Type: proto.ColumnType_STRING, Description: "Vendor information, e.g., for RPM packages."},
 			{Name: "arch", Type: proto.ColumnType_STRING, Description: "Architecture information, e.g., for RPM packages."},
 			{Name: "extension_id", Type: proto.ColumnType_STRING, Description: "Extension ID for browser extensions."},
@@ -140,46 +141,49 @@ func listSoftwareVersions(ctx context.Context, d *plugin.QueryData, h *plugin.Hy
 	}
 
 	// Bulk endpoint: large pages keep the page count low on big inventories.
-	err = paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]Software, *ListMeta, error) {
-		params := url.Values{}
-		params.Add("page", strconv.Itoa(page))
-		params.Add("per_page", strconv.Itoa(perPage))
-		params.Add("order_key", "id")
-		params.Add("order_direction", "asc")
+	err = withSoftwareTypeFilter(ctx, d, "fleetdm_software_version.listSoftwareVersions", func(filter url.Values) error {
+		return paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]Software, *ListMeta, error) {
+			params := url.Values{}
+			maps.Copy(params, filter)
+			params.Add("page", strconv.Itoa(page))
+			params.Add("per_page", strconv.Itoa(perPage))
+			params.Add("order_key", "id")
+			params.Add("order_direction", "asc")
 
-		if d.EqualsQuals["vulnerable_only"] != nil {
-			params.Add("vulnerable", strconv.FormatBool(d.EqualsQuals["vulnerable_only"].GetBoolValue()))
-		}
-		if d.EqualsQuals["team_id"] != nil {
-			client.addFleetIDParam(ctx, d, params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
-		}
-		if d.EqualsQuals["query"] != nil {
-			params.Add("query", d.EqualsQuals["query"].GetStringValue())
-		}
+			if d.EqualsQuals["vulnerable_only"] != nil {
+				params.Add("vulnerable", strconv.FormatBool(d.EqualsQuals["vulnerable_only"].GetBoolValue()))
+			}
+			if d.EqualsQuals["team_id"] != nil {
+				client.addFleetIDParam(ctx, d, params, strconv.FormatInt(d.EqualsQuals["team_id"].GetInt64Value(), 10))
+			}
+			if d.EqualsQuals["query"] != nil {
+				params.Add("query", d.EqualsQuals["query"].GetStringValue())
+			}
 
-		// The API requires vulnerable=true when using min_cvss_score, max_cvss_score, or exploit.
-		// Auto-set vulnerable=true if any of these are specified and vulnerable_only was not explicitly set.
-		hasCVSSOrExploit := d.EqualsQuals["min_cvss_score"] != nil || d.EqualsQuals["max_cvss_score"] != nil || d.EqualsQuals["exploit"] != nil
-		if hasCVSSOrExploit && d.EqualsQuals["vulnerable_only"] == nil {
-			params.Add("vulnerable", "true")
-		}
+			// The API requires vulnerable=true when using min_cvss_score, max_cvss_score, or exploit.
+			// Auto-set vulnerable=true if any of these are specified and vulnerable_only was not explicitly set.
+			hasCVSSOrExploit := d.EqualsQuals["min_cvss_score"] != nil || d.EqualsQuals["max_cvss_score"] != nil || d.EqualsQuals["exploit"] != nil
+			if hasCVSSOrExploit && d.EqualsQuals["vulnerable_only"] == nil {
+				params.Add("vulnerable", "true")
+			}
 
-		if d.EqualsQuals["min_cvss_score"] != nil {
-			params.Add("min_cvss_score", strconv.FormatFloat(d.EqualsQuals["min_cvss_score"].GetDoubleValue(), 'f', -1, 64))
-		}
-		if d.EqualsQuals["max_cvss_score"] != nil {
-			params.Add("max_cvss_score", strconv.FormatFloat(d.EqualsQuals["max_cvss_score"].GetDoubleValue(), 'f', -1, 64))
-		}
-		if d.EqualsQuals["exploit"] != nil {
-			params.Add("exploit", strconv.FormatBool(d.EqualsQuals["exploit"].GetBoolValue()))
-		}
+			if d.EqualsQuals["min_cvss_score"] != nil {
+				params.Add("min_cvss_score", strconv.FormatFloat(d.EqualsQuals["min_cvss_score"].GetDoubleValue(), 'f', -1, 64))
+			}
+			if d.EqualsQuals["max_cvss_score"] != nil {
+				params.Add("max_cvss_score", strconv.FormatFloat(d.EqualsQuals["max_cvss_score"].GetDoubleValue(), 'f', -1, 64))
+			}
+			if d.EqualsQuals["exploit"] != nil {
+				params.Add("exploit", strconv.FormatBool(d.EqualsQuals["exploit"].GetBoolValue()))
+			}
 
-		var response ListSoftwareResponse
-		if err := client.Get(ctx, "software/versions", params, &response); err != nil {
-			plugin.Logger(ctx).Error("fleetdm_software_version.listSoftwareVersions", "api_error", err, "page", page, "params", params.Encode())
-			return nil, nil, err
-		}
-		return response.Software, response.Meta, nil
+			var response ListSoftwareResponse
+			if err := client.Get(ctx, "software/versions", params, &response); err != nil {
+				plugin.Logger(ctx).Error("fleetdm_software_version.listSoftwareVersions", "api_error", err, "page", page, "params", params.Encode())
+				return nil, nil, err
+			}
+			return response.Software, response.Meta, nil
+		})
 	})
 	if err != nil {
 		return nil, err
