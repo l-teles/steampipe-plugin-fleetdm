@@ -542,12 +542,21 @@ func paginateCore[T any](ctx context.Context, perPage int, fetch fetchPageFunc[T
 // functions: it sizes per_page from the query's LIMIT when smaller, streams
 // every item, and stops as soon as the SDK reports no rows remaining.
 func paginatedList[T any](ctx context.Context, d *plugin.QueryData, defaultPerPage int, fetch fetchPageFunc[T]) error {
+	return paginatedListWhere(ctx, d, defaultPerPage, fetch, nil)
+}
+
+// paginatedListWhere is paginatedList that streams only the items keep accepts
+// (all of them when keep is nil), so skipped items never count towards LIMIT.
+// per_page is not sized from LIMIT when filtering, as pages may hold no matches.
+func paginatedListWhere[T any](ctx context.Context, d *plugin.QueryData, defaultPerPage int, fetch fetchPageFunc[T], keep func(T) bool) error {
 	perPage := defaultPerPage
-	if limit := d.QueryContext.Limit; limit != nil && *limit > 0 && *limit < int64(perPage) {
+	if limit := d.QueryContext.Limit; keep == nil && limit != nil && *limit > 0 && *limit < int64(perPage) {
 		perPage = int(*limit)
 	}
 	return paginateCore(ctx, perPage, fetch, func(item T) bool {
-		d.StreamListItem(ctx, item)
+		if keep == nil || keep(item) {
+			d.StreamListItem(ctx, item)
+		}
 		return d.RowsRemaining(ctx) > 0
 	})
 }

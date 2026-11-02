@@ -72,6 +72,7 @@ func listHostSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 	}
 	exposed := secretsExposed(d)
 	rowCap := perHostRowCap(d) // stop paging a host once LIMIT rows are in
+	match := softwareTypeMatcher(d)
 	err = streamPerHost(ctx, d, client, func(ctx context.Context, host hostRef) ([]HostSoftwareItem, error) {
 		var rows []HostSoftwareItem
 		// Rows are only emitted once fetch returns, so a retry without the filter cannot duplicate them.
@@ -88,6 +89,9 @@ func listHostSoftware(ctx context.Context, d *plugin.QueryData, h *plugin.Hydrat
 				}
 				return response.Software, response.Meta, nil
 			}, func(s HostSoftwareItem) bool {
+				if match != nil && !match(s.Source, &s.ExtensionFor) {
+					return true
+				}
 				s.HostID, s.Hostname = host.ID, host.Hostname
 				if !exposed {
 					s.SoftwarePackage = nullURLKeys(s.SoftwarePackage, installerURLKeys...)

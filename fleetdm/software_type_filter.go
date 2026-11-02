@@ -31,10 +31,27 @@ func softwareTypeFilter(d *plugin.QueryData) url.Values {
 	return params
 }
 
+// softwareTypeMatcher reports whether a row matches the source and
+// extension_for quals, or is nil without them. Fleet before 4.94 ignores the
+// filter and the fallback drops it, so rows are matched here too: rows Postgres
+// would discard must not count towards a pushed-down LIMIT. A nil
+// extensionFor is NULL, which matches nothing.
+func softwareTypeMatcher(d *plugin.QueryData) func(source string, extensionFor *string) bool {
+	source, ext := d.EqualsQuals["source"], d.EqualsQuals["extension_for"]
+	if source == nil && ext == nil {
+		return nil
+	}
+	return func(s string, e *string) bool {
+		if source != nil && s != source.GetStringValue() {
+			return false
+		}
+		return ext == nil || (e != nil && *e == ext.GetStringValue())
+	}
+}
+
 // withSoftwareTypeFilter runs list with the software type filter, and again
 // without it when Fleet rejects the filter (a source outside its allowlist).
-// Fleet before 4.94 ignores the parameters. Either way Postgres still applies
-// the WHERE clause to the rows returned.
+// Callers still match rows with softwareTypeMatcher.
 func withSoftwareTypeFilter(ctx context.Context, d *plugin.QueryData, table string, list func(filter url.Values) error) error {
 	filter := softwareTypeFilter(d)
 	err := list(filter)

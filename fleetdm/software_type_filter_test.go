@@ -38,6 +38,36 @@ func TestSoftwareTypeFilter(t *testing.T) {
 	}
 }
 
+func TestSoftwareTypeMatcher(t *testing.T) {
+	brave, empty := "brave", ""
+	if softwareTypeMatcher(&plugin.QueryData{EqualsQuals: plugin.KeyColumnEqualsQualMap{}}) != nil {
+		t.Fatal("matcher without quals should be nil")
+	}
+	cases := []struct {
+		name   string
+		quals  plugin.KeyColumnEqualsQualMap
+		source string
+		ext    *string
+		want   bool
+	}{
+		{"source match", plugin.KeyColumnEqualsQualMap{"source": stringQual("apps")}, "apps", &empty, true},
+		{"source mismatch", plugin.KeyColumnEqualsQualMap{"source": stringQual("apps")}, "programs", &empty, false},
+		{"source is case-sensitive", plugin.KeyColumnEqualsQualMap{"source": stringQual("apps")}, "Apps", &empty, false},
+		{"both match", plugin.KeyColumnEqualsQualMap{"source": stringQual("chrome_extensions"), "extension_for": stringQual("brave")}, "chrome_extensions", &brave, true},
+		{"extension mismatch", plugin.KeyColumnEqualsQualMap{"source": stringQual("chrome_extensions"), "extension_for": stringQual("vivaldi")}, "chrome_extensions", &brave, false},
+		{"extension_for alone", plugin.KeyColumnEqualsQualMap{"extension_for": stringQual("brave")}, "chrome_extensions", &brave, true},
+		{"empty extension_for", plugin.KeyColumnEqualsQualMap{"extension_for": stringQual("")}, "apps", &empty, true},
+		{"NULL extension_for matches nothing", plugin.KeyColumnEqualsQualMap{"extension_for": stringQual("")}, "apps", nil, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := softwareTypeMatcher(&plugin.QueryData{EqualsQuals: tc.quals})(tc.source, tc.ext); got != tc.want {
+				t.Fatalf("got %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestWithSoftwareTypeFilterFallback(t *testing.T) {
 	unprocessable := &FleetAPIError{StatusCode: http.StatusUnprocessableEntity, Status: "422 Unprocessable Entity"}
 	badRequest := &FleetAPIError{StatusCode: http.StatusBadRequest, Status: "400 Bad Request"}

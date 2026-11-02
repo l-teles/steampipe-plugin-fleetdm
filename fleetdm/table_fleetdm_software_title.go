@@ -140,8 +140,12 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 	}
 
 	// Bulk endpoint: large pages keep the page count low on big inventories.
+	var keep func(SoftwareTitle) bool
+	if match := softwareTypeMatcher(d); match != nil {
+		keep = func(t SoftwareTitle) bool { return match(t.Source, &t.ExtensionFor) }
+	}
 	err = withSoftwareTypeFilter(ctx, d, "fleetdm_software_title.listSoftwareTitles", func(filter url.Values) error {
-		return paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]SoftwareTitle, *ListMeta, error) {
+		return paginatedListWhere(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]SoftwareTitle, *ListMeta, error) {
 			params := url.Values{}
 			maps.Copy(params, filter)
 			params.Add("page", strconv.Itoa(page))
@@ -200,7 +204,7 @@ func listSoftwareTitles(ctx context.Context, d *plugin.QueryData, h *plugin.Hydr
 				redactInstallerURLs(d, &response.SoftwareTitles[i])
 			}
 			return response.SoftwareTitles, response.Meta, nil
-		})
+		}, keep)
 	})
 	if err != nil {
 		return nil, err

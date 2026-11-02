@@ -141,8 +141,12 @@ func listSoftwareVersions(ctx context.Context, d *plugin.QueryData, h *plugin.Hy
 	}
 
 	// Bulk endpoint: large pages keep the page count low on big inventories.
+	var keep func(Software) bool
+	if match := softwareTypeMatcher(d); match != nil {
+		keep = func(s Software) bool { return match(s.Source, s.ExtensionFor) }
+	}
 	err = withSoftwareTypeFilter(ctx, d, "fleetdm_software_version.listSoftwareVersions", func(filter url.Values) error {
-		return paginatedList(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]Software, *ListMeta, error) {
+		return paginatedListWhere(ctx, d, 1000, func(ctx context.Context, page, perPage int) ([]Software, *ListMeta, error) {
 			params := url.Values{}
 			maps.Copy(params, filter)
 			params.Add("page", strconv.Itoa(page))
@@ -183,7 +187,7 @@ func listSoftwareVersions(ctx context.Context, d *plugin.QueryData, h *plugin.Hy
 				return nil, nil, err
 			}
 			return response.Software, response.Meta, nil
-		})
+		}, keep)
 	})
 	if err != nil {
 		return nil, err
