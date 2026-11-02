@@ -20,11 +20,11 @@ The `fleetdm_software_version` table provides detailed insights into your softwa
 | id                | `INT`       | Unique ID of the software item.                                                                                                                                  |
 | name              | `TEXT`      | Name of the software.                                                                                                                                            |
 | version           | `TEXT`      | Version of the software.                                                                                                                                         |
-| source            | `TEXT`      | Source of the software information (e.g., 'apps', 'deb_packages', 'chrome_extensions', 'rpm_packages').                                                          |
+| source            | `TEXT`      | Source of the software information (e.g., 'apps', 'deb_packages', 'chrome_extensions'). Filtered by Fleet 4.94+ when used in `WHERE` clause.                     |
 | host_count        | `INT`       | Number of hosts where this software is installed.                                                                                                                |
 | generated_cpe     | `TEXT`      | Generated Common Platform Enumeration (CPE) string for the software.                                                                                             |
 | bundle_identifier | `TEXT`      | Bundle identifier, typically for macOS and iOS software.                                                                                                         |
-| release           | `TEXT`      | Release information, e.g., for RPM packages.                                                                                                                     |
+| release           | `TEXT`      | Release information, e.g. the package release for RPM packages or the Go toolchain version for Go binaries.                                                      |
 | vendor            | `TEXT`      | Vendor information, e.g., for RPM packages.                                                                                                                      |
 | arch              | `TEXT`      | Architecture information, e.g., for RPM packages.                                                                                                                |
 | extension_id      | `TEXT`      | Extension ID for browser extensions.                                                                                                                             |
@@ -251,4 +251,30 @@ from
   fleetdm_software_version
 where
   exploit = true;
+```
+
+### List Go binaries with the Go toolchain they were built with
+
+```sql+postgres
+select
+  name,
+  version,
+  release as go_version,
+  host_count
+from
+  fleetdm_software_version
+where
+  source = 'go_binaries';
+```
+
+```sql+sqlite
+select
+  name,
+  version,
+  release as go_version,
+  host_count
+from
+  fleetdm_software_version
+where
+  source = 'go_binaries';
 ```

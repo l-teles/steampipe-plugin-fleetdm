@@ -30,6 +30,8 @@ type AppConfig struct {
 	Vulnerabilities        json.RawMessage `json:"vulnerabilities"`
 	VulnerabilitySettings  json.RawMessage `json:"vulnerability_settings"`
 	MaxSoftwarePackageSize *int64          `json:"max_software_package_size"`
+	StagedUploadAvailable  *bool           `json:"staged_upload_available"` // Fleet 4.94+
+	Auth                   json.RawMessage `json:"auth"`
 	AgentOptions           json.RawMessage `json:"agent_options"`
 	Integrations           json.RawMessage `json:"integrations"`     // gated
 	WebhookSettings        json.RawMessage `json:"webhook_settings"` // gated
@@ -60,6 +62,8 @@ func tableFleetdmConfig(ctx context.Context) *plugin.Table {
 			{Name: "vulnerabilities", Type: proto.ColumnType_JSON, Description: "Vulnerability processing settings."},
 			{Name: "vulnerability_settings", Type: proto.ColumnType_JSON, Description: "Vulnerability database settings."},
 			{Name: "max_software_package_size", Type: proto.ColumnType_INT, Description: "Largest software installer Fleet accepts, in bytes."},
+			{Name: "staged_upload_available", Type: proto.ColumnType_BOOL, Description: "Whether software and bootstrap packages can be uploaded directly to the installer store (Fleet 4.94+)."},
+			{Name: "auth", Type: proto.ColumnType_JSON, Description: "Read-only authentication settings from the server configuration, such as one-time enroll secrets for Apple and Windows MDM."},
 			{Name: "agent_options", Type: proto.ColumnType_JSON, Description: "Global osquery and Orbit agent options."},
 			{Name: "integrations", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("Integrations"), Description: "Jira, Zendesk, Google Calendar and other integrations. NULL unless expose_secrets = true, as URLs can embed credentials."},
 			{Name: "webhook_settings", Type: proto.ColumnType_JSON, Hydrate: itemIfSecretsExposed, Transform: transform.FromField("WebhookSettings"), Description: "Global webhook settings. NULL unless expose_secrets = true, as destination URLs can embed credentials."},

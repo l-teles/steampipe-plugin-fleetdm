@@ -22,6 +22,8 @@ type HostConfigurationProfile struct {
 	Detail              string  `json:"detail"`
 	Scope               *string `json:"scope"`
 	ManagedLocalAccount *string `json:"managed_local_account"`
+	SelfService         bool    `json:"self_service"` // Fleet 4.94+
+	Hidden              bool    `json:"hidden"`       // Fleet 4.94+
 	HostID              uint    `json:"-"`
 	Hostname            string  `json:"-"`
 }
@@ -55,11 +57,13 @@ func tableFleetdmHostConfigurationProfile(ctx context.Context) *plugin.Table {
 			{Name: "profile_uuid", Type: proto.ColumnType_STRING, Transform: transform.FromField("ProfileUUID"), Description: "Unique ID of the profile."},
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "Name of the profile."},
 			{Name: "platform", Type: proto.ColumnType_STRING, Description: "Platform of the host the profile targets."},
-			{Name: "status", Type: proto.ColumnType_STRING, Description: "Delivery status, e.g. 'verified', 'verifying', 'pending' or 'failed'."},
+			{Name: "status", Type: proto.ColumnType_STRING, Description: "Delivery status, e.g. 'verified', 'verifying', 'pending' or 'failed'. Null for a self-service profile the end user has not installed yet."},
 			{Name: "operation_type", Type: proto.ColumnType_STRING, Description: "Whether the profile is being installed ('install') or removed ('remove')."},
 			{Name: "detail", Type: proto.ColumnType_STRING, Description: "Details from the device, such as the error for a failed profile."},
 			{Name: "scope", Type: proto.ColumnType_STRING, Description: "Payload scope, 'System' or 'User' (Apple hosts only)."},
 			{Name: "managed_local_account", Type: proto.ColumnType_STRING, Description: "Managed local account the profile applies to, when Fleet reports one."},
+			{Name: "self_service", Type: proto.ColumnType_BOOL, Description: "Whether the end user installs the profile from My device (macOS, Fleet Premium 4.94+). Fleet also lists self-service profiles not installed yet, with a null status."},
+			{Name: "hidden", Type: proto.ColumnType_BOOL, Description: "Whether the profile is hidden on My device until the end user shows hidden profiles (Fleet 4.94+)."},
 		},
 	}
 }

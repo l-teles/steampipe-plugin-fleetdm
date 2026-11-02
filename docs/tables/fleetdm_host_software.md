@@ -68,3 +68,29 @@ where
   s.host_id = 1
   and json_type(v.value, '$.vulnerabilities') = 'array';
 ```
+
+### List one host's Homebrew packages
+
+On Fleet 4.94+ a `source` filter (and `extension_for`, with `source`) is applied by Fleet, so only matching software is fetched.
+
+```sql+postgres
+select
+  name,
+  installed_versions
+from
+  fleetdm_host_software
+where
+  host_id = 1
+  and source = 'homebrew_packages';
+```
+
+```sql+sqlite
+select
+  name,
+  installed_versions
+from
+  fleetdm_host_software
+where
+  host_id = 1
+  and source = 'homebrew_packages';
+```

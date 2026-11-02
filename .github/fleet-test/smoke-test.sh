@@ -278,6 +278,14 @@ for entry in $team_tables; do
   fi
 done
 
+# source/extension_for reach Fleet 4.94+, which rejects an unknown source (the
+# plugin then retries without it); older Fleet ignores them. Either way the
+# query must succeed and Postgres must still apply the WHERE clause.
+for t in fleetdm_software_title fleetdm_software_version fleetdm_host_software; do
+  run_check "$t (source)" "select count(*) from ${CONN}.${t} where source = 'apps' and extension_for = ''"
+  run_check "$t (unknown source)" "select count(*) from ${CONN}.${t} where source = 'smoke_no_such_source'" 0
+done
+
 # Without expose_secrets, gated tables refuse and gated columns read NULL.
 out=$(steampipe query --output csv --header=false "select count(*) from ${CONN_NS}.fleetdm_enroll_secret" 2>&1) || true
 if grep -q 'set expose_secrets = true' <<<"$out"; then

@@ -18,6 +18,7 @@ import (
 type ConfigurationProfile struct {
 	ProfileUUID      string          `json:"profile_uuid"`
 	Name             string          `json:"name"`
+	Description      string          `json:"description"` // Fleet 4.94+
 	Platform         string          `json:"platform"`
 	Identifier       string          `json:"identifier"` // Apple only
 	Scope            string          `json:"scope"`      // Apple only: "System" or "User"
@@ -29,6 +30,8 @@ type ConfigurationProfile struct {
 	LabelsIncludeAll json.RawMessage `json:"labels_include_all"`
 	LabelsIncludeAny json.RawMessage `json:"labels_include_any"`
 	LabelsExcludeAny json.RawMessage `json:"labels_exclude_any"`
+	SelfService      bool            `json:"self_service"` // Fleet 4.94+, macOS only
+	Hidden           bool            `json:"hidden"`       // Fleet 4.94+
 }
 
 // ListConfigurationProfilesResponse for `GET /api/v1/fleet/configuration_profiles`.
@@ -54,6 +57,7 @@ func tableFleetdmConfigurationProfile(ctx context.Context) *plugin.Table {
 		Columns: []*plugin.Column{
 			{Name: "profile_uuid", Type: proto.ColumnType_STRING, Description: "Unique ID of the profile."},
 			{Name: "name", Type: proto.ColumnType_STRING, Description: "Name of the profile."},
+			{Name: "description", Type: proto.ColumnType_STRING, Description: "Description of the profile (Fleet 4.94+)."},
 			{Name: "platform", Type: proto.ColumnType_STRING, Description: "Platform the profile applies to: 'darwin', 'windows' or 'android'."},
 			{Name: "identifier", Type: proto.ColumnType_STRING, Description: "Payload identifier (Apple profiles only)."},
 			{Name: "scope", Type: proto.ColumnType_STRING, Description: "Payload scope, 'System' or 'User' (Apple profiles only)."},
@@ -62,6 +66,8 @@ func tableFleetdmConfigurationProfile(ctx context.Context) *plugin.Table {
 			{Name: "labels_include_all", Type: proto.ColumnType_JSON, Description: "Profile only applies to hosts with all of these labels."},
 			{Name: "labels_include_any", Type: proto.ColumnType_JSON, Description: "Profile only applies to hosts with any of these labels."},
 			{Name: "labels_exclude_any", Type: proto.ColumnType_JSON, Description: "Profile does not apply to hosts with any of these labels."},
+			{Name: "self_service", Type: proto.ColumnType_BOOL, Description: "Whether end users install the profile themselves from My device instead of Fleet installing it (macOS, Fleet 4.94+)."},
+			{Name: "hidden", Type: proto.ColumnType_BOOL, Description: "Whether the profile is hidden on My device until the end user shows hidden profiles (Fleet 4.94+)."},
 			{Name: "created_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("CreatedAt").Transform(flexibleTimeTransform), Description: "When the profile was created."},
 			{Name: "updated_at", Type: proto.ColumnType_TIMESTAMP, Transform: transform.FromField("UpdatedAt").Transform(flexibleTimeTransform), Description: "When the profile was last uploaded."},
 		},

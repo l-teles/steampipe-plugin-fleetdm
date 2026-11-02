@@ -36,6 +36,7 @@ type Policy struct {
 
 	Type                         string          `json:"type"` // "dynamic" or "patch" (Fleet 4.83+)
 	ConditionalAccessEnabled     bool            `json:"conditional_access_enabled"`
+	Hidden                       bool            `json:"hidden"` // Fleet 4.94+
 	ContinuousAutomationsEnabled bool            `json:"continuous_automations_enabled"`
 	PatchWhenClosed              bool            `json:"patch_when_closed"`
 	NotifyBeforePatching         bool            `json:"notify_before_patching"`
@@ -88,6 +89,7 @@ func tableFleetdmPolicy(ctx context.Context) *plugin.Table {
 			{Name: "team_id", Type: proto.ColumnType_INT, Transform: transform.FromField("FleetID", "TeamID"), Description: "ID of the team (fleet) the policy belongs to. Null if it's a global policy."},
 			{Name: "type", Type: proto.ColumnType_STRING, Description: "Policy type: 'dynamic' (osquery) or 'patch' (Fleet 4.83+)."},
 			{Name: "conditional_access_enabled", Type: proto.ColumnType_BOOL, Description: "Whether failing this policy blocks access via conditional access."},
+			{Name: "hidden", Type: proto.ColumnType_BOOL, Description: "Whether the policy is hidden from end users in Fleet Desktop (fleet-level policies, Fleet Premium 4.94+)."},
 			{Name: "continuous_automations_enabled", Type: proto.ColumnType_BOOL, Description: "Whether automations re-run on every failing check instead of only the first."},
 			{Name: "patch_when_closed", Type: proto.ColumnType_BOOL, Description: "For patch policies: whether the update installs when the app is closed."},
 			{Name: "notify_before_patching", Type: proto.ColumnType_BOOL, Description: "For patch policies: whether the end user is notified before patching."},

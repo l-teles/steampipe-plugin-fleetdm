@@ -17,6 +17,7 @@ type SoftwareInstallResult struct {
 	InstallUUID             string     `json:"install_uuid"`
 	HostID                  uint       `json:"host_id"`
 	SoftwareTitle           string     `json:"software_title"`
+	SoftwareDisplayName     *string    `json:"software_display_name"` // Fleet 4.94+
 	SoftwareTitleID         *uint      `json:"software_title_id"`
 	SoftwarePackage         string     `json:"software_package"`
 	HashSHA256              *string    `json:"hash_sha256"`
@@ -51,6 +52,7 @@ func tableFleetdmSoftwareInstallResult(ctx context.Context) *plugin.Table {
 			{Name: "install_uuid", Type: proto.ColumnType_STRING, Transform: transform.FromField("InstallUUID"), Description: "ID of the install. Required in WHERE clause."},
 			{Name: "host_id", Type: proto.ColumnType_INT, Description: "ID of the host."},
 			{Name: "software_title", Type: proto.ColumnType_STRING, Description: "Name of the software title."},
+			{Name: "software_display_name", Type: proto.ColumnType_STRING, Description: "The title's display name override for the host's team, when one is set (Fleet 4.94+)."},
 			{Name: "software_title_id", Type: proto.ColumnType_INT, Description: "ID of the software title."},
 			{Name: "software_package", Type: proto.ColumnType_STRING, Description: "Installer package file name."},
 			{Name: "hash_sha256", Type: proto.ColumnType_STRING, Transform: transform.FromField("HashSHA256"), Description: "SHA-256 hash of the installer package."},
